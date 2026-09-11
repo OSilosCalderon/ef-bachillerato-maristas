@@ -6,7 +6,7 @@ const email = process.env.STUDENT_EMAIL;
 const password = process.env.STUDENT_PASSWORD;
 const displayName = process.env.STUDENT_DISPLAY_NAME;
 const classGroup = process.env.STUDENT_CLASS_GROUP || "1º Bachillerato";
-const academicYear = process.env.COURSE_ACADEMIC_YEAR || "2026/27";
+const academicYear = process.env.COURSE_ACADEMIC_YEAR || "2026-2027";
 
 if (!url || !serviceKey || !email || !password || !displayName) {
   console.error("Define NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, STUDENT_EMAIL, STUDENT_PASSWORD y STUDENT_DISPLAY_NAME.");
