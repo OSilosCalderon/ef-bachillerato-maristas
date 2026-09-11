@@ -9,7 +9,7 @@ export function CourseEvolutionChart({ data }: { data: { label: string; value: n
           <CartesianGrid vertical={false} strokeDasharray="3 3"/>
           <XAxis dataKey="label" angle={-12} textAnchor="end" height={70} axisLine={false} tickLine={false} tick={{ fontSize: 11 }}/>
           <YAxis domain={[0,100]} axisLine={false} tickLine={false} tick={{ fontSize: 11 }}/>
-          <Tooltip formatter={(value: number | string)=>[`${value}%`, "Progreso agregado"]} contentStyle={{borderRadius:12,border:"1px solid #dfe6e2"}}/>
+          <Tooltip formatter={(value)=>[`${value ?? 0}%`, "Progreso agregado"]} contentStyle={{borderRadius:12,border:"1px solid #dfe6e2"}}/>
           <Line type="monotone" dataKey="value" stroke="#1e6b4f" strokeWidth={3} dot={{r:5}} activeDot={{r:7}}/>
         </LineChart>
       </ResponsiveContainer>
