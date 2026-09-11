@@ -1,0 +1,2 @@
+import { DashboardHeader } from "@/components/dashboard-header"; import { Sa3Layout } from "@/components/sa3-layout"; import { GameRatingPanel } from "@/components/game-rating-panel";
+export default function Page(){return <><DashboardHeader eyebrow="SA3 · Valoración" title="Valoración de juegos" description="Registra cómo has vivido cada juego y aporta propuestas de mejora."/><Sa3Layout><GameRatingPanel/></Sa3Layout></>}

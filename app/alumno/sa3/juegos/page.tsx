@@ -1,0 +1,2 @@
+import { DashboardHeader } from "@/components/dashboard-header"; import { Sa3Layout } from "@/components/sa3-layout"; import { GameLibrary } from "@/components/game-library";
+export default function Page(){return <><DashboardHeader eyebrow="SA3 · Juegos" title="Biblioteca de juegos alternativos" description="Explora propuestas participativas, reglas, variantes y recomendaciones de seguridad."/><Sa3Layout><GameLibrary/></Sa3Layout></>}

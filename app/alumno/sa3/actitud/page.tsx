@@ -1,0 +1,2 @@
+import { DashboardHeader } from "@/components/dashboard-header"; import { Sa3Layout } from "@/components/sa3-layout"; import { AttitudeSelfAssessment } from "@/components/attitude-self-assessment";
+export default function Page(){return <><DashboardHeader eyebrow="SA3 · Reflexión" title="Autoevaluación de actitud" description="Analiza tu participación y actitud desde una perspectiva personal, sin comparaciones."/><Sa3Layout><AttitudeSelfAssessment/></Sa3Layout></>}

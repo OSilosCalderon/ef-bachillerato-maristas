@@ -1,0 +1,2 @@
+import { DashboardHeader } from "@/components/dashboard-header"; import { Sa3Layout } from "@/components/sa3-layout"; import { SessionBuilder } from "@/components/session-builder";
+export default function Page(){return <><DashboardHeader eyebrow="SA3 · Creación" title="Diseña tu sesión" description="Construye una sesión propia y comprueba automáticamente su duración total."/><Sa3Layout><SessionBuilder/></Sa3Layout></>}

@@ -1,0 +1,2 @@
+import { DashboardHeader } from "@/components/dashboard-header"; import { Sa1Layout } from "@/components/sa1-layout"; import { PhysicalEvolutionPanel } from "@/components/physical-evolution-panel";
+export default function Page(){return <><DashboardHeader eyebrow="SA1 · Mi evolución física" title="Mi evolución física" description="Compara tus propios registros entre septiembre y noviembre."/><Sa1Layout><PhysicalEvolutionPanel/></Sa1Layout></>}

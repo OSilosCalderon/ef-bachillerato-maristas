@@ -1,0 +1,2 @@
+import { DashboardHeader } from "@/components/dashboard-header"; import { Sa3Layout } from "@/components/sa3-layout"; import { Sa3TheoryLibrary } from "@/components/sa3-theory-library";
+export default function Page(){return <><DashboardHeader eyebrow="SA3 · Recursos" title="Material teórico" description="Biblioteca de documentos, explicaciones, infografías, enlaces, vídeos y fichas."/><Sa3Layout><Sa3TheoryLibrary/></Sa3Layout></>}

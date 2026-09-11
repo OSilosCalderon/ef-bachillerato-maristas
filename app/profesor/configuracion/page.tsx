@@ -1,0 +1,4 @@
+import { DashboardHeader } from "@/components/dashboard-header";
+export default function Page() {
+  return <><DashboardHeader eyebrow="Profesorado" title="Configuración" description="Ajustes del curso, grupos, permisos y futuras opciones de privacidad." /><div className="mx-auto max-w-7xl p-5 sm:p-8"><section className="card p-8"><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">Módulo inicial</span><h2 className="mt-5 text-xl font-extrabold text-slate-950">Listo para conectar con Supabase</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Ajustes del curso, grupos, permisos y futuras opciones de privacidad.</p></section></div></>;
+}

@@ -1,0 +1,2 @@
+import { DashboardHeader } from "@/components/dashboard-header"; import { Sa1Layout } from "@/components/sa1-layout"; import { JournalPanel } from "@/components/journal-panel";
+export default function Page(){return <><DashboardHeader eyebrow="SA1 · Diario" title="Diario de sesiones" description="Tu espacio individual para registrar sensaciones y aprendizajes."/><Sa1Layout><JournalPanel/></Sa1Layout></>}

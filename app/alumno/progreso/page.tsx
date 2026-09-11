@@ -1,0 +1,4 @@
+import { DashboardHeader } from "@/components/dashboard-header";
+export default function Page() {
+  return <><DashboardHeader eyebrow="Mi progreso" title="Evolución del curso" description="Aquí se integrarán métricas individuales, evidencias de aprendizaje y evolución por situación." /><div className="mx-auto max-w-7xl p-5 sm:p-8"><section className="card p-8"><span className="rounded-full bg-[#e7f2ed] px-3 py-1 text-xs font-bold text-[#1e6b4f]">Preparado para ampliar</span><h2 className="mt-5 text-xl font-extrabold text-slate-950">Primera estructura funcional</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Aquí se integrarán métricas individuales, evidencias de aprendizaje y evolución por situación.</p></section></div></>;
+}

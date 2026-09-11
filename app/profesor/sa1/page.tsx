@@ -1,0 +1,2 @@
+import { DashboardHeader } from "@/components/dashboard-header"; import { TeacherSa1Dashboard } from "@/components/teacher-sa1-dashboard";
+export default function Page(){return <><DashboardHeader eyebrow="SA1 · Panel docente" title="Salud y calidad de vida" description="Seguimiento, contenidos, diarios, cuestionarios y pruebas físicas de SA1."/><div className="mx-auto max-w-7xl p-5 sm:p-8"><TeacherSa1Dashboard/></div></>}

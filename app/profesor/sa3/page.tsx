@@ -1,0 +1,2 @@
+import { DashboardHeader } from "@/components/dashboard-header"; import { TeacherSa3Dashboard } from "@/components/teacher-sa3-dashboard";
+export default function Page(){return <><DashboardHeader eyebrow="SA3 · Profesorado" title="Ocio activo y juegos alternativos" description="Seguimiento de sesiones, valoraciones, participación, autoevaluaciones y materiales."/><div className="mx-auto max-w-7xl p-5 sm:p-8"><TeacherSa3Dashboard/></div></>}
