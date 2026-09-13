@@ -49,22 +49,24 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
 .corporate-strip {
   width: 100%;
+  min-height: 72px;
   border-bottom: 1px solid rgba(17,67,154,.10);
-  background: rgba(255,255,255,.72);
+  background: rgba(255,255,255,.90);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
 .corporate-strip-inner {
   margin: 0 auto;
   display: flex;
-  max-width: 1280px;
+  max-width: 1440px;
+  min-height: 72px;
   align-items: center;
   justify-content: flex-end;
-  padding: .45rem 1.25rem;
+  padding: .25rem 1.5rem;
   overflow: hidden;
 }
 .corporate-logo {
-  width: min(320px, 72vw);
+  width: min(260px, 48vw);
   max-width: 100%;
   line-height: 0;
   flex: 0 1 auto;
@@ -74,7 +76,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
   display: block;
   width: 100%;
   height: auto;
-  max-width: 100%;
+  max-height: 68px;
+  object-fit: contain;
+  object-position: right center;
 }
 
 .card {
@@ -115,42 +119,54 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
 .course-poster {
   margin: 0;
-  width: min(100%, 340px);
+  width: min(100%, 380px);
   overflow: hidden;
   border-radius: 1.5rem;
   border: 1px solid rgba(139,94,60,.18);
   background: #fff;
-  box-shadow: 0 18px 45px rgba(84,55,32,.12);
+  box-shadow: 0 20px 50px rgba(84,55,32,.14);
 }
 .course-poster img {
   display: block;
   width: 100%;
   height: auto;
+  aspect-ratio: 4 / 5;
   object-fit: cover;
 }
 .course-poster-compact {
-  width: min(100%, 190px);
+  width: min(100%, 240px);
   border-radius: 1.1rem;
 }
 .dashboard-poster-wrap {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   min-width: 0;
+  padding: .25rem 0;
 }
 
 :focus-visible { outline: 3px solid rgba(30, 107, 79, .35); outline-offset: 2px; }
 button, input, select, textarea, a { touch-action: manipulation; }
 button:disabled { cursor: not-allowed; }
 
+@media (max-width: 900px) {
+  .corporate-strip, .corporate-strip-inner { min-height: 62px; }
+  .corporate-strip-inner { padding: .2rem 1rem; }
+  .corporate-logo { width: min(220px, 58vw); }
+  .corporate-logo svg, .corporate-logo img { max-height: 58px; }
+  .course-poster-compact { width: min(100%, 210px); }
+}
+
 @media (max-width: 640px) {
   body::before, body::after { width: 140px; height: 140px; opacity: .5; }
   body::before { left: -85px; }
   body::after { right: -85px; }
-  .corporate-strip-inner { justify-content: flex-end; padding: .35rem .75rem; }
-  .corporate-logo { width: min(250px, 78vw); }
-  .course-poster { width: min(100%, 280px); margin-inline: auto; }
-  .course-poster-compact { width: min(100%, 150px); }
+  .corporate-strip, .corporate-strip-inner { min-height: 54px; }
+  .corporate-strip-inner { justify-content: flex-end; padding: .2rem .75rem; }
+  .corporate-logo { width: min(185px, 62vw); }
+  .corporate-logo svg, .corporate-logo img { max-height: 50px; }
+  .course-poster { width: min(100%, 300px); margin-inline: auto; }
+  .course-poster-compact { width: min(100%, 185px); }
   .dashboard-poster-wrap { justify-content: flex-start; }
 }
 
