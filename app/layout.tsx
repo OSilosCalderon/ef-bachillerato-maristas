@@ -3,8 +3,8 @@ import { CorporateLogo } from "@/components/corporate-logo";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "EF de 1º Bachillerato | Maristas Badajoz",
-  description: "Aplicación educativa de Educación Física para 1º de Bachillerato.",
+  title: "Educación Física · Bachillerato | Maristas Badajoz",
+  description: "Aplicación educativa de Educación Física para 1º y 2º de Bachillerato en Maristas Badajoz.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
