@@ -2,6 +2,7 @@ import { BookOpen, CheckCircle2, Clock3, Flame, NotebookPen, Sparkles } from "lu
 import { DashboardHeader } from "@/components/dashboard-header";
 import { LearningSituationCard } from "@/components/learning-situation-card";
 import { ProgressBar } from "@/components/ui/progress-bar";
+import { ClassScheduleCard } from "@/components/class-schedule-card";
 import { learningSituations } from "@/lib/demo-data";
 import { weeklyItems } from "@/lib/teacher-dashboard-data";
 
@@ -9,6 +10,8 @@ export default function StudentDashboard() {
   return <>
     <DashboardHeader eyebrow="Maristas Badajoz" title="EF de 1º Bachillerato" description="Aprende, practica, analiza y mejora"/>
     <div className="mx-auto max-w-7xl space-y-8 p-5 sm:p-8">
+      <ClassScheduleCard/>
+
       <section>
         <p className="text-xs font-bold uppercase tracking-[.18em] text-[#1e6b4f]">Mi curso</p>
         <h2 className="mt-1 text-2xl font-extrabold">Tu progreso en las tres situaciones de aprendizaje</h2>
