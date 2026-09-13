@@ -1,5 +1,5 @@
 export type MeasurementDirection = "higher_better" | "lower_better";
-export type AssessmentPeriod = "september" | "november";
+export type AssessmentPeriod = "september" | "december";
 export type EvolutionStatus = "improved" | "maintained" | "keep_working";
 
 export type PhysicalTest = {
@@ -11,7 +11,7 @@ export type PhysicalTest = {
   instructions: string;
   active: boolean;
   september?: number;
-  november?: number;
+  december?: number;
 };
 
 export type TheoryContent = {
@@ -52,8 +52,8 @@ export type DemoQuestionnaire = {
 };
 
 export function physicalEvolution(test: PhysicalTest) {
-  if (test.september == null || test.november == null) return null;
-  const absolute = test.november - test.september;
+  if (test.september == null || test.december == null) return null;
+  const absolute = test.december - test.september;
   const percentage = test.september === 0 ? null : (absolute / Math.abs(test.september)) * 100;
   const epsilon = Math.max(Math.abs(test.september) * 0.01, 0.01);
   const directionalChange = test.direction === "higher_better" ? absolute : -absolute;
