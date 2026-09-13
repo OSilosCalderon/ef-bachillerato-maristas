@@ -60,7 +60,7 @@ export function PhysicalEvolutionPanel() {
       <section className="card overflow-hidden">
         <div className="border-b border-slate-200 p-5 sm:p-6">
           <h2 className="text-xl font-extrabold">Mis resultados</h2>
-          <p className="mt-1 text-sm text-slate-500">Cada prueba admite solo dos registros: uno inicial en septiembre y otro final en noviembre. Si necesitas corregir un dato, modifica el valor y vuelve a guardarlo.</p>
+          <p className="mt-1 text-sm text-slate-500">Cada prueba admite solo dos registros: uno inicial en septiembre y otro final en diciembre. Si necesitas corregir un dato, modifica el valor y vuelve a guardarlo.</p>
         </div>
         <div className="divide-y divide-slate-100">
           {summary.map(({ test, evolution }) => (
@@ -71,11 +71,11 @@ export function PhysicalEvolutionPanel() {
                 <p className="mt-2 text-xs leading-5 text-slate-400">{test.instructions}</p>
               </div>
 
-              {(["september", "november"] as const).map((period) => {
+              {(["september", "december"] as const).map((period) => {
                 const key = `${test.id}:${period}`;
                 return <div key={period}>
                   <label className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                    {period === "september" ? "Septiembre" : "Noviembre"}
+                    {period === "september" ? "Septiembre" : "Diciembre"}
                     <div className="mt-2 flex items-center rounded-xl border border-slate-200 bg-white px-3">
                       <input type="number" min="0" step="any" inputMode="decimal" value={test[period] ?? ""} onChange={(e) => update(test.id, period, e.target.value)} className="min-w-0 flex-1 bg-transparent py-3 text-base font-semibold text-slate-900 outline-none" />
                       <span className="text-xs font-medium text-slate-400">{test.unit}</span>
