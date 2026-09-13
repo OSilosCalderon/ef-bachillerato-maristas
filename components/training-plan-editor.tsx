@@ -2,11 +2,13 @@
 
 import { Dumbbell, Plus, Trash2 } from "lucide-react";
 
+type NumericFieldValue = number | "";
+
 export type TrainingPlanItem = {
   id: string;
   activity: string;
-  series: number;
-  repetitions: number;
+  series: NumericFieldValue;
+  repetitions: NumericFieldValue;
 };
 
 type Props = {
@@ -18,9 +20,20 @@ function newItem(): TrainingPlanItem {
   return {
     id: crypto.randomUUID(),
     activity: "",
-    series: 1,
-    repetitions: 1,
+    series: "",
+    repetitions: "",
   };
+}
+
+function parseNumericInput(rawValue: string): NumericFieldValue {
+  if (rawValue === "") return "";
+  const value = Number(rawValue);
+  return Number.isFinite(value) ? value : "";
+}
+
+function normalizeNumericValue(value: NumericFieldValue, max: number): number {
+  if (value === "" || !Number.isFinite(Number(value))) return 1;
+  return Math.max(1, Math.min(max, Math.trunc(Number(value))));
 }
 
 export function TrainingPlanEditor({ plan, onChange }: Props) {
@@ -97,11 +110,13 @@ export function TrainingPlanEditor({ plan, onChange }: Props) {
                   type="number"
                   min="1"
                   max="50"
+                  step="1"
                   inputMode="numeric"
                   value={item.series}
-                  onChange={(event) =>
-                    updateItem(item.id, "series", Math.max(1, Math.min(50, Number(event.target.value) || 1)))
-                  }
+                  placeholder="3"
+                  onFocus={(event) => event.currentTarget.select()}
+                  onChange={(event) => updateItem(item.id, "series", parseNumericInput(event.target.value))}
+                  onBlur={() => updateItem(item.id, "series", normalizeNumericValue(item.series, 50))}
                   className="mt-1 w-full rounded-lg border border-slate-200 p-2.5 text-sm text-slate-800 sm:mt-0"
                   aria-label={`Series de ${item.activity || `actividad ${index + 1}`}`}
                 />
@@ -113,15 +128,13 @@ export function TrainingPlanEditor({ plan, onChange }: Props) {
                   type="number"
                   min="1"
                   max="1000"
+                  step="1"
                   inputMode="numeric"
                   value={item.repetitions}
-                  onChange={(event) =>
-                    updateItem(
-                      item.id,
-                      "repetitions",
-                      Math.max(1, Math.min(1000, Number(event.target.value) || 1)),
-                    )
-                  }
+                  placeholder="12"
+                  onFocus={(event) => event.currentTarget.select()}
+                  onChange={(event) => updateItem(item.id, "repetitions", parseNumericInput(event.target.value))}
+                  onBlur={() => updateItem(item.id, "repetitions", normalizeNumericValue(item.repetitions, 1000))}
                   className="mt-1 w-full rounded-lg border border-slate-200 p-2.5 text-sm text-slate-800 sm:mt-0"
                   aria-label={`Repeticiones de ${item.activity || `actividad ${index + 1}`}`}
                 />
