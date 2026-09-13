@@ -6,16 +6,21 @@ export function DashboardHeader({ eyebrow, title, description }: { eyebrow: stri
   return (
     <header className="relative overflow-hidden border-b border-[#d9ccbc] bg-white/80 px-5 py-6 backdrop-blur sm:px-8">
       <div aria-hidden="true" className="absolute -right-12 -top-12 h-32 w-32 rotate-12 rounded-[2rem] border border-[#8b5e3c]/10 bg-[#ead7bd]/30" />
-      <div className="relative grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_auto_auto] xl:items-center">
+      <div className="relative grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(220px,260px)_auto] xl:items-center">
         <div className="min-w-0">
           <p className="text-xs font-bold uppercase tracking-[.18em] text-[#1e6b4f]">{eyebrow}</p>
           <h1 className="mt-1 break-words text-2xl font-extrabold tracking-tight text-slate-950 sm:text-3xl">{title}</h1>
           <p className="mt-1 max-w-3xl break-words text-sm text-slate-500">{description}</p>
         </div>
-        <div className="dashboard-poster-wrap" aria-label="Lema del curso 2026/2027">
-          <CoursePoster compact />
+
+        <div className="dashboard-poster-panel" aria-label="Lema del curso 2026/2027">
+          <p className="dashboard-poster-label">Lema del curso 2026/2027</p>
+          <div className="dashboard-poster-wrap">
+            <CoursePoster compact />
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+
+        <div className="flex flex-wrap items-center gap-3 xl:justify-end">
           <button aria-label="Notificaciones" className="rounded-xl border border-[#d9ccbc] bg-white p-3 text-slate-600"><Bell size={19} /></button>
           <Link href="/" className="rounded-xl border border-[#d9ccbc] bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-[#fbf6ee]">Cambiar vista</Link>
         </div>
