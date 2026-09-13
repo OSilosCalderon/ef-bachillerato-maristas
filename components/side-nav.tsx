@@ -24,6 +24,12 @@ const firstYearItems: NavItem[] = [
 const secondYearItems: NavItem[] = [
   { label: "Inicio", href: "/alumno", icon: Home },
   { label: "Apuntes entrenamiento", href: "/alumno/apuntes-entrenamiento", icon: GraduationCap },
+  { label: "SA1 Punto de partida", href: "/alumno/2bach/sa1", icon: Gauge },
+  { label: "SA2 Condición física", href: "/alumno/2bach/sa2", icon: Dumbbell },
+  { label: "SA3 Hábitos saludables", href: "/alumno/2bach/sa3", icon: HeartPulse },
+  { label: "SA4 Evento deportivo", href: "/alumno/2bach/sa4", icon: ClipboardCheck },
+  { label: "SA5 Cultura y expresión", href: "/alumno/2bach/sa5", icon: Sparkles },
+  { label: "SA6 Comunidad activa", href: "/alumno/2bach/sa6", icon: Users },
   { label: "Mi perfil", href: "/alumno/perfil", icon: User },
 ];
 
