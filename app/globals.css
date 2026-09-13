@@ -41,17 +41,35 @@ body::after {
   box-shadow: inset 0 0 0 10px rgba(255,255,255,.12), 0 24px 60px rgba(139,94,60,.08);
   transform: rotate(13deg);
 }
-body::before {
-  left: -95px;
-  top: 18vh;
-}
-body::after {
-  right: -105px;
-  bottom: 8vh;
-  transform: rotate(-17deg);
-}
+body::before { left: -95px; top: 18vh; }
+body::after { right: -105px; bottom: 8vh; transform: rotate(-17deg); }
 button, a { -webkit-tap-highlight-color: transparent; }
 ::selection { background: #cce7da; }
+
+.corporate-strip {
+  width: 100%;
+  border-bottom: 1px solid rgba(17,67,154,.10);
+  background: rgba(255,255,255,.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.corporate-strip-inner {
+  margin: 0 auto;
+  display: flex;
+  max-width: 1280px;
+  align-items: center;
+  justify-content: flex-start;
+  padding: .45rem 1.25rem;
+}
+.corporate-logo {
+  width: min(320px, 72vw);
+  line-height: 0;
+}
+.corporate-logo svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
 
 .card {
   border: 1px solid rgba(139,94,60,.16);
@@ -89,10 +107,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   border: 1px solid rgba(139,94,60,.12);
 }
 
-:focus-visible {
-  outline: 3px solid rgba(30, 107, 79, .35);
-  outline-offset: 2px;
-}
+:focus-visible { outline: 3px solid rgba(30, 107, 79, .35); outline-offset: 2px; }
 button, input, select, textarea, a { touch-action: manipulation; }
 button:disabled { cursor: not-allowed; }
 
@@ -100,6 +115,8 @@ button:disabled { cursor: not-allowed; }
   body::before, body::after { width: 140px; height: 140px; opacity: .5; }
   body::before { left: -85px; }
   body::after { right: -85px; }
+  .corporate-strip-inner { justify-content: center; padding: .35rem .75rem; }
+  .corporate-logo { width: min(280px, 86vw); }
 }
 
 @media (prefers-reduced-motion: reduce) {
