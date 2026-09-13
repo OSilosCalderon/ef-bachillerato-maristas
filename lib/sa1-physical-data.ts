@@ -29,7 +29,7 @@ export async function loadPhysicalTestsForCurrentStudent() {
   const tests: PhysicalTest[] = (rows ?? []).map((row) => ({
     ...row,
     september: values.get(`${row.id}:september`),
-    november: values.get(`${row.id}:november`),
+    december: values.get(`${row.id}:december`),
   }));
   return { studentId: student.id as string, tests };
 }
