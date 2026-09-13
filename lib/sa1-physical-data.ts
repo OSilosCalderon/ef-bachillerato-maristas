@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
-import type { AssessmentPeriod, PhysicalTest } from "@/lib/sa1-types";
+import type { AssessmentPeriod, FitnessReference, PhysicalTest } from "@/lib/sa1-types";
 
 const supabase = createClient();
 
@@ -7,14 +7,19 @@ export async function loadPhysicalTestsForCurrentStudent() {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) throw new Error("No se ha podido identificar al alumno.");
 
-  const { data: student, error: studentError } = await supabase
-    .from("students").select("id").eq("profile_id", auth.user.id).single();
+  const [{ data: student, error: studentError }, { data: profile, error: profileError }] = await Promise.all([
+    supabase.from("students").select("id").eq("profile_id", auth.user.id).single(),
+    supabase.from("profiles").select("fitness_reference").eq("id", auth.user.id).single(),
+  ]);
+
   if (studentError || !student) throw new Error("No se ha encontrado el perfil de alumno.");
+  if (profileError) throw new Error("No se ha podido cargar la referencia de comparación.");
 
   const { data: rows, error: testsError } = await supabase
     .from("physical_tests")
-    .select("id,name,description,unit,direction,instructions,active")
-    .eq("active", true).order("created_at", { ascending: true });
+    .select("id,name,description,unit,direction,instructions,active,benchmark_male,benchmark_female")
+    .eq("active", true)
+    .order("created_at", { ascending: true });
   if (testsError) throw new Error("No se han podido cargar las pruebas físicas.");
 
   const { data: results, error: resultsError } = await supabase
@@ -27,11 +32,25 @@ export async function loadPhysicalTestsForCurrentStudent() {
   for (const item of results ?? []) values.set(`${item.physical_test_id}:${item.period}`, Number(item.value));
 
   const tests: PhysicalTest[] = (rows ?? []).map((row) => ({
-    ...row,
+    id: row.id as string,
+    name: row.name as string,
+    description: row.description as string,
+    unit: row.unit as string,
+    direction: row.direction,
+    instructions: row.instructions as string,
+    active: Boolean(row.active),
+    benchmarkMale: row.benchmark_male == null ? undefined : Number(row.benchmark_male),
+    benchmarkFemale: row.benchmark_female == null ? undefined : Number(row.benchmark_female),
     september: values.get(`${row.id}:september`),
     december: values.get(`${row.id}:december`),
   }));
-  return { studentId: student.id as string, tests };
+
+  const fitnessReference =
+    profile?.fitness_reference === "masculino" || profile?.fitness_reference === "femenino"
+      ? (profile.fitness_reference as FitnessReference)
+      : null;
+
+  return { studentId: student.id as string, tests, fitnessReference };
 }
 
 export async function savePhysicalResult(studentId: string, testId: string, period: AssessmentPeriod, value: number) {
@@ -39,5 +58,17 @@ export async function savePhysicalResult(studentId: string, testId: string, peri
     { physical_test_id: testId, student_id: studentId, period, value, updated_at: new Date().toISOString() },
     { onConflict: "physical_test_id,student_id,period" },
   );
+  if (error) throw error;
+}
+
+export async function saveFitnessReference(reference: FitnessReference) {
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) throw new Error("No se ha podido identificar al alumno.");
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ fitness_reference: reference, updated_at: new Date().toISOString() })
+    .eq("id", auth.user.id);
+
   if (error) throw error;
 }
