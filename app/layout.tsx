@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CorporateLogo } from "@/components/corporate-logo";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -9,7 +10,14 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="es">
-      <body>{children}</body>
+      <body>
+        <div className="corporate-strip">
+          <div className="corporate-strip-inner">
+            <CorporateLogo />
+          </div>
+        </div>
+        {children}
+      </body>
     </html>
   );
 }
