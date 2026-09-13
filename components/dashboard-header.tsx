@@ -13,8 +13,8 @@ export function DashboardHeader({ eyebrow, title, description }: { eyebrow: stri
           <p className="mt-1 max-w-3xl break-words text-sm text-slate-500">{description}</p>
         </div>
 
-        <div className="dashboard-poster-panel" aria-label="Lema del curso 2026/2027">
-          <p className="dashboard-poster-label">Lema del curso 2026/2027</p>
+        <div className="rounded-2xl border border-[#dfd4c5] bg-[#fbf6ee]/85 p-3 shadow-sm" aria-label="Lema del curso 2026/2027">
+          <p className="mb-2 text-center text-[11px] font-extrabold uppercase tracking-[.14em] text-[#8b5e3c]">Lema del curso 2026/2027</p>
           <div className="dashboard-poster-wrap">
             <CoursePoster compact />
           </div>
