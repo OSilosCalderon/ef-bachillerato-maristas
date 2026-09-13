@@ -55,15 +55,25 @@ export function PhysicalEvolutionPanel() {
   const [saved, setSaved] = useState<string | null>(null);
   const [savingReference, setSavingReference] = useState(false);
 
+  const refreshFromDatabase = async (showLoader = false) => {
+    if (showLoader) setLoading(true);
+    setError(null);
+    try {
+      const data = await loadPhysicalTestsForCurrentStudent();
+      setStudentId(data.studentId);
+      setTests(data.tests);
+      setReference(data.fitnessReference);
+      return data;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudieron cargar las pruebas.");
+      throw err;
+    } finally {
+      if (showLoader) setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    loadPhysicalTestsForCurrentStudent()
-      .then(({ studentId, tests, fitnessReference }) => {
-        setStudentId(studentId);
-        setTests(tests);
-        setReference(fitnessReference);
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "No se pudieron cargar las pruebas."))
-      .finally(() => setLoading(false));
+    void refreshFromDatabase(true).catch(() => undefined);
   }, []);
 
   const update = (id: string, period: AssessmentPeriod, raw: string) => {
@@ -83,9 +93,14 @@ export function PhysicalEvolutionPanel() {
     setError(null);
     try {
       await savePhysicalResult(studentId, test.id, period, test[period] as number);
+      await refreshFromDatabase(false);
       setSaved(key);
-    } catch {
-      setError("No se ha podido guardar el registro. Inténtalo de nuevo.");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? `No se ha podido guardar o verificar el registro: ${err.message}`
+          : "No se ha podido guardar o verificar el registro. Inténtalo de nuevo.",
+      );
     } finally {
       setSaving(null);
     }
@@ -259,7 +274,7 @@ export function PhysicalEvolutionPanel() {
                       className="mt-2 inline-flex items-center gap-2 text-xs font-bold text-[#1e6b4f] disabled:opacity-40"
                     >
                       {saving === key ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />}
-                      {saved === key ? "Guardado" : "Guardar registro"}
+                      {saved === key ? "Guardado y verificado" : "Guardar registro"}
                     </button>
 
                     {test[period] != null && reference ? (
