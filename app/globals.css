@@ -14,10 +14,11 @@
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; overflow-x: hidden; }
 body {
   margin: 0;
   min-height: 100vh;
+  overflow-x: hidden;
   background:
     radial-gradient(circle at 10% 12%, rgba(30,107,79,.10), transparent 18rem),
     radial-gradient(circle at 88% 18%, rgba(209,170,120,.24), transparent 22rem),
@@ -58,17 +59,22 @@ button, a { -webkit-tap-highlight-color: transparent; }
   display: flex;
   max-width: 1280px;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: flex-end;
   padding: .45rem 1.25rem;
+  overflow: hidden;
 }
 .corporate-logo {
   width: min(320px, 72vw);
+  max-width: 100%;
   line-height: 0;
+  flex: 0 1 auto;
 }
-.corporate-logo svg {
+.corporate-logo svg,
+.corporate-logo img {
   display: block;
   width: 100%;
   height: auto;
+  max-width: 100%;
 }
 
 .card {
@@ -107,6 +113,32 @@ button, a { -webkit-tap-highlight-color: transparent; }
   border: 1px solid rgba(139,94,60,.12);
 }
 
+.course-poster {
+  margin: 0;
+  width: min(100%, 340px);
+  overflow: hidden;
+  border-radius: 1.5rem;
+  border: 1px solid rgba(139,94,60,.18);
+  background: #fff;
+  box-shadow: 0 18px 45px rgba(84,55,32,.12);
+}
+.course-poster img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+}
+.course-poster-compact {
+  width: min(100%, 190px);
+  border-radius: 1.1rem;
+}
+.dashboard-poster-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
 :focus-visible { outline: 3px solid rgba(30, 107, 79, .35); outline-offset: 2px; }
 button, input, select, textarea, a { touch-action: manipulation; }
 button:disabled { cursor: not-allowed; }
@@ -115,8 +147,11 @@ button:disabled { cursor: not-allowed; }
   body::before, body::after { width: 140px; height: 140px; opacity: .5; }
   body::before { left: -85px; }
   body::after { right: -85px; }
-  .corporate-strip-inner { justify-content: center; padding: .35rem .75rem; }
-  .corporate-logo { width: min(280px, 86vw); }
+  .corporate-strip-inner { justify-content: flex-end; padding: .35rem .75rem; }
+  .corporate-logo { width: min(250px, 78vw); }
+  .course-poster { width: min(100%, 280px); margin-inline: auto; }
+  .course-poster-compact { width: min(100%, 150px); }
+  .dashboard-poster-wrap { justify-content: flex-start; }
 }
 
 @media (prefers-reduced-motion: reduce) {
