@@ -1,10 +1,10 @@
 import type { DemoQuestionnaire, JournalEntry, PhysicalTest, TheoryContent } from "@/lib/sa1-types";
 
 export const physicalTests: PhysicalTest[] = [
-  { id: "navette", name: "Course Navette", description: "Registro de demostración de resistencia.", unit: "periodos", direction: "higher_better", instructions: "Sigue el protocolo indicado por el profesorado.", active: true, september: 6.5, november: 7.2 },
-  { id: "jump", name: "Salto horizontal", description: "Registro de demostración de fuerza explosiva.", unit: "cm", direction: "higher_better", instructions: "Realiza el intento según las indicaciones de clase.", active: true, september: 178, november: 184 },
-  { id: "speed", name: "Velocidad", description: "Registro de demostración de tiempo.", unit: "s", direction: "lower_better", instructions: "Completa la distancia definida por el profesor.", active: true, september: 8.42, november: 8.31 },
-  { id: "flex", name: "Flexibilidad", description: "Registro de demostración de movilidad.", unit: "cm", direction: "higher_better", instructions: "Aplica el protocolo explicado en clase.", active: true, september: 21, november: 21 },
+  { id: "navette", name: "Course Navette", description: "Registro de demostración de resistencia.", unit: "periodos", direction: "higher_better", instructions: "Sigue el protocolo indicado por el profesorado.", active: true, september: 6.5, december: 7.2 },
+  { id: "jump", name: "Salto horizontal", description: "Registro de demostración de fuerza explosiva.", unit: "cm", direction: "higher_better", instructions: "Realiza el intento según las indicaciones de clase.", active: true, september: 178, december: 184 },
+  { id: "speed", name: "Velocidad", description: "Registro de demostración de tiempo.", unit: "s", direction: "lower_better", instructions: "Completa la distancia definida por el profesor.", active: true, september: 8.42, december: 8.31 },
+  { id: "flex", name: "Flexibilidad", description: "Registro de demostración de movilidad.", unit: "cm", direction: "higher_better", instructions: "Aplica el protocolo explicado en clase.", active: true, september: 21, december: 21 },
   { id: "abs", name: "Abdominales", description: "Ejemplo editable por el profesorado.", unit: "repeticiones", direction: "higher_better", instructions: "Respeta el protocolo definido para la prueba.", active: false },
 ];
 
@@ -25,15 +25,15 @@ export const questionnaires: DemoQuestionnaire[] = [
 ];
 
 export const classEvolution = [
-  { label: "Resistencia", september: 58, november: 66 },
-  { label: "Salto", september: 61, november: 65 },
-  { label: "Velocidad", september: 63, november: 67 },
-  { label: "Flexibilidad", september: 60, november: 61 },
+  { label: "Resistencia", september: 58, december: 66 },
+  { label: "Salto", september: 61, december: 65 },
+  { label: "Velocidad", september: 63, december: 67 },
+  { label: "Flexibilidad", september: 60, december: 61 },
 ];
 
 export const studentEvolution = [
-  { label: "Resistencia", september: 54, november: 64 },
-  { label: "Salto", september: 60, november: 66 },
-  { label: "Velocidad", september: 62, november: 65 },
-  { label: "Flexibilidad", september: 64, november: 64 },
+  { label: "Resistencia", september: 54, december: 64 },
+  { label: "Salto", september: 60, december: 66 },
+  { label: "Velocidad", september: 62, december: 65 },
+  { label: "Flexibilidad", september: 64, december: 64 },
 ];
