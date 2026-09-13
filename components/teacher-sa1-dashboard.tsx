@@ -39,7 +39,7 @@ export function TeacherSa1Dashboard() {
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Kpi icon={Users} label="Alumnado del grupo" value={String(groupStudents.length)} note="Datos demo" />
-        <Kpi icon={Activity} label="Pruebas comparables" value="4" note="Septiembre–noviembre" />
+        <Kpi icon={Activity} label="Pruebas comparables" value="4" note="Septiembre–diciembre" />
         <Kpi icon={BookOpen} label="Contenidos publicados" value={String(theoryContents.length)} note="Biblioteca SA1" />
         <Kpi icon={ClipboardCheck} label="Cuestionarios activos" value="1" note="Sin rankings" />
         <Kpi icon={Activity} label="Realización alumno/a" value={`${selected?.progress ?? 0}%`} note={selected?.name ?? "Sin selección"} />
@@ -55,7 +55,7 @@ export function TeacherSa1Dashboard() {
       </div>
 
       {tab === "overview" && <div className="grid gap-5 xl:grid-cols-2">
-        <section className="card p-6"><h2 className="text-lg font-extrabold">Evolución individual · {selected?.name}</h2><p className="mt-1 text-xs text-slate-500">Índice normalizado demo para visualizar tendencias entre pruebas con distintas unidades.</p><EvolutionLineChart data={studentEvolution} /></section>
+        <section className="card p-6"><h2 className="text-lg font-extrabold">Evolución individual · {selected?.name}</h2><p className="mt-1 text-xs text-slate-500">Índice normalizado demo para visualizar tendencias entre septiembre y diciembre en pruebas con distintas unidades.</p><EvolutionLineChart data={studentEvolution} /></section>
         <section className="card p-6"><h2 className="text-lg font-extrabold">Evolución global · {group}</h2><p className="mt-1 text-xs text-slate-500">Resumen agregado de clase. No muestra posiciones ni rankings individuales.</p><ComparisonBarChart data={classEvolution} /></section>
       </div>}
 
