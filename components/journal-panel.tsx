@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, Check, Clock3, List, Loader2, Plus, Save } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { TrainingPlanEditor, type TrainingPlanItem } from "@/components/training-plan-editor";
 
 type ClassSession = {
   id: string;
@@ -18,6 +19,7 @@ type Entry = {
   session_date: string;
   title: string;
   activities: string;
+  training_plan: TrainingPlanItem[];
   feeling: string;
   learning: string;
   perceived_difficulty: number;
@@ -34,6 +36,19 @@ const fmtDate = (value: string) =>
     month: "long",
     year: "numeric",
   }).format(new Date(`${value}T12:00:00`));
+
+function normalizeTrainingPlan(value: unknown): TrainingPlanItem[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
+    .map((item) => ({
+      id: typeof item.id === "string" && item.id ? item.id : crypto.randomUUID(),
+      activity: typeof item.activity === "string" ? item.activity : "",
+      series: Math.max(1, Number(item.series) || 1),
+      repetitions: Math.max(1, Number(item.repetitions) || 1),
+    }));
+}
 
 export function JournalPanel() {
   const [entries, setEntries] = useState<Entry[]>([]);
@@ -98,7 +113,7 @@ export function JournalPanel() {
         supabase
           .from("session_journals")
           .select(
-            "id,class_session_id,session_date,title,activities,feeling,learning,perceived_difficulty,perceived_effort,reflection",
+            "id,class_session_id,session_date,title,activities,training_plan,feeling,learning,perceived_difficulty,perceived_effort,reflection",
           )
           .eq("student_id", currentStudentId)
           .eq("learning_situation_id", currentSa1Id)
@@ -112,6 +127,7 @@ export function JournalPanel() {
       setEntries(
         (journalResult.data ?? []).map((journal) => ({
           ...journal,
+          training_plan: normalizeTrainingPlan(journal.training_plan),
           perceived_difficulty: journal.perceived_difficulty ?? 3,
           perceived_effort: journal.perceived_effort ?? 5,
           saved: true,
@@ -145,6 +161,7 @@ export function JournalPanel() {
       session_date: session.session_date,
       title: "Sesión de Educación Física",
       activities: "",
+      training_plan: [],
       feeling: "",
       learning: "",
       perceived_difficulty: 3,
@@ -159,7 +176,7 @@ export function JournalPanel() {
     setIsError(false);
   }
 
-  function update(id: string, key: keyof Entry, value: string | number | boolean | null) {
+  function update<K extends keyof Entry>(id: string, key: K, value: Entry[K]) {
     setEntries((current) =>
       current.map((entry) => (entry.id === id ? { ...entry, [key]: value, saved: false } : entry)),
     );
@@ -176,6 +193,15 @@ export function JournalPanel() {
 
     try {
       const supabase = createClient();
+      const cleanTrainingPlan = entry.training_plan
+        .filter((item) => item.activity.trim().length > 0)
+        .map((item) => ({
+          id: item.id,
+          activity: item.activity.trim(),
+          series: Math.max(1, Math.min(50, Number(item.series) || 1)),
+          repetitions: Math.max(1, Math.min(1000, Number(item.repetitions) || 1)),
+        }));
+
       const payload = {
         learning_situation_id: sa1Id,
         student_id: studentId,
@@ -183,6 +209,7 @@ export function JournalPanel() {
         session_date: entry.session_date,
         title: entry.title.trim() || "Sesión de Educación Física",
         activities: entry.activities.trim(),
+        training_plan: cleanTrainingPlan,
         feeling: entry.feeling.trim(),
         learning: entry.learning.trim(),
         perceived_difficulty: entry.perceived_difficulty,
@@ -206,6 +233,7 @@ export function JournalPanel() {
                 ...item,
                 ...payload,
                 id: data.id as string,
+                training_plan: cleanTrainingPlan,
                 saved: true,
               }
             : item,
@@ -318,7 +346,7 @@ export function JournalPanel() {
           <CalendarDays className="mx-auto text-[#1e6b4f]" />
           <h3 className="mt-3 font-extrabold">Aún no tienes entradas</h3>
           <p className="mt-1 text-sm text-slate-500">
-            Selecciona una sesión de tu horario y completa tu reflexión.
+            Selecciona una sesión de tu horario y completa tu reflexión y plan de trabajo.
           </p>
         </div>
       ) : (
@@ -365,9 +393,23 @@ export function JournalPanel() {
                   />
                 </label>
 
+                <section className="mt-4">
+                  <p className="text-xs font-bold text-slate-500">QUÉ HEMOS REALIZADO</p>
+                  <textarea
+                    value={entry.activities}
+                    onChange={(event) => update(entry.id, "activities", event.target.value)}
+                    rows={2}
+                    placeholder="Resumen general de la sesión, calentamiento, circuito, observaciones…"
+                    className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm"
+                  />
+                  <TrainingPlanEditor
+                    plan={entry.training_plan}
+                    onChange={(plan) => update(entry.id, "training_plan", plan)}
+                  />
+                </section>
+
                 {(
                   [
-                    ["activities", "Qué hemos realizado"],
                     ["feeling", "Cómo me he sentido"],
                     ["learning", "Qué he aprendido"],
                     ["reflection", "Reflexión personal"],
