@@ -23,6 +23,7 @@ const firstYearItems: NavItem[] = [
 
 const secondYearItems: NavItem[] = [
   { label: "Inicio", href: "/alumno", icon: Home },
+  { label: "Mi progreso", href: "/alumno/progreso", icon: BarChart3 },
   { label: "Apuntes entrenamiento", href: "/alumno/apuntes-entrenamiento", icon: GraduationCap },
   { label: "SA1 Punto de partida", href: "/alumno/2bach/sa1", icon: Gauge },
   { label: "SA2 Condición física", href: "/alumno/2bach/sa2", icon: Dumbbell },
