@@ -1,11 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import { useMemo, useState } from "react";
 import { Activity, ArrowRight, BrainCircuit, Dumbbell, Gauge, Lightbulb, Sparkles, Target, Trophy } from "lucide-react";
 import { trainingTheoryTopics } from "@/lib/training-theory-topics";
 import { flexibilityTheoryTopic } from "@/lib/training-theory-flexibility";
 import { getTheoryApplication } from "@/lib/training-theory-applications";
+import { TheoryVisual } from "@/components/theory-visual";
 
 const topics = [...trainingTheoryTopics, flexibilityTheoryTopic];
 
@@ -54,16 +54,16 @@ export function TrainingTheoryApplicationLab() {
 
       <div className="grid gap-6 xl:grid-cols-[1.08fr_.92fr]">
         <article className="card overflow-hidden">
-          <div className="relative aspect-[16/8] bg-slate-100">
-            <Image src={application.image} alt={application.imageAlt} fill sizes="(max-width: 1280px) 100vw, 58vw" className="object-cover" />
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/85 to-transparent p-5 pt-16 text-white">
+          <div className="relative aspect-[16/8] overflow-hidden bg-slate-100">
+            <TheoryVisual kind={application.image} alt={application.imageAlt} />
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/88 to-transparent p-5 pt-16 text-white">
               <p className="text-xs font-bold uppercase tracking-[.16em] text-emerald-200">Imagen para comprender</p>
               <p className="mt-1 text-sm font-semibold">{application.imageCaption}</p>
             </div>
           </div>
           <div className="p-6 sm:p-8">
             <div className="flex items-center gap-3"><span className="rounded-xl bg-[#e7f2ed] p-2 text-[#1e6b4f]"><BrainCircuit size={21}/></span><div><p className="text-xs font-bold uppercase tracking-wide text-[#1e6b4f]">Fundamentación</p><h3 className="text-2xl font-black text-slate-950">¿Por qué funciona?</h3></div></div>
-            <p className="mt-5 text-sm leading-7 text-slate-650">{application.foundation}</p>
+            <p className="mt-5 text-sm leading-7 text-slate-600">{application.foundation}</p>
             <div className="mt-6">
               <p className="text-xs font-black uppercase tracking-[.15em] text-slate-400">Conceptos conectados</p>
               <div className="mt-3 flex flex-wrap gap-2">{application.connections.map((item) => <span key={item} className="rounded-full border border-[#bfd8ca] bg-[#f4faf7] px-3 py-1.5 text-xs font-bold text-[#164c3a]">{item}</span>)}</div>
