@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Activity, ArrowRight, CheckCircle2, Loader2, TrendingDown, TrendingUp } from "lucide-react";
 import { loadPhysicalTestsForCurrentStudent } from "@/lib/sa1-physical-data";
-import { physicalBenchmarkComparison } from "@/lib/sa1-types";
+import { evolutionLabel, physicalBenchmarkComparison, physicalEvolution } from "@/lib/sa1-types";
 import type { AssessmentPeriod, FitnessReference, PhysicalTest } from "@/lib/sa1-types";
 
 const TOTAL_EXPECTED_TESTS = 11;
@@ -27,8 +27,13 @@ function periodSummary(tests: PhysicalTest[], period: AssessmentPeriod, referenc
   return {
     index: average(indexes),
     completed: indexes.length,
-    completion: (indexes.length / TOTAL_EXPECTED_TESTS) * 100,
   };
+}
+
+function formatReading(value: number | undefined, unit: string) {
+  if (value == null) return "Pendiente";
+  const formatted = Number.isInteger(value) ? String(value) : value.toFixed(2).replace(".", ",");
+  return `${formatted} ${unit}`;
 }
 
 function StatusText({ value }: { value: number | null }) {
@@ -97,6 +102,14 @@ export function PhysicalProgressSummary() {
       .finally(() => setLoading(false));
   }, []);
 
+  const septemberCompleted = useMemo(() => tests.filter((test) => test.september != null).length, [tests]);
+  const decemberCompleted = useMemo(() => tests.filter((test) => test.december != null).length, [tests]);
+  const personalEvolution = useMemo(
+    () => tests.map((test) => ({ test, evolution: physicalEvolution(test) })),
+    [tests],
+  );
+  const completedComparisons = personalEvolution.filter(({ evolution }) => evolution != null).length;
+
   const summaries = useMemo(() => {
     if (!reference) return null;
     return {
@@ -105,7 +118,7 @@ export function PhysicalProgressSummary() {
     };
   }, [tests, reference]);
 
-  const change =
+  const benchmarkChange =
     summaries?.september.index != null && summaries.december.index != null
       ? summaries.december.index - summaries.september.index
       : null;
@@ -118,21 +131,6 @@ export function PhysicalProgressSummary() {
     return <section className="card border border-red-200 bg-red-50 p-6 text-sm font-semibold text-red-700">{error}</section>;
   }
 
-  if (!reference) {
-    return (
-      <section className="card p-6 sm:p-8">
-        <Activity className="text-[#1e6b4f]" />
-        <h2 className="mt-4 text-xl font-extrabold">Configura primero tu referencia de comparación</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-          Para calcular tu porcentaje global necesitamos que elijas la referencia masculina o femenina en “Mi evolución física”. La web no la asigna automáticamente.
-        </p>
-        <Link href="/alumno/sa1/evolucion" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#1e6b4f] px-4 py-2.5 text-sm font-bold text-white">
-          Ir a Mi evolución física <ArrowRight size={16} />
-        </Link>
-      </section>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <section className="card p-5 sm:p-6">
@@ -141,7 +139,7 @@ export function PhysicalProgressSummary() {
             <p className="text-xs font-extrabold uppercase tracking-[.17em] text-[#1e6b4f]">Condición física · SA1</p>
             <h2 className="mt-1 text-2xl font-extrabold text-slate-950">Mi evolución: antes y después</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-              El 100% representa el promedio de Bachillerato de la referencia {referenceLabel[reference].toLowerCase()}. El resumen usa únicamente las pruebas que hayas registrado.
+              La evolución personal se calcula directamente con tus marcas de septiembre y diciembre. La referencia masculina o femenina es opcional y solo añade la comparación con los promedios de Bachillerato.
             </p>
           </div>
           <Link href="/alumno/sa1/evolucion" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-[#bfd8ca] bg-white px-4 py-2.5 text-sm font-bold text-[#1e6b4f] hover:bg-[#f4faf7]">
@@ -150,79 +148,139 @@ export function PhysicalProgressSummary() {
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-[1fr_auto_1fr] lg:items-stretch">
-        <SummaryCard
-          title="Septiembre"
-          subtitle="Antes"
-          index={summaries!.september.index}
-          completed={summaries!.september.completed}
-        />
-
-        <div className="flex min-w-[160px] items-center justify-center rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm">
-          <div>
-            {change == null ? (
-              <>
-                <p className="text-3xl font-black text-slate-300">—</p>
-                <p className="mt-2 text-xs font-bold uppercase tracking-wide text-slate-400">Diciembre pendiente</p>
-              </>
-            ) : (
-              <>
-                <div className={`flex items-center justify-center gap-1 text-3xl font-black ${change >= 0 ? "text-[#1e6b4f]" : "text-amber-700"}`}>
-                  {change >= 0 ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
-                  {change > 0 ? "+" : ""}{change.toFixed(1)}
-                </div>
-                <p className="mt-2 text-xs font-bold uppercase tracking-wide text-slate-500">puntos porcentuales</p>
-              </>
-            )}
+      {!reference && (
+        <section className="card border border-amber-200 bg-amber-50 p-5 sm:p-6">
+          <div className="flex items-start gap-3">
+            <Activity className="mt-0.5 shrink-0 text-amber-700" size={21} />
+            <div>
+              <h3 className="font-extrabold text-amber-950">Referencia de comparación aún no elegida</h3>
+              <p className="mt-1 max-w-3xl text-sm leading-6 text-amber-900">
+                Puedes ver igualmente tu evolución septiembre → diciembre. Si quieres comparar además tus resultados con un promedio de referencia, elige Masculino o Femenino en “Mi evolución física”.
+              </p>
+              <Link href="/alumno/sa1/evolucion" className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-amber-950">
+                Elegir referencia <ArrowRight size={15} />
+              </Link>
+            </div>
           </div>
-        </div>
+        </section>
+      )}
 
-        <SummaryCard
-          title="Diciembre"
-          subtitle="Después"
-          index={summaries!.december.index}
-          completed={summaries!.december.completed}
-        />
+      <section className="grid gap-4 sm:grid-cols-3">
+        <article className="card p-5">
+          <div className="flex items-center gap-2"><CheckCircle2 size={18} className="text-[#1e6b4f]"/><h3 className="font-extrabold">Septiembre</h3></div>
+          <p className="mt-3 text-3xl font-black">{septemberCompleted}/{TOTAL_EXPECTED_TESTS}</p>
+          <p className="mt-1 text-sm text-slate-500">pruebas registradas</p>
+        </article>
+        <article className="card p-5">
+          <div className="flex items-center gap-2"><CheckCircle2 size={18} className="text-[#1e6b4f]"/><h3 className="font-extrabold">Diciembre</h3></div>
+          <p className="mt-3 text-3xl font-black">{decemberCompleted}/{TOTAL_EXPECTED_TESTS}</p>
+          <p className="mt-1 text-sm text-slate-500">pruebas registradas</p>
+        </article>
+        <article className="card p-5">
+          <div className="flex items-center gap-2"><TrendingUp size={18} className="text-[#1e6b4f]"/><h3 className="font-extrabold">Evolución calculada</h3></div>
+          <p className="mt-3 text-3xl font-black">{completedComparisons}/{TOTAL_EXPECTED_TESTS}</p>
+          <p className="mt-1 text-sm text-slate-500">pruebas con antes y después</p>
+        </article>
       </section>
 
       <section className="card overflow-hidden">
         <div className="border-b border-slate-200 p-5 sm:p-6">
-          <h2 className="text-xl font-extrabold">Resumen por prueba</h2>
-          <p className="mt-1 text-sm text-slate-500">Compara visualmente tu nivel relativo en septiembre y diciembre.</p>
+          <h2 className="text-xl font-extrabold">Evolución personal por prueba</h2>
+          <p className="mt-1 text-sm text-slate-500">Esta parte no depende de haber elegido una referencia masculina o femenina.</p>
         </div>
         <div className="divide-y divide-slate-100">
-          {tests.map((test) => {
-            const sep = physicalBenchmarkComparison(test, test.september, reference)?.index ?? null;
-            const dec = physicalBenchmarkComparison(test, test.december, reference)?.index ?? null;
-            return (
-              <article key={test.id} className="grid gap-4 p-5 sm:p-6 lg:grid-cols-[1.2fr_1fr_1fr] lg:items-center">
-                <div>
-                  <h3 className="font-bold text-slate-900">{test.name}</h3>
-                  <p className="mt-1 text-xs text-slate-500">100% = promedio de referencia</p>
-                </div>
-                <PeriodBar label="Septiembre" value={sep} />
-                <PeriodBar label="Diciembre" value={dec} />
-              </article>
-            );
-          })}
+          {personalEvolution.map(({ test, evolution }) => (
+            <article key={test.id} className="grid gap-4 p-5 sm:p-6 lg:grid-cols-[1.2fr_.8fr_.8fr_1fr] lg:items-center">
+              <div>
+                <h3 className="font-bold text-slate-900">{test.name}</h3>
+                <p className="mt-1 text-xs text-slate-500">{test.direction === "lower_better" ? "En esta prueba, menos es mejor." : "En esta prueba, más es mejor."}</p>
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Septiembre</p>
+                <p className={`mt-1 text-sm font-bold ${test.september == null ? "text-slate-300" : "text-slate-900"}`}>{formatReading(test.september, test.unit)}</p>
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Diciembre</p>
+                <p className={`mt-1 text-sm font-bold ${test.december == null ? "text-slate-300" : "text-slate-900"}`}>{formatReading(test.december, test.unit)}</p>
+              </div>
+              <div className="rounded-xl bg-slate-50 p-3">
+                {evolution ? (
+                  <>
+                    <p className={`flex items-center gap-1.5 text-sm font-extrabold ${evolution.status === "improved" ? "text-[#1e6b4f]" : evolution.status === "maintained" ? "text-slate-700" : "text-amber-700"}`}>
+                      {evolution.status === "improved" ? <TrendingUp size={16}/> : evolution.status === "keep_working" ? <TrendingDown size={16}/> : <CheckCircle2 size={16}/>}
+                      {evolutionLabel[evolution.status]}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">Diferencia: {evolution.absolute > 0 ? "+" : ""}{evolution.absolute.toFixed(2).replace(".", ",")} {test.unit}</p>
+                  </>
+                ) : (
+                  <p className="text-xs font-semibold text-slate-400">Falta registrar septiembre o diciembre.</p>
+                )}
+              </div>
+            </article>
+          ))}
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2">
-        <article className="card p-5">
-          <div className="flex items-center gap-2"><CheckCircle2 size={18} className="text-[#1e6b4f]"/><h3 className="font-extrabold">Registro de septiembre</h3></div>
-          <p className="mt-3 text-3xl font-black">{summaries!.september.completed}/{TOTAL_EXPECTED_TESTS}</p>
-          <p className="mt-1 text-sm text-slate-500">pruebas registradas</p>
-        </article>
-        <article className="card p-5">
-          <div className="flex items-center gap-2"><CheckCircle2 size={18} className="text-[#1e6b4f]"/><h3 className="font-extrabold">Registro de diciembre</h3></div>
-          <p className="mt-3 text-3xl font-black">{summaries!.december.completed}/{TOTAL_EXPECTED_TESTS}</p>
-          <p className="mt-1 text-sm text-slate-500">pruebas registradas</p>
-        </article>
-      </section>
+      {reference && summaries && (
+        <>
+          <section className="card p-5 sm:p-6">
+            <p className="text-xs font-extrabold uppercase tracking-[.17em] text-[#1e6b4f]">Comparación orientativa</p>
+            <h2 className="mt-1 text-xl font-extrabold">Referencia {referenceLabel[reference].toLowerCase()}</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">Aquí el 100% representa el promedio de Bachillerato de la referencia seleccionada.</p>
+          </section>
+
+          <section className="grid gap-4 lg:grid-cols-[1fr_auto_1fr] lg:items-stretch">
+            <SummaryCard title="Septiembre" subtitle="Antes" index={summaries.september.index} completed={summaries.september.completed} />
+
+            <div className="flex min-w-[160px] items-center justify-center rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm">
+              <div>
+                {benchmarkChange == null ? (
+                  <>
+                    <p className="text-3xl font-black text-slate-300">—</p>
+                    <p className="mt-2 text-xs font-bold uppercase tracking-wide text-slate-400">Diciembre pendiente</p>
+                  </>
+                ) : (
+                  <>
+                    <div className={`flex items-center justify-center gap-1 text-3xl font-black ${benchmarkChange >= 0 ? "text-[#1e6b4f]" : "text-amber-700"}`}>
+                      {benchmarkChange >= 0 ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
+                      {benchmarkChange > 0 ? "+" : ""}{benchmarkChange.toFixed(1)}
+                    </div>
+                    <p className="mt-2 text-xs font-bold uppercase tracking-wide text-slate-500">puntos porcentuales</p>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <SummaryCard title="Diciembre" subtitle="Después" index={summaries.december.index} completed={summaries.december.completed} />
+          </section>
+
+          <section className="card overflow-hidden">
+            <div className="border-b border-slate-200 p-5 sm:p-6">
+              <h2 className="text-xl font-extrabold">Comparación con la referencia por prueba</h2>
+              <p className="mt-1 text-sm text-slate-500">Visualiza septiembre y diciembre respecto al promedio seleccionado.</p>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {tests.map((test) => {
+                const sep = physicalBenchmarkComparison(test, test.september, reference)?.index ?? null;
+                const dec = physicalBenchmarkComparison(test, test.december, reference)?.index ?? null;
+                return (
+                  <article key={test.id} className="grid gap-4 p-5 sm:p-6 lg:grid-cols-[1.2fr_1fr_1fr] lg:items-center">
+                    <div>
+                      <h3 className="font-bold text-slate-900">{test.name}</h3>
+                      <p className="mt-1 text-xs text-slate-500">100% = promedio de referencia</p>
+                    </div>
+                    <PeriodBar label="Septiembre" value={sep} />
+                    <PeriodBar label="Diciembre" value={dec} />
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        </>
+      )}
 
       <p className="rounded-xl bg-amber-50 p-4 text-xs leading-5 text-amber-800">
-        Los porcentajes son una referencia educativa respecto a los promedios introducidos para Bachillerato; no representan un diagnóstico médico ni un percentil poblacional.
+        La evolución personal compara únicamente tus propias marcas. Los porcentajes respecto a la referencia son un recurso educativo y no representan un diagnóstico médico ni un percentil poblacional.
       </p>
     </div>
   );

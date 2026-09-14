@@ -95,10 +95,17 @@ export async function saveFitnessReference(reference: FitnessReference) {
   const { data: auth, error: authError } = await supabase.auth.getUser();
   if (authError || !auth.user) throw new Error("No se ha podido identificar al alumno.");
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("profiles")
     .update({ fitness_reference: reference, updated_at: new Date().toISOString() })
-    .eq("id", auth.user.id);
+    .eq("id", auth.user.id)
+    .select("fitness_reference")
+    .single();
 
   if (error) throw error;
+  if (!data || data.fitness_reference !== reference) {
+    throw new Error("La referencia no ha quedado guardada en el perfil.");
+  }
+
+  return reference;
 }
