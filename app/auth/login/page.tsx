@@ -11,6 +11,7 @@ import { CoursePoster } from "@/components/course-poster";
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const teacherAccess = searchParams.get("perfil") === "profesor";
   const selectedCourse = searchParams.get("curso") === "2" ? 2 : 1;
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -37,6 +38,11 @@ function LoginContent() {
         router.replace(`/profesor?curso=${selectedCourse}`);
         router.refresh();
         return;
+      }
+
+      if (teacherAccess) {
+        await supabase.auth.signOut();
+        throw new Error("Esta cuenta es de alumno. Entra desde el acceso de alumnado.");
       }
 
       const { data: student, error: studentError } = await supabase
@@ -90,7 +96,7 @@ function LoginContent() {
                 <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#e7f2ed] text-[#1e6b4f]"><GraduationCap size={23}/></span>
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[.15em] text-slate-400">Acceso seleccionado</p>
-                  <h1 className="text-3xl font-black tracking-tight">EF de {selectedCourse}º Bachillerato</h1>
+                  <h1 className="text-3xl font-black tracking-tight">{teacherAccess ? "Profesorado · " : "EF de "}{selectedCourse}º Bachillerato</h1>
                 </div>
               </div>
               <p className="mt-4 text-sm leading-6 text-slate-500">Acceso privado para alumnado y profesorado. El alumnado solo puede entrar en el curso al que está asignada su cuenta.</p>
@@ -99,7 +105,7 @@ function LoginContent() {
                 {[1, 2].map((year) => (
                   <Link
                     key={year}
-                    href={`/auth/login?curso=${year}`}
+                    href={`/auth/login?curso=${year}${teacherAccess ? "&perfil=profesor" : ""}`}
                     className={`rounded-xl px-3 py-2.5 text-center text-sm font-extrabold transition ${selectedCourse === year ? "bg-white text-slate-950 shadow-sm" : "text-slate-500 hover:text-slate-900"}`}
                   >
                     {year}º Bachillerato
@@ -107,16 +113,18 @@ function LoginContent() {
                 ))}
               </div>
 
+              <div className="mt-4 flex flex-wrap gap-4 text-sm font-bold"><Link href={`/auth/login?curso=${selectedCourse}`} className={!teacherAccess ? "text-[#1e6b4f] underline" : "text-slate-500"}>Alumnado</Link><Link href={`/auth/login?curso=${selectedCourse}&perfil=profesor`} className={teacherAccess ? "text-[#1e6b4f] underline" : "text-slate-500"}>Profesorado</Link></div>
+              {teacherAccess && <p className="mt-3 text-sm text-slate-600">Usa tu correo y la contraseña docente ya definida. La misma cuenta permite gestionar 1º y 2º.</p>}
               <form onSubmit={submit} className="mt-7 space-y-4">
                 <label htmlFor="identifier" className="block text-xs font-bold uppercase tracking-wide text-slate-500">Usuario o correo electrónico
-                  <input id="identifier" type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} placeholder="nombre.apellido" required value={identifier} onChange={(e)=>setIdentifier(e.target.value)} className="mt-2 w-full rounded-xl border border-[#d9ccbc] bg-white p-3 text-sm outline-none focus:border-[#1e6b4f] focus:ring-2 focus:ring-[#1e6b4f]/15"/>
+                  <input id="identifier" type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} placeholder={teacherAccess ? "Correo del profesorado" : "nombre.apellido"} required value={identifier} onChange={(e)=>setIdentifier(e.target.value)} className="mt-2 w-full rounded-xl border border-[#d9ccbc] bg-white p-3 text-sm outline-none focus:border-[#1e6b4f] focus:ring-2 focus:ring-[#1e6b4f]/15"/>
                 </label>
                 <label htmlFor="password" className="block text-xs font-bold uppercase tracking-wide text-slate-500">Contraseña
                   <input id="password" type="password" autoComplete="current-password" required value={password} onChange={(e)=>setPassword(e.target.value)} className="mt-2 w-full rounded-xl border border-[#d9ccbc] bg-white p-3 text-sm outline-none focus:border-[#1e6b4f] focus:ring-2 focus:ring-[#1e6b4f]/15"/>
                 </label>
                 {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm font-semibold leading-6 text-red-700">{error}</p>}
                 <button disabled={loading} className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white disabled:opacity-60">
-                  <LogIn size={17}/>{loading ? "Accediendo…" : `Entrar en ${selectedCourse}º Bachillerato`}
+                  <LogIn size={17}/>{loading ? "Accediendo…" : `Entrar ${teacherAccess ? "como profesor en " : "en "}${selectedCourse}º Bachillerato`}
                 </button>
               </form>
             </div>

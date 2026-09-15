@@ -73,8 +73,9 @@ export default function HomePage() {
                   <span>{course.meta}</span>
                 </div>
                 <Link href={course.href} className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-extrabold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1e6b4f]">
-                  Entrar en {course.title} <ArrowRight size={17}/>
+                  Acceso alumnado · {course.title} <ArrowRight size={17}/>
                 </Link>
+                <Link href={`/auth/login?curso=${course.year}&perfil=profesor`} className="mt-3 rounded-xl border border-slate-200 px-5 py-3 text-center text-sm font-bold text-[#1e6b4f]">Acceso profesorado · {course.title}</Link>
               </div>
             </article>
           ))}

@@ -36,6 +36,7 @@ const secondYearItems: NavItem[] = [
 ];
 
 const teacherItems: NavItem[] = [
+  { label: "Activar situaciones", mobileLabel: "Activar SA", href: "/profesor/situaciones", icon: BookOpen },
   { label: "Agenda de 2º", mobileLabel: "Agenda", href: "/profesor/agenda", icon: CalendarDays },
   { label: "Dashboard", mobileLabel: "Inicio", href: "/profesor", icon: Gauge },
   { label: "Alumnado", href: "/profesor/alumnado", icon: Users },
@@ -49,9 +50,9 @@ const teacherItems: NavItem[] = [
   { label: "Configuración", mobileLabel: "Ajustes", href: "/profesor/configuracion", icon: Settings },
 ];
 
-export function SideNav({ role, courseYear = 1 }: { role: "student" | "teacher"; courseYear?: 1 | 2 }) {
+export function SideNav({ role, courseYear = 1, visibleSituations }: { role: "student" | "teacher"; courseYear?: 1 | 2; visibleSituations?: string[] }) {
   const pathname = usePathname();
-  const items = role === "teacher" ? teacherItems : courseYear === 2 ? secondYearItems : firstYearItems;
+  const items = (role === "teacher" ? teacherItems : courseYear === 2 ? secondYearItems : firstYearItems).filter((item) => { const sa = item.href.match(/\/sa([1-6])(?:\/|$)/); return role === "teacher" || !sa || !visibleSituations || visibleSituations.includes(`SA${sa[1]}`); });
   const root = role === "student" ? "/alumno" : "/profesor";
   const isActive = (href: string) => href === root ? pathname === href : pathname.startsWith(href);
   const courseLabel = role === "teacher" ? "EF · Bachillerato" : `EF · ${courseYear}º Bachillerato`;

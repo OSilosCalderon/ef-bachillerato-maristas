@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Award, BookMarked, BookOpenCheck, BrainCircuit, CheckCircle2, Circle, Loader2, Target } from "lucide-react";
 import { BasicCapacitiesVisual } from "@/components/basic-capacities-visual";
 import { SecondYearTheoryVisual } from "@/components/second-year-theory-visual";
-import { secondYearTheoryTopics } from "@/lib/second-year-theory-topics";
+import { loadStudentVisibleSituations } from "@/lib/situation-visibility";
+import { secondYearTheoryTopics as allTopics } from "@/lib/second-year-theory-topics";
 import { loadTheoryTopicProgress, saveTheoryTopicProgress, type TheoryTopicProgress } from "@/lib/training-theory-data";
 
 import { SECOND_YEAR_PASS_SCORE as PASS_SCORE, secondYearMastery, secondYearQuizScore } from "@/lib/second-year-theory-assessment";
@@ -12,6 +13,7 @@ import { SECOND_YEAR_PASS_SCORE as PASS_SCORE, secondYearMastery, secondYearQuiz
 type Props = { initialSlug?: string; compactHeader?: boolean };
 
 export function SecondYearTheoryReader({ initialSlug, compactHeader = false }: Props) {
+  const [secondYearTheoryTopics, setTopics] = useState(allTopics);
   const [selectedSlug, setSelectedSlug] = useState(initialSlug ?? secondYearTheoryTopics[0].slug);
   const [studentId, setStudentId] = useState<string | null>(null);
   const [progress, setProgress] = useState<Record<string, TheoryTopicProgress>>({});
@@ -22,7 +24,7 @@ export function SecondYearTheoryReader({ initialSlug, compactHeader = false }: P
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const topic = secondYearTheoryTopics.find((item) => item.slug === selectedSlug) ?? secondYearTheoryTopics[0];
+  const topic = secondYearTheoryTopics.find((item) => item.slug === selectedSlug) ?? secondYearTheoryTopics[0] ?? allTopics[0];
   const topicProgress = progress[topic.slug];
   const topicAnswers = answers[topic.slug] ?? {};
   const allAnswered = Object.keys(topicAnswers).length === topic.quiz.length;
@@ -38,10 +40,14 @@ export function SecondYearTheoryReader({ initialSlug, compactHeader = false }: P
     setLoading(true);
     setError("");
     try {
-      const result = await loadTheoryTopicProgress();
+      const [result, visible] = await Promise.all([loadTheoryTopicProgress(), loadStudentVisibleSituations()]);
+      const available = allTopics.filter((topic) => visible.includes(topic.sa));
+      setTopics(available);
+      if (!available.some((topic) => topic.slug === initialSlug)) setSelectedSlug(available[0]?.slug ?? "");
       setStudentId(result.studentId);
       setProgress(Object.fromEntries(result.progress.map((item) => [item.topicSlug, item])));
     } catch (cause) {
+      setTopics([]);
       setError(cause instanceof Error ? cause.message : "No se ha podido cargar tu progreso.");
     } finally { setLoading(false); }
   }
@@ -79,8 +85,10 @@ export function SecondYearTheoryReader({ initialSlug, compactHeader = false }: P
 
   if (loading) return <div className="card flex min-h-[240px] items-center justify-center gap-3 p-8 text-sm text-slate-500"><Loader2 className="animate-spin" size={20}/> Cargando teoría de 2º…</div>;
 
+  if (!secondYearTheoryTopics.length) return <p role={error ? "alert" : "status"} className="card p-6">{error || "El profesor todavía no ha activado módulos teóricos de 2º."}</p>;
+
   return <div className="space-y-6">
-    {!compactHeader && <section className="rounded-3xl bg-slate-950 p-5 text-white shadow-sm sm:p-6"><div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between"><div><p className="text-xs font-black uppercase tracking-[.18em] text-emerald-300">2º Bachillerato · 6 módulos</p><h2 className="mt-2 text-2xl font-black">Comprende · Decide · Justifica · Aplica</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">Una biblioteca específica de 2º: menos repetición y más interpretación, diseño, organización y evaluación.</p></div><div className="grid grid-cols-3 gap-2 text-center sm:min-w-[300px]"><Stat icon={<BookMarked size={18}/>} value={`${readCount}/6`} label="Leídos"/><Stat icon={<Award size={18}/>} value={`${passedCount}/6`} label="Tests"/><Stat icon={<BrainCircuit size={18}/>} value={`${mastery}%`} label="Dominio"/></div></div></section>}
+    {!compactHeader && <section className="rounded-3xl bg-slate-950 p-5 text-white shadow-sm sm:p-6"><div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between"><div><p className="text-xs font-black uppercase tracking-[.18em] text-emerald-300">2º Bachillerato · {secondYearTheoryTopics.length} módulos disponibles</p><h2 className="mt-2 text-2xl font-black">Comprende · Decide · Justifica · Aplica</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">Una biblioteca específica de 2º: menos repetición y más interpretación, diseño, organización y evaluación.</p></div><div className="grid grid-cols-3 gap-2 text-center sm:min-w-[300px]"><Stat icon={<BookMarked size={18}/>} value={`${readCount}/${secondYearTheoryTopics.length}`} label="Leídos"/><Stat icon={<Award size={18}/>} value={`${passedCount}/${secondYearTheoryTopics.length}`} label="Tests"/><Stat icon={<BrainCircuit size={18}/>} value={`${mastery}%`} label="Dominio"/></div></div></section>}
 
     {(error || message) && <div role="status" className={`rounded-2xl border p-4 text-sm font-semibold ${error ? "border-red-200 bg-red-50 text-red-700" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}>{error || message}</div>}
 
