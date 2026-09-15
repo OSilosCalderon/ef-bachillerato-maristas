@@ -35,13 +35,14 @@ export default async function StudentDashboard() {
             <p className="text-xs font-bold uppercase tracking-[.18em] text-emerald-300">Curso 2026/2027</p>
             <h2 className="mt-2 text-2xl font-extrabold">Programación de 2º Bachillerato</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-              Seis situaciones de aprendizaje distribuidas desde septiembre hasta el 27 de abril, con {secondYearPlannedSessions} sesiones planificadas y un margen transversal para evaluación, reajustes y actividades del centro.
+              Distribución orientativa de seis situaciones de aprendizaje desde septiembre hasta el 27 de abril, con {secondYearPlannedSessions} sesiones previstas. El calendario de clases llega hasta el 6 de mayo; consulta la agenda para las fechas y los ajustes del profesor.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3 p-6">
             <Link href="/alumno/apuntes-entrenamiento" className="inline-flex items-center gap-2 rounded-xl bg-[#1e6b4f] px-4 py-2.5 text-sm font-bold text-white">
               <GraduationCap size={18}/>Abrir los 9 temas interactivos
             </Link>
+            <Link href="/alumno/2bach/agenda" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold"><CalendarDays size={18}/>Agenda y recordatorios</Link>
             <span className="rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-bold text-slate-600">6 SA · {secondYearPlannedSessions} sesiones</span>
           </div>
         </section>

@@ -69,9 +69,9 @@ export const secondYearLearningSituations: SecondYearLearningSituation[] = [
 
 export const secondYearTransversalMargin = {
   label: "Margen transversal",
-  sessions: "20–24 aprox.",
+  sessions: "11 orientativas",
   description:
-    "Evaluación inicial/final, reajustes, festivos, recuperaciones, salidas y actividades del centro.",
+    "Diferencia entre las 115 clases del calendario autonómico y las 104 sesiones previstas en las SA. Se destina a evaluación, reajustes y actividades del centro; las cancelaciones locales pueden reducirla. Consulta la agenda para las fechas reales.",
 };
 
 export const secondYearPlannedSessions = secondYearLearningSituations.reduce(
