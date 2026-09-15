@@ -62,3 +62,22 @@ console.log("Capacity grouping and like-for-like period comparison passed.");
 
 assert.equal(physicalPeriodTotals([{direction: "higher_better", benchmarkMale: 10, september: 0}], "september", "masculino").index, 0);
 assert.equal(physicalPeriodTotals([{direction: "higher_better", benchmarkMale: Infinity, september: 10}], "september", "masculino").index, null);
+
+// Los nueve temas de 1º usan sus slugs originales: los resultados de 2º no entran en sus totales.
+const { trainingTheoryTopics } = load("lib/training-theory-topics.ts");
+const { flexibilityTheoryTopic } = load("lib/training-theory-flexibility.ts");
+const firstYearSlugs = [...trainingTheoryTopics, flexibilityTheoryTopic].map((topic) => topic.slug);
+assert.equal(firstYearSlugs.length, 9);
+const firstYearTotals = theoryProgressTotals(firstYearSlugs, {
+  [firstYearSlugs[0]]: { completed: true, quizScore: 80 },
+  [firstYearSlugs[1]]: { completed: true, quizScore: 0 },
+  [firstYearSlugs[2]]: { completed: false, quizScore: 67 },
+  "2bach-sa1": { completed: true, quizScore: 100 },
+});
+assert.equal(firstYearTotals.total, 9);
+assert.equal(firstYearTotals.readPercent, 22);
+assert.equal(firstYearTotals.attemptedPercent, 33);
+assert.equal(firstYearTotals.passedPercent, 22);
+assert.equal(firstYearTotals.averageScore, 49);
+assert.equal(theoryProgressTotals(firstYearSlugs, {}).averageScore, null);
+console.log("First-year progress: nine original topics, separate course results, zero-score attempts and pending tests passed.");
