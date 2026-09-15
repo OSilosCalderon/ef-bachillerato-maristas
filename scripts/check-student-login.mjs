@@ -1,0 +1,15 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import vm from "node:vm";
+import ts from "typescript";
+const module = { exports: {} };
+const source = fs.readFileSync("lib/auth/student-login.ts", "utf8");
+vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { module, exports: module.exports });
+const { normalizeStudentUsername, loginIdentifierToEmail, STUDENT_LOGIN_DOMAIN } = module.exports;
+assert.equal(normalizeStudentUsername("  José García "), "jose.garcia");
+assert.equal(loginIdentifierToEmail("José García"), `jose.garcia@${STUDENT_LOGIN_DOMAIN}`);
+assert.equal(loginIdentifierToEmail("NOMBRE.APELLIDO2"), `nombre.apellido2@${STUDENT_LOGIN_DOMAIN}`);
+assert.equal(loginIdentifierToEmail("mateo.delaguila"), `mateo.delaguila@${STUDENT_LOGIN_DOMAIN}`);
+assert.equal(loginIdentifierToEmail("  profesor@example.com "), "profesor@example.com");
+for (const invalid of ["", "nombre", "nombre..apellido", "nombre/apellido", "<nombre.apellido>"]) assert.throws(() => loginIdentifierToEmail(invalid));
+console.log("Student login: accents, whitespace, duplicate suffixes, compound surnames, email compatibility and invalid inputs passed.");

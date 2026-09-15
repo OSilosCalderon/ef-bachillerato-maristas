@@ -5,13 +5,14 @@ import { FormEvent, Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, GraduationCap, LogIn, ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { loginIdentifierToEmail } from "@/lib/auth/student-login";
 import { CoursePoster } from "@/components/course-poster";
 
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedCourse = searchParams.get("curso") === "2" ? 2 : 1;
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -22,7 +23,7 @@ function LoginContent() {
     setError("");
     try {
       const supabase = createClient();
-      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error: authError } = await supabase.auth.signInWithPassword({ email: loginIdentifierToEmail(identifier), password });
       if (authError || !data.user) throw authError ?? new Error("No se pudo iniciar sesión.");
 
       const { data: profile, error: profileError } = await supabase
@@ -65,7 +66,7 @@ function LoginContent() {
         throw new Error(`Esta cuenta pertenece a ${assignedYear}º de Bachillerato. Vuelve atrás y entra desde el acceso de ${assignedYear}º.`);
       }
 
-      router.replace("/alumno");
+      router.replace(data.user.user_metadata?.initial_password === true && data.user.user_metadata?.first_access_seen !== true ? "/auth/primer-acceso" : "/alumno");
       router.refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo iniciar sesión.");
@@ -107,8 +108,8 @@ function LoginContent() {
               </div>
 
               <form onSubmit={submit} className="mt-7 space-y-4">
-                <label htmlFor="email" className="block text-xs font-bold uppercase tracking-wide text-slate-500">Correo electrónico
-                  <input id="email" type="email" autoComplete="email" required value={email} onChange={(e)=>setEmail(e.target.value)} className="mt-2 w-full rounded-xl border border-[#d9ccbc] bg-white p-3 text-sm outline-none focus:border-[#1e6b4f] focus:ring-2 focus:ring-[#1e6b4f]/15"/>
+                <label htmlFor="identifier" className="block text-xs font-bold uppercase tracking-wide text-slate-500">Correo electrónico
+                  <input id="identifier" type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} placeholder="nombre.apellido" required value={identifier} onChange={(e)=>setIdentifier(e.target.value)} className="mt-2 w-full rounded-xl border border-[#d9ccbc] bg-white p-3 text-sm outline-none focus:border-[#1e6b4f] focus:ring-2 focus:ring-[#1e6b4f]/15"/>
                 </label>
                 <label htmlFor="password" className="block text-xs font-bold uppercase tracking-wide text-slate-500">Contraseña
                   <input id="password" type="password" autoComplete="current-password" required value={password} onChange={(e)=>setPassword(e.target.value)} className="mt-2 w-full rounded-xl border border-[#d9ccbc] bg-white p-3 text-sm outline-none focus:border-[#1e6b4f] focus:ring-2 focus:ring-[#1e6b4f]/15"/>
