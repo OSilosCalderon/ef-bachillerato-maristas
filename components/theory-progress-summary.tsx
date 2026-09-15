@@ -8,6 +8,8 @@ import { flexibilityTheoryTopic } from "@/lib/training-theory-flexibility";
 import { secondYearTheoryTopics } from "@/lib/second-year-theory-topics";
 import { loadTheoryTopicProgress, type TheoryTopicProgress } from "@/lib/training-theory-data";
 
+import { secondYearMastery } from "@/lib/second-year-theory-assessment";
+
 const PASS_SCORE = 67;
 
 export function TheoryProgressSummary({ courseYear = 1 }: { courseYear?: 1 | 2 }) {
@@ -27,8 +29,8 @@ export function TheoryProgressSummary({ courseYear = 1 }: { courseYear?: 1 | 2 }
     const read = topics.filter((topic) => progress[topic.slug]?.completed).length;
     const passed = topics.filter((topic) => (progress[topic.slug]?.quizScore ?? 0) >= PASS_SCORE).length;
     const mastered = topics.filter((topic) => progress[topic.slug]?.completed && (progress[topic.slug]?.quizScore ?? 0) >= PASS_SCORE).length;
-    return { read, passed, mastered, percent: Math.round(((read + passed) / (topics.length * 2)) * 100) };
-  }, [progress, topics]);
+    return { read, passed, mastered, percent: courseYear === 2 ? secondYearMastery(topics.map((topic) => topic.slug), progress) : Math.round(((read + passed) / (topics.length * 2)) * 100) };
+  }, [progress, topics, courseYear]);
 
   if (loading) return <section className="card flex items-center gap-3 p-6 text-sm text-slate-500"><Loader2 className="animate-spin" size={18}/> Cargando progreso de teoría…</section>;
   if (error) return <section className="card border border-red-200 bg-red-50 p-6 text-sm font-semibold text-red-700">{error}</section>;
@@ -42,7 +44,7 @@ export function TheoryProgressSummary({ courseYear = 1 }: { courseYear?: 1 | 2 }
             <h2 className="mt-2 text-2xl font-black">{courseYear === 2 ? "Módulos teóricos de 2º" : "Teoría de entrenamiento deportivo"}</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">El progreso distingue entre haber estudiado un tema y haber demostrado los conocimientos en su test de autoevaluación.</p>
           </div>
-          <div className="rounded-2xl bg-white/10 px-5 py-4 text-center"><p className="text-3xl font-black">{summary.percent}%</p><p className="text-xs text-slate-300">progreso teórico global</p></div>
+          <div className="rounded-2xl bg-white/10 px-5 py-4 text-center"><p className="text-3xl font-black">{summary.percent}%</p><p className="text-xs text-slate-300">{courseYear === 2 ? "dominio · leído + test superado" : "progreso teórico global"}</p></div>
         </div>
         <div className="h-2 bg-slate-100"><div className="h-full bg-[#1e6b4f]" style={{ width: `${summary.percent}%` }}/></div>
       </div>

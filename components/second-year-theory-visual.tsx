@@ -2,7 +2,33 @@ type Props = { kind: "diagnosis" | "load" | "habits" | "event" | "expression" | 
 
 const text = { fontFamily: "Arial, sans-serif", fontWeight: 800 } as const;
 
-export function SecondYearTheoryVisual({ kind, alt }: Props) {
+const mobileSteps: Record<Props["kind"], string[]> = {
+  diagnosis: ["Mido", "Interpreto", "Priorizo", "Diseño", "Entreno", "Vuelvo a medir"],
+  load: ["Estímulo", "Fatiga", "Recuperación", "Adaptación"],
+  habits: ["Sueño", "Movimiento", "Hidratación", "Alimentación variada", "Recuperación", "Bienestar"],
+  event: ["Idea", "Diseño", "Organización", "Ejecución", "Evaluación"],
+  expression: ["Cuerpo", "Espacio", "Tiempo", "Emoción", "Cultura"],
+  community: ["Persona", "Clase", "Centro", "Familia", "Barrio", "Comunidad"],
+};
+
+export function SecondYearTheoryVisual(props: Props) {
+  const sequential = ["diagnosis", "load", "event", "community"].includes(props.kind);
+  return <>
+    <div className="sm:hidden p-5" role="img" aria-label={props.alt}>
+      <p className="mb-4 font-extrabold text-slate-900">{props.alt}</p>
+      <ol className="grid grid-cols-2 gap-3">
+        {mobileSteps[props.kind].map((step, index) => <li key={step} className="min-w-0 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-950">
+          {sequential && <span className="mb-1 block text-xs text-emerald-700">Paso {index + 1}</span>}{step}
+        </li>)}
+      </ol>
+      {props.kind === "load" && <p className="mt-4 text-sm leading-6 text-slate-600">La carga combina volumen, intensidad, frecuencia y densidad. RPE describe cómo percibes ese esfuerzo; no se suman magnitudes con unidades distintas.</p>}
+      {sequential && <p className="mt-4 text-sm text-slate-600">Sigue el orden, comprueba el resultado y vuelve atrás para reajustar.</p>}
+    </div>
+    <div className="hidden sm:block aspect-[1000/470]"><DesktopVisual {...props}/></div>
+  </>;
+}
+
+function DesktopVisual({ kind, alt }: Props) {
   if (kind === "diagnosis") return <Flow alt={alt} title="Del dato a la decisión" steps={["MIDO","INTERPRETO","PRIORIZO","DISEÑO","ENTRENO","REVALÚO"]}/>;
   if (kind === "event") return <Flow alt={alt} title="Un evento se construye por fases" steps={["IDEA","DISEÑO","RECURSOS","ORGANIZO","EJECUTO","EVALÚO"]}/>;
   if (kind === "community") return <Flow alt={alt} title="Una comunidad activa se conecta" steps={["PERSONA","CLASE","CENTRO","FAMILIA","BARRIO","COMUNIDAD"]}/>;
@@ -17,11 +43,11 @@ export function SecondYearTheoryVisual({ kind, alt }: Props) {
     </svg>;
   }
   if (kind === "habits") {
-    const items = [[500,155,"SUEÑO"],[710,235,"HIDRATACIÓN"],[650,390,"ALIMENTACIÓN"],[350,390,"RECUPERACIÓN"],[290,235,"MOVIMIENTO"]];
+    const items = [[330,160,"SUEÑO"],[670,160,"HIDRATACIÓN"],[760,280,"ALIMENTACIÓN"],[670,400,"RECUPERACIÓN"],[330,400,"MOVIMIENTO"],[240,280,"BIENESTAR"]];
     return <svg viewBox="0 0 1000 470" role="img" aria-label={alt} className="h-full w-full bg-[#f8fafc]">
       <text x="55" y="60" fontSize="32" fill="#0f172a" style={text}>Hábitos que se apoyan entre sí</text><text x="55" y="96" fontSize="17" fill="#475569">No hay una única pieza: la regularidad aparece cuando el conjunto es sostenible.</text>
       <circle cx="500" cy="285" r="95" fill="#1e6b4f"/><text x="500" y="275" textAnchor="middle" fontSize="20" fill="white" style={text}>HÁBITOS</text><text x="500" y="305" textAnchor="middle" fontSize="16" fill="white">SOSTENIBLES</text>
-      {items.map(([x,y,label],i)=><g key={String(label)}><circle cx={Number(x)} cy={Number(y)} r="62" fill={["#2563eb","#0891b2","#d97706","#7c3aed","#16a34a"][i]} opacity=".14"/><text x={Number(x)} y={Number(y)+5} textAnchor="middle" fontSize="15" fill="#0f172a" style={text}>{String(label)}</text><line x1="500" y1="285" x2={Number(x)} y2={Number(y)} stroke="#94a3b8" strokeWidth="3"/></g>)}
+      {items.map(([x,y,label],i)=><g key={String(label)}><circle cx={Number(x)} cy={Number(y)} r="62" fill={["#2563eb","#0891b2","#d97706","#7c3aed","#16a34a","#db2777"][i]} opacity=".14"/><text x={Number(x)} y={Number(y)+5} textAnchor="middle" fontSize="15" fill="#0f172a" style={text}>{String(label)}</text></g>)}
     </svg>;
   }
   const items = kind === "expression" ? [["CUERPO","#2563eb"],["ESPACIO","#7c3aed"],["TIEMPO","#d97706"],["EMOCIÓN","#db2777"],["CULTURA","#16a34a"]] : [];

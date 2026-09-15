@@ -1,3 +1,5 @@
+import { secondYearTheoryExtensions } from "@/lib/second-year-theory-extensions";
+
 export type SecondYearTheoryConcept = { name: string; definition: string; example: string };
 export type SecondYearTheorySection = { title: string; paragraphs: string[]; bullets?: string[] };
 export type SecondYearSportCase = { sport: string; capacity: string; situation: string; proposal: string; why: string; progression: string };
@@ -9,6 +11,8 @@ export type SecondYearTheoryTopic = {
   title: string;
   subtitle: string;
   summary: string;
+  foundation: string;
+  sourceLinks: { title: string; url: string }[];
   visual: "diagnosis" | "load" | "habits" | "event" | "expression" | "community";
   visualCaption: string;
   keyIdeas: string[];
@@ -21,7 +25,7 @@ export type SecondYearTheoryTopic = {
   quiz: SecondYearQuizQuestion[];
 };
 
-export const secondYearTheoryTopics: SecondYearTheoryTopic[] = [
+const baseTopics: Omit<SecondYearTheoryTopic, "foundation" | "sourceLinks">[] = [
   {
     slug: "2bach-sa1-punto-partida", number: 1, sa: "SA1",
     title: "¿Cuál es mi punto de partida?", subtitle: "Evaluar, interpretar y decidir antes de empezar a entrenar",
@@ -206,6 +210,11 @@ export const secondYearTheoryTopics: SecondYearTheoryTopic[] = [
     ],
   },
 ];
+
+export const secondYearTheoryTopics: SecondYearTheoryTopic[] = baseTopics.map((topic) => {
+  const extra = secondYearTheoryExtensions[topic.slug];
+  return { ...topic, foundation: extra.foundation, sourceLinks: extra.links, sections: [...topic.sections, ...extra.sections], cases: [...topic.cases, ...(extra.cases ?? [])] };
+});
 
 export function getSecondYearTheoryTopic(slug?: string) {
   return secondYearTheoryTopics.find((topic) => topic.slug === slug) ?? secondYearTheoryTopics[0];
