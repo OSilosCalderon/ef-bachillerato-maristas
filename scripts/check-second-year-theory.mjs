@@ -24,7 +24,7 @@ for (const [index, topic] of topics.entries()) {
   assert.ok(route.includes(`initialSlug="${topic.slug}"`), `Wrong theory route for ${topic.sa}`);
   assert.ok(route.includes("SecondYearTheoryReader"));
   assert.ok(topic.foundation && topic.sections.length >= 4 && topic.concepts.length >= 4 && topic.cases.length >= 2 && topic.challenge && topic.extension && topic.sources.length);
-  assert.ok(topic.quiz.length >= 3 && topic.quiz.length <= 4);
+  assert.ok(topic.quiz.length >= (index < 2 ? 10 : 3));
   for (const question of topic.quiz) {
     assert.ok(question.correct >= 0 && question.correct < question.options.length);
     assert.ok(question.feedback && new Set(question.options).size === question.options.length);

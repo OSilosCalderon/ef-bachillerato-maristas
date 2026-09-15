@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  BarChart3, BookOpen, ClipboardCheck, Download, Dumbbell, FileText, Gauge, GraduationCap, HeartPulse,
+  CalendarDays, BarChart3, BookOpen, ClipboardCheck, Download, Dumbbell, FileText, Gauge, GraduationCap, HeartPulse,
   Home, PlusCircle, Settings, Sparkles, User, Users
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -22,6 +22,7 @@ const firstYearItems: NavItem[] = [
 ];
 
 const secondYearItems: NavItem[] = [
+  { label: "Mi agenda", mobileLabel: "Agenda", href: "/alumno/2bach/agenda", icon: CalendarDays },
   { label: "Inicio", href: "/alumno", icon: Home },
   { label: "Mi progreso", mobileLabel: "Progreso", href: "/alumno/progreso", icon: BarChart3 },
   { label: "Apuntes entrenamiento", mobileLabel: "Apuntes", href: "/alumno/apuntes-entrenamiento", icon: GraduationCap },
@@ -35,6 +36,7 @@ const secondYearItems: NavItem[] = [
 ];
 
 const teacherItems: NavItem[] = [
+  { label: "Agenda de 2º", mobileLabel: "Agenda", href: "/profesor/agenda", icon: CalendarDays },
   { label: "Dashboard", mobileLabel: "Inicio", href: "/profesor", icon: Gauge },
   { label: "Alumnado", href: "/profesor/alumnado", icon: Users },
   { label: "Crear actividad", mobileLabel: "Crear", href: "/profesor/crear-actividad", icon: PlusCircle },
@@ -61,7 +63,7 @@ export function SideNav({ role, courseYear = 1 }: { role: "student" | "teacher";
           <div className="text-xs font-bold uppercase tracking-[.2em] text-[#1e6b4f]">Maristas Badajoz</div>
           <div className="mt-1 text-lg font-extrabold text-slate-900">{courseLabel}</div>
         </Link>
-        <nav aria-label={role === "student" ? "Navegación del alumnado" : "Navegación del profesorado"} className="space-y-1">
+        <nav aria-label={role === "student" ? "Navegación del alumnado" : "Navegación del profesorado"} className="max-h-[calc(100dvh-220px)] space-y-1 overflow-y-auto">
           {items.map((item) => {
             const active = isActive(item.href);
             const Icon = item.icon;

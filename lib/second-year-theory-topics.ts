@@ -1,3 +1,4 @@
+import { capacitySections, capacitySources, capacityQuiz } from "@/lib/basic-physical-capacities";
 import { secondYearTheoryExtensions } from "@/lib/second-year-theory-extensions";
 
 export type SecondYearTheoryConcept = { name: string; definition: string; example: string };
@@ -213,7 +214,7 @@ const baseTopics: Omit<SecondYearTheoryTopic, "foundation" | "sourceLinks">[] = 
 
 export const secondYearTheoryTopics: SecondYearTheoryTopic[] = baseTopics.map((topic) => {
   const extra = secondYearTheoryExtensions[topic.slug];
-  return { ...topic, foundation: extra.foundation, sourceLinks: extra.links, sections: [...topic.sections, ...extra.sections], cases: [...topic.cases, ...(extra.cases ?? [])] };
+  return { ...topic, foundation: extra.foundation, sourceLinks: extra.links, sections: [...topic.sections, ...extra.sections, ...(topic.number === 1 || topic.number === 2 ? capacitySections(topic.number) : [])], sources: [...topic.sources, ...(topic.number <= 2 ? capacitySources : [])], quiz: [...topic.quiz, ...(topic.number <= 2 ? capacityQuiz : [])], cases: [...topic.cases, ...(extra.cases ?? [])] };
 });
 
 export function getSecondYearTheoryTopic(slug?: string) {

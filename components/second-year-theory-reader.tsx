@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Award, BookMarked, BookOpenCheck, BrainCircuit, CheckCircle2, Circle, Loader2, Target } from "lucide-react";
+import { BasicCapacitiesVisual } from "@/components/basic-capacities-visual";
 import { SecondYearTheoryVisual } from "@/components/second-year-theory-visual";
 import { secondYearTheoryTopics } from "@/lib/second-year-theory-topics";
 import { loadTheoryTopicProgress, saveTheoryTopicProgress, type TheoryTopicProgress } from "@/lib/training-theory-data";
@@ -95,6 +96,7 @@ export function SecondYearTheoryReader({ initialSlug, compactHeader = false }: P
 
         <section className="card overflow-hidden"><div className="bg-slate-50"><SecondYearTheoryVisual kind={topic.visual} alt={`Infografía del módulo ${topic.number}: ${topic.title}`}/></div><div className="p-5 sm:p-6"><p className="text-xs font-black uppercase tracking-wide text-[#1e6b4f]">Imagen para comprender</p><p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{topic.visualCaption}</p></div></section>
 
+        {topic.number <= 2 && <BasicCapacitiesVisual/>}
         <section className="card p-6 sm:p-8"><p className="text-xs font-black uppercase tracking-wide text-amber-700">Ideas clave</p><div className="mt-4 grid gap-3 sm:grid-cols-2">{topic.keyIdeas.map((idea)=><div key={idea} className="flex gap-3 rounded-2xl bg-amber-50 p-4 text-sm font-semibold text-amber-950"><CheckCircle2 className="mt-0.5 shrink-0 text-amber-700" size={18}/>{idea}</div>)}</div></section>
 
         <section className="card p-6 sm:p-8"><p className="text-xs font-black uppercase tracking-wide text-[#1e6b4f]">Conceptos</p><h2 className="mt-1 text-2xl font-black">Vocabulario para razonar</h2><div className="mt-5 grid gap-4 md:grid-cols-2">{topic.concepts.map((concept)=><div key={concept.name} className="rounded-2xl border border-slate-200 p-5"><h3 className="font-extrabold text-slate-950">{concept.name}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{concept.definition}</p><p className="mt-3 rounded-xl bg-[#e7f2ed] p-3 text-xs font-semibold text-[#164c3a]">Ejemplo · {concept.example}</p></div>)}</div></section>

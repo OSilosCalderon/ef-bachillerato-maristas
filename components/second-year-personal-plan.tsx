@@ -2,14 +2,20 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { BarChart3, CheckCircle2, Loader2, Plus, Save, Trash2 } from "lucide-react";
+import { secondYearExercises } from "@/lib/second-year-exercises";
+import { SECOND_YEAR_WEEK } from "@/lib/second-year-agenda-calendar";
 import { createClient } from "@/lib/supabase/client";
 import { loadPhysicalTestsForCurrentStudent } from "@/lib/sa1-physical-data";
-import { physicalBenchmarkComparison } from "@/lib/sa1-types";
+import { secondYearPhysicalComparison } from "@/lib/second-year-progress";
 import type { FitnessReference, PhysicalTest } from "@/lib/sa1-types";
 
 type PlanItem = {
   id: string;
   activity: string;
+  exerciseId: string;
+  description: string;
+  day: string;
+  goal: string;
   capacity: string;
   dose: string;
   recovery: string;
@@ -18,6 +24,8 @@ type PlanItem = {
 type PlanForm = {
   initialAnalysis: string;
   objective: string;
+  secondaryObjective: string;
+  secondarySuccessIndicator: string;
   priorityCapacity: string;
   durationWeeks: number;
   weeklyFrequency: number;
@@ -32,10 +40,12 @@ type PlanForm = {
 const emptyPlan: PlanForm = {
   initialAnalysis: "",
   objective: "",
+  secondaryObjective: "",
+  secondarySuccessIndicator: "",
   priorityCapacity: "condicion-fisica-general",
   durationWeeks: 6,
-  weeklyFrequency: 3,
-  sessionDurationMinutes: 45,
+  weeklyFrequency: 4,
+  sessionDurationMinutes: 55,
   progressionStrategy: "",
   recoveryStrategy: "",
   successIndicator: "",
@@ -57,6 +67,10 @@ function normalizeItems(value: unknown): PlanItem[] {
     .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
     .map((item) => ({
       id: typeof item.id === "string" && item.id ? item.id : crypto.randomUUID(),
+      exerciseId: typeof item.exerciseId === "string" ? item.exerciseId : "",
+      description: typeof item.description === "string" ? item.description : "",
+      day: typeof item.day === "string" ? item.day : "",
+      goal: typeof item.goal === "string" ? item.goal : "1",
       activity: typeof item.activity === "string" ? item.activity : "",
       capacity: typeof item.capacity === "string" ? item.capacity : "",
       dose: typeof item.dose === "string" ? item.dose : "",
@@ -71,14 +85,12 @@ export function SecondYearPersonalPlan() {
   const [tests, setTests] = useState<PhysicalTest[]>([]);
   const [reference, setReference] = useState<FitnessReference | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
-    void load();
-  }, []);
-
   async function load() {
     setLoading(true);
     setError("");
@@ -102,7 +114,7 @@ export function SecondYearPersonalPlan() {
       const [planResult, physicalData] = await Promise.all([
         supabase
           .from("personal_training_plans")
-          .select("initial_analysis,objective,priority_capacity,duration_weeks,weekly_frequency,session_duration_minutes,progression_strategy,recovery_strategy,success_indicator,plan_items,status")
+          .select("initial_analysis,objective,secondary_objective,secondary_success_indicator,priority_capacity,duration_weeks,weekly_frequency,session_duration_minutes,progression_strategy,recovery_strategy,success_indicator,plan_items,status")
           .eq("student_id", student.id)
           .eq("course_id", student.course_id)
           .eq("sa_code", "SA1")
@@ -120,6 +132,8 @@ export function SecondYearPersonalPlan() {
         setForm({
           initialAnalysis: row.initial_analysis ?? "",
           objective: row.objective ?? "",
+          secondaryObjective: row.secondary_objective ?? "",
+          secondarySuccessIndicator: row.secondary_success_indicator ?? "",
           priorityCapacity: row.priority_capacity || "condicion-fisica-general",
           durationWeeks: Number(row.duration_weeks) || 6,
           weeklyFrequency: Number(row.weekly_frequency) || 3,
@@ -132,17 +146,21 @@ export function SecondYearPersonalPlan() {
         });
       }
     } catch (cause) {
+      setLoadFailed(true);
       setError(cause instanceof Error ? cause.message : "No se ha podido cargar el plan personal.");
     } finally {
       setLoading(false);
     }
   }
 
+    void load();
+  }, []);
+
   const initialSnapshot = useMemo(() => {
     const completed = tests.filter((test) => test.september != null).length;
     if (!reference) return { completed, index: null as number | null };
     const indexes = tests
-      .map((test) => physicalBenchmarkComparison(test, test.september, reference)?.index)
+      .map((test) => secondYearPhysicalComparison(test, test.september, reference)?.index)
       .filter((value): value is number => value != null && Number.isFinite(value));
     const index = indexes.length ? indexes.reduce((sum, value) => sum + value, 0) / indexes.length : null;
     return { completed, index };
@@ -156,7 +174,7 @@ export function SecondYearPersonalPlan() {
   function addItem() {
     updateField("items", [
       ...form.items,
-      { id: crypto.randomUUID(), activity: "", capacity: form.priorityCapacity, dose: "", recovery: "" },
+      { id: crypto.randomUUID(), activity: "", exerciseId: "", description: "", day: "", goal: "1", capacity: form.priorityCapacity, dose: "", recovery: "" },
     ]);
   }
 
@@ -171,6 +189,12 @@ export function SecondYearPersonalPlan() {
     updateField("items", form.items.filter((item) => item.id !== id));
   }
 
+  function selectExercise(id: string, exerciseId: string) {
+    const exercise = secondYearExercises.find((item) => item.id === exerciseId);
+    if (!exercise) return;
+    updateField("items", form.items.map((item) => item.id === id ? { ...item, exerciseId, activity: exercise.name, description: exercise.description, capacity: exercise.capacity, dose: exercise.dose, recovery: exercise.recovery } : item));
+  }
+
   async function save() {
     if (!studentId || !courseId) return;
     setSaving(true);
@@ -178,6 +202,8 @@ export function SecondYearPersonalPlan() {
     setMessage("");
 
     try {
+      if (form.status !== "draft" && (!form.objective.trim() || !form.successIndicator.trim())) throw new Error("Completa el objetivo principal y su indicador antes de activar el plan.");
+      if (form.secondaryObjective.trim() && !form.secondarySuccessIndicator.trim()) throw new Error("Añade cómo comprobarás el segundo objetivo.");
       const supabase = createClient();
       const cleanItems = form.items
         .map((item) => ({
@@ -186,6 +212,7 @@ export function SecondYearPersonalPlan() {
           capacity: item.capacity.trim(),
           dose: item.dose.trim(),
           recovery: item.recovery.trim(),
+          goal: form.secondaryObjective.trim() ? item.goal : "1",
         }))
         .filter((item) => item.activity || item.dose || item.recovery);
 
@@ -198,6 +225,8 @@ export function SecondYearPersonalPlan() {
             sa_code: "SA1",
             initial_analysis: form.initialAnalysis.trim(),
             objective: form.objective.trim(),
+            secondary_objective: form.secondaryObjective.trim(),
+            secondary_success_indicator: form.secondarySuccessIndicator.trim(),
             priority_capacity: form.priorityCapacity,
             duration_weeks: form.durationWeeks,
             weekly_frequency: form.weeklyFrequency,
@@ -217,7 +246,7 @@ export function SecondYearPersonalPlan() {
       if (saveError) throw saveError;
       if (!data) throw new Error("Supabase no ha confirmado el guardado del plan.");
       setForm((current) => ({ ...current, items: cleanItems }));
-      setMessage("Plan personal guardado y verificado en Supabase.");
+      setMessage("Plan personal guardado.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se ha podido guardar el plan personal.");
     } finally {
@@ -229,8 +258,10 @@ export function SecondYearPersonalPlan() {
     return <div className="card flex items-center gap-3 p-6 text-sm text-slate-500"><Loader2 className="animate-spin" size={20}/>Cargando tu plan personal…</div>;
   }
 
+  if (loadFailed) return <div role="alert" className="card p-6 text-red-700"><p>{error}</p><button type="button" onClick={() => window.location.reload()} className="mt-3 rounded-xl border px-4 py-2 font-bold">Volver a cargar el plan</button></div>;
+
   return (
-    <div className="space-y-6">
+    <fieldset disabled={saving} className="space-y-6">
       <section className="grid gap-4 sm:grid-cols-3">
         <article className="card p-5">
           <p className="text-sm text-slate-500">Pruebas iniciales registradas</p>
@@ -270,11 +301,17 @@ export function SecondYearPersonalPlan() {
       </section>
 
       <section className="card p-6 sm:p-8">
-        <h2 className="text-xl font-extrabold">2. Define un objetivo y la dosis general</h2>
+        <h2 className="text-xl font-extrabold">2. Define uno o dos objetivos y la dosis general</h2>
         <div className="mt-5 grid gap-4 md:grid-cols-2">
-          <label className="text-sm font-bold text-slate-700 md:col-span-2">Objetivo personal
+          <label className="text-sm font-bold text-slate-700 md:col-span-2">Objetivo principal
             <textarea value={form.objective} onChange={(event) => updateField("objective", event.target.value)} rows={3} placeholder="Qué quiero mejorar, cuánto y en qué periodo" className="mt-2 w-full rounded-xl border border-slate-200 p-3 text-sm font-normal outline-none focus:border-[#1e6b4f]" />
           </label>
+          <label className="text-sm font-bold text-slate-700 md:col-span-2">Segundo objetivo (opcional)
+            <textarea value={form.secondaryObjective} onChange={(event) => updateField("secondaryObjective", event.target.value)} rows={2} placeholder="Una segunda mejora concreta que complemente la principal" className="mt-2 w-full rounded-xl border border-slate-200 p-3 text-sm font-normal" />
+          </label>
+          {form.secondaryObjective && <label className="text-sm font-bold text-slate-700 md:col-span-2">¿Cómo comprobaré el segundo objetivo?
+            <textarea value={form.secondarySuccessIndicator} onChange={(event) => updateField("secondarySuccessIndicator", event.target.value)} rows={2} placeholder="Indicador, punto de partida y fecha de revisión" className="mt-2 w-full rounded-xl border border-slate-200 p-3 text-sm font-normal" />
+          </label>}
           <label className="text-sm font-bold text-slate-700">Capacidad prioritaria
             <select value={form.priorityCapacity} onChange={(event) => updateField("priorityCapacity", event.target.value)} className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-semibold">
               {capacityOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -292,7 +329,7 @@ export function SecondYearPersonalPlan() {
           </label>
           <label className="text-sm font-bold text-slate-700">Duración orientativa de sesión
             <select value={form.sessionDurationMinutes} onChange={(event) => updateField("sessionDurationMinutes", Number(event.target.value))} className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-semibold">
-              {[30, 45, 60, 75].map((value) => <option key={value} value={value}>{value} min</option>)}
+              {[30, 45, 55, 60, 75].map((value) => <option key={value} value={value}>{value} min</option>)}
             </select>
           </label>
         </div>
@@ -300,13 +337,19 @@ export function SecondYearPersonalPlan() {
 
       <section className="card p-6 sm:p-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div><h2 className="text-xl font-extrabold">3. Selecciona tareas y concreta la carga</h2><p className="mt-1 text-sm text-slate-500">Indica qué harás, qué capacidad trabaja, la dosis y la recuperación.</p></div>
+          <div><h2 className="text-xl font-extrabold">3. Selecciona tareas y concreta la carga</h2><p className="mt-1 text-sm text-slate-500">Elige un ejercicio del catálogo y adapta su carga, día y objetivo. Las dosis son orientaciones escolares, no programas de alto rendimiento; revísalas con el profesor.</p></div>
           <button type="button" onClick={addItem} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white"><Plus size={17}/>Añadir ejercicio</button>
         </div>
         <div className="mt-5 space-y-3">
           {form.items.length === 0 && <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">Añade las tareas principales de tu plan. Para resistencia puedes escribir, por ejemplo, “3 × 6 min”; para fuerza, “3 × 10 repeticiones”.</div>}
           {form.items.map((item, index) => (
-            <div key={item.id} className="grid gap-3 rounded-2xl border border-slate-200 p-4 lg:grid-cols-[1.5fr_1fr_1fr_1fr_auto] lg:items-end">
+            <div key={item.id} className="grid gap-3 rounded-2xl border border-slate-200 p-4 md:grid-cols-2">
+              <label className="text-sm font-bold md:col-span-2">Elegir ejercicio {index + 1} del catálogo
+                <select value={item.exerciseId} onChange={(event) => selectExercise(item.id, event.target.value)} className="mt-2 w-full min-w-0 rounded-xl border p-3 text-sm"><option value="">Selecciona un ejercicio o conserva tu tarea propia</option>{secondYearExercises.map((exercise) => <option key={exercise.id} value={exercise.id}>{exercise.name}</option>)}</select>
+              </label>
+              {item.description && <div className="rounded-xl bg-emerald-50 p-4 text-sm leading-6 md:col-span-2"><p>{item.description}</p><p className="mt-2 text-xs text-slate-500">{secondYearExercises.find((exercise) => exercise.id === item.exerciseId)?.source}</p></div>}
+              <label className="text-xs font-bold text-slate-500">Día de práctica<select value={item.day} onChange={(event) => updateItem(item.id, "day", event.target.value)} className="mt-2 w-full rounded-xl border p-3 text-sm"><option value="">Por concretar con la agenda</option>{SECOND_YEAR_WEEK.map((day) => <option key={day.weekday} value={day.label}>{day.label} · {day.start}–{day.end}</option>)}</select></label>
+              <label className="text-xs font-bold text-slate-500">Objetivo al que contribuye<select value={item.goal} onChange={(event) => updateItem(item.id, "goal", event.target.value)} className="mt-2 w-full rounded-xl border p-3 text-sm"><option value="1">Principal</option><option value="2" disabled={!form.secondaryObjective.trim()}>Segundo objetivo</option><option value="both" disabled={!form.secondaryObjective.trim()}>Ambos</option></select></label>
               <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Actividad
                 <input value={item.activity} onChange={(event) => updateItem(item.id, "activity", event.target.value)} placeholder={`Ejercicio ${index + 1}`} className="mt-2 w-full rounded-xl border border-slate-200 p-3 text-sm font-medium normal-case tracking-normal" />
               </label>
@@ -353,6 +396,6 @@ export function SecondYearPersonalPlan() {
         <div className="flex items-start gap-3"><CheckCircle2 className="mt-0.5 text-emerald-300" size={20}/><div><p className="font-extrabold">Justifica el plan con tus datos y con la teoría</p><p className="mt-1 text-xs leading-5 text-slate-300">Tu objetivo, carga, progresión y recuperación deben poder explicarse usando los principios de entrenamiento estudiados.</p></div></div>
         <button type="button" disabled={saving} onClick={() => void save()} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-extrabold text-slate-950 disabled:opacity-50">{saving ? <Loader2 className="animate-spin" size={17}/> : <Save size={17}/>}Guardar plan</button>
       </section>
-    </div>
+    </fieldset>
   );
 }
