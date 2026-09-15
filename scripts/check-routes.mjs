@@ -38,7 +38,7 @@ for (const dir of sourceDirs) {
     const text = fs.readFileSync(file, "utf8");
     for (const match of text.matchAll(/href=["'`]([^"'`]+)["'`]/g)) {
       const href = match[1];
-      if (href.startsWith("/") && !href.includes("${") && !matchesRoute(href.replace(/\/$/, "") || "/")) {
+      if (href.startsWith("/") && !href.includes("${") && !matchesRoute(href.split(/[?#]/)[0].replace(/\/$/, "") || "/")) {
         broken.push(`${path.relative(root, file)} -> ${href}`);
       }
     }
