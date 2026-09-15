@@ -16,7 +16,8 @@ function PercentCard({ label, percent, detail }: { label: string; percent: numbe
   </article>;
 }
 
-export function SecondYearProgressDashboard() {
+export function SecondYearProgressDashboard({ visibleSituations }: { visibleSituations: string[] }) {
+  const topics = secondYearTheoryTopics.filter((topic) => visibleSituations.includes(topic.sa));
   const [progress, setProgress] = useState<Record<string, TheoryTopicProgress> | null>(null);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -25,7 +26,7 @@ export function SecondYearProgressDashboard() {
       .catch(() => { if (active) setError("No se ha podido cargar tu progreso teórico. Vuelve a abrir esta página para intentarlo de nuevo."); });
     return () => { active = false; };
   }, []);
-  const total = progress ? theoryProgressTotals(secondYearTheoryTopics.map((topic) => topic.slug), progress) : null;
+  const total = progress ? theoryProgressTotals(topics.map((topic) => topic.slug), progress) : null;
 
   return <div className="space-y-7">
     <section className="card p-5 sm:p-7" aria-labelledby="theory-overview-title">
@@ -41,7 +42,7 @@ export function SecondYearProgressDashboard() {
     </section>
     <section className="space-y-4" aria-labelledby="sa-progress-title">
       <div><h2 id="sa-progress-title" className="text-2xl font-extrabold">Mi progreso por situación de aprendizaje</h2><p className="mt-2 text-sm text-slate-600">Abre cada SA para consultar tus datos y continuar el trabajo.</p></div>
-      {secondYearTheoryTopics.map((topic) => {
+      {topics.map((topic) => {
         const item = progress?.[topic.slug];
         const score = item?.quizScore;
         const href = `/alumno/2bach/sa${topic.number}`;
