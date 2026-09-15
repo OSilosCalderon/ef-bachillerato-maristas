@@ -48,3 +48,17 @@ assert.equal(physicalPeriodTotals(tests, "september", "femenino").index, 135);
 assert.equal(physicalPeriodTotals(tests, "september", null).index, null);
 assert.equal(physicalPeriodTotals([], "december", "masculino").points, null);
 console.log("Second-year progress: independent reading and quizzes, zero scores, course isolation, mixed units, timed tests, partial periods and missing references passed.");
+
+const { physicalCapacity, physicalCapacityTotals } = load("lib/second-year-progress.ts");
+for (const [name, expected] of [["Test 5 × 10 m", "Velocidad"], ["Sprint de 30 metros con salida lanzada", "Velocidad"], ["Sprint de 60 metros desde posición estática", "Velocidad"], ["Flexión lateral del tronco", "Flexibilidad / movilidad"], ["Flexiones de brazos", "Fuerza"], ["Salto horizontal con contramovimiento", "Fuerza"], ["Test de abdominales en 1 minuto", "Fuerza"], ["Carrera de 12 minutos (Test de Cooper)", "Resistencia"], ["Test de Course Navette", "Resistencia"], ["Test de extensión de hombros", "Flexibilidad / movilidad"], ["Test de Sit and Reach", "Flexibilidad / movilidad"], ["Prueba nueva", "Otras pruebas"]]) assert.equal(physicalCapacity(name), expected);
+const capacity = physicalCapacityTotals([{ ...tests[0], name: "Cooper" }, { ...tests[1], name: "Course Navette" }], "masculino")[0];
+assert.equal(capacity.september.compared, 2);
+assert.equal(capacity.december.compared, 1);
+assert.equal(capacity.pairedCount, 1);
+assert.equal(capacity.pairedSeptember, 120);
+assert.equal(capacity.pairedDecember, 130);
+assert.equal(physicalCapacityTotals([{ ...tests[0], name: "Cooper" }], null)[0].september.index, null);
+console.log("Capacity grouping and like-for-like period comparison passed.");
+
+assert.equal(physicalPeriodTotals([{direction: "higher_better", benchmarkMale: 10, september: 0}], "september", "masculino").index, 0);
+assert.equal(physicalPeriodTotals([{direction: "higher_better", benchmarkMale: Infinity, september: 10}], "september", "masculino").index, null);

@@ -30,7 +30,7 @@ export function ClassScheduleCard({ showAll=false }: { showAll?: boolean }) {
     }
     let slotQuery=supabase.from("class_schedules").select("id,class_group,weekday,start_time,end_time").eq("academic_year","2026/2027").eq("active",true).order("class_group").order("weekday");
     let sessionQuery=supabase.from("class_sessions").select("id,class_group,session_date,start_time,end_time,status").eq("academic_year","2026/2027").eq("status","scheduled").gte("session_date",new Date().toISOString().slice(0,10)).order("session_date").limit(showAll?8:4);
-    if(!showAll && currentGroup && (currentGroup.includes("1ºA")||currentGroup.includes("1ºB"))){
+    if(!showAll && currentGroup && ["1ºA Bachillerato", "1ºB Bachillerato", "2º Bachillerato"].includes(currentGroup)){
       slotQuery=slotQuery.eq("class_group",currentGroup);
       sessionQuery=sessionQuery.eq("class_group",currentGroup);
     }

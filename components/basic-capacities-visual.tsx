@@ -1,0 +1,5 @@
+import { basicCapacities } from "@/lib/basic-physical-capacities";
+
+export function BasicCapacitiesVisual() {
+  return <figure className="card p-5 sm:p-8"><h2 className="text-xl font-extrabold">Capacidad → sistema → adaptación → deporte</h2><div className="mt-5 grid gap-4 sm:grid-cols-2">{basicCapacities.map((item) => <div key={item.name} className={`rounded-2xl border p-5 ${item.color}`}><h3 className="text-lg font-extrabold">{item.name}</h3><p className="mt-2 text-sm font-bold">{item.types}</p><dl className="mt-4 space-y-3 text-sm leading-6"><div><dt className="font-bold">¿Qué la hace posible?</dt><dd>{item.system}</dd></div><div><dt className="font-bold">¿Qué puede mejorar?</dt><dd>{item.adaptation}</dd></div><div><dt className="font-bold">Asociación deportiva</dt><dd>{item.sport}</dd></div></dl></div>)}</div><figcaption className="mt-4 text-xs leading-5 text-slate-500">Esquema de síntesis de los manuales aportados. Los sistemas colaboran: ningún gesto depende de una sola capacidad.</figcaption></figure>;
+}
