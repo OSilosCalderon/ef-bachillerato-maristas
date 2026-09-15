@@ -108,7 +108,7 @@ function LoginContent() {
               </div>
 
               <form onSubmit={submit} className="mt-7 space-y-4">
-                <label htmlFor="identifier" className="block text-xs font-bold uppercase tracking-wide text-slate-500">Correo electrónico
+                <label htmlFor="identifier" className="block text-xs font-bold uppercase tracking-wide text-slate-500">Usuario o correo electrónico
                   <input id="identifier" type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} placeholder="nombre.apellido" required value={identifier} onChange={(e)=>setIdentifier(e.target.value)} className="mt-2 w-full rounded-xl border border-[#d9ccbc] bg-white p-3 text-sm outline-none focus:border-[#1e6b4f] focus:ring-2 focus:ring-[#1e6b4f]/15"/>
                 </label>
                 <label htmlFor="password" className="block text-xs font-bold uppercase tracking-wide text-slate-500">Contraseña
