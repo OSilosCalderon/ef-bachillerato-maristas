@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { BarChart3, LockKeyhole, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { firstYearCalendarGroup } from "@/lib/class-groups";
 
 type Course = { id: string; name: string; bachillerato_year: number };
 type Student = { id: string; displayName: string; classGroup: string };
@@ -17,12 +18,12 @@ const dimensions = {
   BPNES: [["autonomy", "Autonomía"], ["competence", "Competencia"], ["relatedness", "Relación con los demás"]],
 } as const;
 
-export function TeacherPsychologicalReports() {
-  const [courseYear, setCourseYear] = useState<1 | 2>(1);
+export function TeacherPsychologicalReports({ initialYear = 1, initialStudentId = "", initialGroup = "" }: { initialYear?: 1 | 2; initialStudentId?: string; initialGroup?: string } = {}) {
+  const [courseYear, setCourseYear] = useState<1 | 2>(initialYear);
   const [students, setStudents] = useState<Student[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
-  const [group, setGroup] = useState("");
-  const [studentId, setStudentId] = useState("");
+  const [group, setGroup] = useState(initialGroup);
+  const [studentId, setStudentId] = useState(initialStudentId);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -32,7 +33,7 @@ export function TeacherPsychologicalReports() {
       setLoading(true); setError("");
       try {
         const supabase = createClient();
-        const { data: courseRows, error: courseError } = await supabase.from("courses").select("id,name,bachillerato_year").in("bachillerato_year", [1, 2]).order("bachillerato_year");
+        const { data: courseRows, error: courseError } = await supabase.from("courses").select("id,name,bachillerato_year").in("bachillerato_year", [1, 2]).eq("is_active", true).order("bachillerato_year");
         if (courseError) throw courseError;
         const selectedCourse = ((courseRows ?? []) as Course[]).find((course) => Number(course.bachillerato_year) === courseYear);
         if (!selectedCourse) throw new Error("No se ha encontrado el curso seleccionado.");
@@ -40,7 +41,7 @@ export function TeacherPsychologicalReports() {
         if (studentError) throw studentError;
         const normalizedStudents = (studentRows ?? []).map((row) => {
           const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
-          return { id: String(row.id), displayName: String(profile?.display_name ?? "Alumno/a"), classGroup: String(profile?.class_group ?? `${courseYear}º Bachillerato`) };
+          return { id: String(row.id), displayName: String(profile?.display_name ?? "Alumno/a"), classGroup: firstYearCalendarGroup(profile?.class_group) ?? String(profile?.class_group ?? `${courseYear}º Bachillerato`) };
         }).sort((a, b) => a.displayName.localeCompare(b.displayName, "es"));
         const { data: sa1, error: saError } = await supabase.from("learning_situations").select("id").eq("course_id", selectedCourse.id).eq("code", "SA1").single();
         if (saError || !sa1) throw new Error("No se ha encontrado la SA1 del curso.");
@@ -62,14 +63,20 @@ export function TeacherPsychologicalReports() {
         const { data: attemptRows, error: attemptError } = await supabase.from("questionnaire_attempts").select("id,questionnaire_id,student_id").in("questionnaire_id", qIds).eq("status", "submitted");
         if (attemptError) throw attemptError;
         const attempts = (attemptRows ?? []) as Attempt[];
-        const responsesResult = attempts.length ? await supabase.from("questionnaire_responses").select("attempt_id,question_id,answer").in("attempt_id", attempts.map((attempt) => attempt.id)) : { data: [], error: null };
-        if (responsesResult.error) throw responsesResult.error;
+        const responseRows: Response[] = [];
+        // At most 50 attempts per request: GOES/BPNES have 10/12 items,
+        // so every response fits below the API row limit and URL stays bounded.
+        for (let offset = 0; offset < attempts.length; offset += 50) {
+          const result = await supabase.from("questionnaire_responses").select("attempt_id,question_id,answer").in("attempt_id", attempts.slice(offset, offset + 50).map((attempt) => attempt.id));
+          if (result.error) throw result.error;
+          responseRows.push(...(result.data ?? []) as Response[]);
+        }
         const dimensionMap = new Map((dimensionRows ?? []).map((row) => [String(row.question_id), String(row.dimension)]));
         const optionQuestionMap = new Map((optionRows ?? []).map((option) => [String(option.id), String(option.question_id)]));
         const scoreMap = new Map((scoresResult.data ?? []).map((score) => [String(score.option_id), Number(score.score)]));
         const questionnaireMap = new Map(qs.map((q) => [q.id, q]));
         const responseByAttempt = new Map<string, Response[]>();
-        for (const response of (responsesResult.data ?? []) as Response[]) responseByAttempt.set(response.attempt_id, [...(responseByAttempt.get(response.attempt_id) ?? []), response]);
+        for (const response of responseRows) responseByAttempt.set(response.attempt_id, [...(responseByAttempt.get(response.attempt_id) ?? []), response]);
         const calculated: Report[] = attempts.map((attempt) => {
           const q = questionnaireMap.get(attempt.questionnaire_id)!;
           const buckets = new Map<string, number[]>();

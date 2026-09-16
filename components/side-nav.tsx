@@ -39,7 +39,7 @@ const secondYearItems: NavItem[] = [
 const teacherItems: NavItem[] = [
   { label: "Activar situaciones", mobileLabel: "Activar SA", href: "/profesor/situaciones", icon: BookOpen },
   { label: "Agenda de clases", mobileLabel: "Agenda", href: "/profesor/agenda", icon: CalendarDays },
-  { label: "Dashboard", mobileLabel: "Inicio", href: "/profesor", icon: Gauge },
+  { label: "Resultados del alumnado", mobileLabel: "Resultados", href: "/profesor", icon: Gauge },
   { label: "Alumnado", href: "/profesor/alumnado", icon: Users },
   { label: "Cuestionarios", mobileLabel: "Tests", href: "/profesor/cuestionarios", icon: ClipboardCheck },
   { label: "Crear actividad", mobileLabel: "Crear", href: "/profesor/crear-actividad", icon: PlusCircle },
