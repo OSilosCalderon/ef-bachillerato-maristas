@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, BookOpenCheck, ClipboardCheck, Home, Target } from "lucide-react";
+import { Activity, BookOpenCheck, ClipboardCheck, ClipboardList, Home, Target } from "lucide-react";
 
 const items = [
   { href: "/alumno/2bach/sa1", label: "Resumen", icon: Home },
   { href: "/alumno/2bach/sa1/evaluacion", label: "Evaluación inicial", icon: ClipboardCheck },
+  { href: "/alumno/2bach/sa1/cuestionarios", label: "Cuestionarios", icon: ClipboardList },
   { href: "/alumno/2bach/sa1/registro", label: "Registro de datos", icon: Activity },
   { href: "/alumno/2bach/sa1/plan", label: "Mi plan personal", icon: Target },
   { href: "/alumno/2bach/sa1/teoria", label: "Bloque teórico", icon: BookOpenCheck },
@@ -16,7 +17,7 @@ export function SecondYearSa1SectionNav() {
   const pathname = usePathname();
 
   return (
-    <nav aria-label="Apartados de la SA1 de 2º Bachillerato" className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+    <nav aria-label="Apartados de la SA1 de 2º Bachillerato" className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
       {items.map(({ href, label, icon: Icon }) => {
         const active = href === "/alumno/2bach/sa1" ? pathname === href : pathname.startsWith(href);
         return (
