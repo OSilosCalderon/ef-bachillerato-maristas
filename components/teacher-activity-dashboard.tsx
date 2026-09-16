@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { activityCategories, categorySummary, mean, physicalComparison, type ActivityCategory, type TeacherActivityData } from "@/lib/teacher-activity";
 import { physicalCapacity } from "@/lib/second-year-progress";
@@ -27,6 +27,7 @@ function Bar({ label, value, max = 100, color = "bg-emerald-600", suffix = "" }:
 
 export function TeacherActivityDashboard({ data, year }: { data: TeacherActivityData; year: 1 | 2 }) {
   const router = useRouter();
+  const [changingCourse, startCourseChange] = useTransition();
   const [group, setGroup] = useState(""); const [studentId, setStudentId] = useState("");
   const [sa, setSa] = useState(""); const [view, setView] = useState<"group" | "individual">("group");
   const groups = [...new Set(data.students.map((student) => student.group))].sort();
@@ -44,12 +45,14 @@ export function TeacherActivityDashboard({ data, year }: { data: TeacherActivity
   return <div className="space-y-6">
     <section className="card p-5 sm:p-7">
       <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-[#1e6b4f]">Seguimiento docente · {year}º Bachillerato</p><h1 className="mt-2 text-2xl font-extrabold">Actividad y resultados del alumnado</h1><p className="mt-2 text-sm text-slate-500">{data.courseName} · Datos guardados en la plataforma. Solo el profesorado puede consultar esta vista.</p></div><button onClick={() => router.refresh()} className="rounded-xl border px-4 py-2 text-sm font-bold">Actualizar datos</button></div>
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <label className="text-sm font-bold">Curso de los resultados<select aria-label="Curso de los resultados" value={year} disabled={changingCourse} onChange={(event) => { const value = event.target.value; startCourseChange(() => router.push(`/profesor?curso=${value}`)); }} className="mt-2 w-full rounded-xl border border-emerald-600 bg-emerald-50 p-3"><option value="1">1º Bachillerato</option><option value="2">2º Bachillerato</option></select></label>
         <label className="text-sm font-bold">Grupo<select value={group} onChange={(event) => { setGroup(event.target.value); setStudentId(""); }} className="mt-2 w-full rounded-xl border p-3"><option value="">Todos los grupos del curso</option>{groups.map((value) => <option key={value}>{value}</option>)}</select></label>
         <label className="text-sm font-bold">Situación<select value={sa} onChange={(event) => setSa(event.target.value)} className="mt-2 w-full rounded-xl border p-3"><option value="">Todas las situaciones</option>{data.situations.map((entry) => <option key={entry.id} value={entry.code}>{entry.code} · {entry.title}</option>)}</select></label>
         <label className="text-sm font-bold">Vista<select value={view} onChange={(event) => setView(event.target.value as typeof view)} className="mt-2 w-full rounded-xl border p-3"><option value="group">Grupal</option><option value="individual">Individual</option></select></label>
         <label className="text-sm font-bold">Alumno/a<select value={selected?.id ?? ""} onChange={(event) => { setStudentId(event.target.value); setView("individual"); }} className="mt-2 w-full rounded-xl border p-3">{students.map((student) => <option key={student.id} value={student.id}>{student.name}</option>)}</select></label>
       </div>
+      {changingCourse && <p role="status" className="mt-3 font-semibold text-[#1e6b4f]">Cargando los resultados del curso seleccionado…</p>}
       <p className="mt-4 text-xs text-slate-500">{students.length} alumnos en el filtro · {activities.length} registros. No se calcula una nota global mezclando actividades de naturaleza distinta.</p>
     </section>
     {!students.length ? <p className="card p-6">No hay alumnado activo en este grupo.</p> : <>
