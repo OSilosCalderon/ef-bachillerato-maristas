@@ -20,7 +20,7 @@ jobs:
       - name: Install dependencies
         run: npm install
       - name: Check theory and routes
-        run: npm run check:login && npm run check:theory && npm run check:progress && npm run check:routes
+        run: npm run check:login && npm run check:theory && npm run check:progress && npm run check:routes && node scripts/check-personal-plan-tasks.mjs
       - name: Typecheck
         run: npm run typecheck
       - name: Build

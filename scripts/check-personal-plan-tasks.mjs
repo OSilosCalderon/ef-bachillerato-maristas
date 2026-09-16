@@ -1,0 +1,26 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import vm from "node:vm";
+import { webcrypto } from "node:crypto";
+import ts from "typescript";
+
+const module = { exports: {} };
+vm.runInNewContext(ts.transpileModule(fs.readFileSync("lib/personal-plan-tasks.ts", "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { module, exports: module.exports, crypto: webcrypto });
+const { normalizeItems, cleanPlanItems, emptyExercise } = module.exports;
+const legacy = { id: "old", activity: "Carrera", exerciseId: "continuous", sessionDate: "2026-10-13", day: "Martes", goal: "2", capacity: "resistencia", dose: "12 min", recovery: "2 min", description: "Ritmo regular" };
+const migrated = normalizeItems([legacy]);
+assert.equal(migrated.length, 1);
+assert.equal(migrated[0].methodology, "custom");
+assert.equal(migrated[0].sessionDate, legacy.sessionDate);
+for (const key of ["exerciseId", "activity", "capacity", "dose", "recovery", "description"]) assert.equal(migrated[0].exercises[0][key], legacy[key]);
+const task = { ...migrated[0], methodology: "circuit", rounds: "2", roundRecovery: "90 s", exercises: [migrated[0].exercises[0], { ...emptyExercise(), activity: "Sentadilla", dose: "8 repeticiones", recovery: "30 s" }, { ...emptyExercise(), activity: "Movilidad", dose: "8 movimientos", recovery: "20 s" }] };
+const saved = cleanPlanItems([task, { ...task, id: "same-date" }], true);
+const reloaded = normalizeItems(JSON.parse(JSON.stringify(saved)));
+assert.equal(JSON.stringify(reloaded), JSON.stringify(saved));
+assert.equal(reloaded[0].exercises.length, 3);
+assert.equal(reloaded[1].sessionDate, reloaded[0].sessionDate);
+assert.equal(cleanPlanItems([task], false)[0].goal, "1");
+assert.equal(normalizeItems([null, [], 3]).length, 0);
+assert.equal(emptyExercise().id === emptyExercise().id, false);
+assert.equal(normalizeItems([{ ...task, exercises: [] }])[0].exercises.length, 0);
+console.log("Personal plans: legacy exercises preserved, multiple exercises and same-date tasks survive save/reload.");
