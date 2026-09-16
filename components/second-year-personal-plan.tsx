@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { BarChart3, CalendarDays, CheckCircle2, Loader2, MessageSquareText, Plus, Save, Trash2 } from "lucide-react";
-import { secondYearExercises } from "@/lib/second-year-exercises";
+import { PersonalPlanTaskEditor } from "@/components/personal-plan-task-editor";
+import { cleanPlanItems, emptyExercise, methodologyLabels, normalizeItems, type PlanItem } from "@/lib/personal-plan-tasks";
 import { FIRST_YEAR_PLAN_SESSIONS } from "@/lib/first-year-personal-plan-calendar";
 import { SECOND_YEAR_PLAN_SESSIONS, SECOND_YEAR_PLAN_START } from "@/lib/second-year-personal-plan-calendar";
 import { firstYearCalendarGroup } from "@/lib/class-groups";
@@ -10,19 +11,6 @@ import { createClient } from "@/lib/supabase/client";
 import { loadPhysicalTestsForCurrentStudent } from "@/lib/sa1-physical-data";
 import { secondYearPhysicalComparison } from "@/lib/second-year-progress";
 import type { FitnessReference, PhysicalTest } from "@/lib/sa1-types";
-
-type PlanItem = {
-  id: string;
-  activity: string;
-  exerciseId: string;
-  description: string;
-  sessionDate: string;
-  day: string;
-  goal: string;
-  capacity: string;
-  dose: string;
-  recovery: string;
-};
 
 type PlanForm = {
   initialAnalysis: string;
@@ -67,24 +55,6 @@ const capacityOptions = [
   ["velocidad", "Velocidad"],
   ["flexibilidad-movilidad", "Flexibilidad / movilidad"],
 ] as const;
-
-function normalizeItems(value: unknown): PlanItem[] {
-  if (!Array.isArray(value)) return [];
-  return value
-    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
-    .map((item) => ({
-      id: typeof item.id === "string" && item.id ? item.id : crypto.randomUUID(),
-      exerciseId: typeof item.exerciseId === "string" ? item.exerciseId : "",
-      description: typeof item.description === "string" ? item.description : "",
-      sessionDate: typeof item.sessionDate === "string" ? item.sessionDate : "",
-      day: typeof item.day === "string" ? item.day : "",
-      goal: typeof item.goal === "string" ? item.goal : "1",
-      activity: typeof item.activity === "string" ? item.activity : "",
-      capacity: typeof item.capacity === "string" ? item.capacity : "",
-      dose: typeof item.dose === "string" ? item.dose : "",
-      recovery: typeof item.recovery === "string" ? item.recovery : "",
-    }));
-}
 
 export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 }) {
   const [studentId, setStudentId] = useState<string | null>(null);
@@ -190,15 +160,15 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
     setMessage("");
   }
 
-  function addItem() {
-    const session = planSessions[Math.min(form.items.length, Math.max(planSessions.length - 1, 0))];
+  function addItem(date?: string) {
+    const session = planSessions.find((entry) => entry.date === date) ?? planSessions[0];
     updateField("items", [
       ...form.items,
-      { id: crypto.randomUUID(), activity: "", exerciseId: "", description: "", sessionDate: session?.date ?? "", day: session?.day ?? "", goal: "1", capacity: form.priorityCapacity, dose: "", recovery: "" },
+      { id: crypto.randomUUID(), activity: "", sessionDate: session?.date ?? "", day: session?.day ?? "", goal: "1", methodology: "circuit", rounds: "1", roundRecovery: "", exercises: [emptyExercise()] },
     ]);
   }
 
-  function updateItem(id: string, key: keyof Omit<PlanItem, "id">, value: string) {
+  function updateItem(id: string, key: "activity" | "goal", value: string) {
     updateField(
       "items",
       form.items.map((item) => (item.id === id ? { ...item, [key]: value } : item)),
@@ -214,12 +184,6 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
     updateField("items", form.items.map((item) => item.id === id ? { ...item, sessionDate, day: session?.day ?? "" } : item));
   }
 
-  function selectExercise(id: string, exerciseId: string) {
-    const exercise = secondYearExercises.find((item) => item.id === exerciseId);
-    if (!exercise) return;
-    updateField("items", form.items.map((item) => item.id === id ? { ...item, exerciseId, activity: exercise.name, description: exercise.description, capacity: exercise.capacity, dose: exercise.dose, recovery: exercise.recovery } : item));
-  }
-
   async function save() {
     if (!studentId || !courseId) return;
     setSaving(true);
@@ -231,16 +195,7 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
       if (form.secondaryObjective.trim() && !form.secondarySuccessIndicator.trim()) throw new Error("Añade cómo comprobarás el segundo objetivo.");
       if (form.status === "completed" && (!form.finalConclusions.trim() || !form.futureWork.trim())) throw new Error("Completa las conclusiones y qué quieres seguir trabajando antes de finalizar el plan.");
       const supabase = createClient();
-      const cleanItems = form.items
-        .map((item) => ({
-          ...item,
-          activity: item.activity.trim(),
-          capacity: item.capacity.trim(),
-          dose: item.dose.trim(),
-          recovery: item.recovery.trim(),
-          goal: form.secondaryObjective.trim() ? item.goal : "1",
-        }))
-        .filter((item) => item.activity || item.dose || item.recovery);
+      const cleanItems = cleanPlanItems(form.items, Boolean(form.secondaryObjective.trim()));
 
       const { data, error: saveError } = await supabase
         .from("personal_training_plans")
@@ -313,7 +268,7 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
         <p className="mt-3 text-sm leading-6 text-slate-600">{courseYear === 1 ? "El trabajo comienza en la última semana de octubre y termina el 23 de noviembre." : `El periodo comienza el ${formatPlanDate(SECOND_YEAR_PLAN_START)}. Al ser festivo, la primera sesión lectiva es el 13 de octubre y la décima termina el 28 de octubre.`} Las tareas que añadas abajo aparecerán automáticamente en la sesión elegida.</p>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{planSessions.map((session, index) => {
           const assigned = form.items.filter((item) => item.sessionDate === session.date);
-          return <article key={session.date} className={`rounded-xl border p-4 ${assigned.length ? "border-emerald-300 bg-emerald-50" : "border-slate-200"}`}><p className="text-xs font-bold text-[#1e6b4f]">Sesión {index + 1}</p><p className="mt-1 text-sm font-extrabold">{formatPlanDate(session.date)}</p><p className="mt-1 text-xs text-slate-500">{session.day} · {session.start}–{session.end}</p><div className="mt-3 space-y-2">{assigned.map((item) => <p key={item.id} className="rounded-lg bg-white px-3 py-2 text-xs font-semibold text-slate-700">{item.activity.trim() || "Tarea en preparación"}{item.dose.trim() ? ` · ${item.dose}` : ""}</p>)}{!assigned.length && <p className="text-xs text-slate-400">Sin tareas asignadas</p>}</div></article>;
+          return <article key={session.date} className={`rounded-xl border p-4 ${assigned.length ? "border-emerald-300 bg-emerald-50" : "border-slate-200"}`}><p className="text-xs font-bold text-[#1e6b4f]">Sesión {index + 1}</p><p className="mt-1 text-sm font-extrabold">{formatPlanDate(session.date)}</p><p className="mt-1 text-xs text-slate-500">{session.day} · {session.start}–{session.end}</p><div className="mt-3 space-y-2">{assigned.map((item) => <div key={item.id} className="rounded-lg bg-white px-3 py-2 text-xs text-slate-700"><p className="font-bold">{item.activity.trim() || "Tarea en preparación"}</p><p className="mt-1">{methodologyLabels[item.methodology]} · {item.rounds} vuelta(s)</p><ol className="mt-2 list-inside list-decimal space-y-1">{item.exercises.map((exercise) => <li key={exercise.id}>{exercise.activity || "Ejercicio por elegir"}{exercise.dose ? ` · ${exercise.dose}` : ""}</li>)}</ol></div>)}{!assigned.length && <p className="text-xs text-slate-400">Sin tareas asignadas</p>}</div><button type="button" onClick={() => addItem(session.date)} className="mt-3 text-xs font-bold text-[#1e6b4f] underline">Añadir tarea a esta sesión</button></article>;
         })}</div>
         {form.items.some((item) => !planSessions.some((session) => session.date === item.sessionDate)) && <div className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900"><p className="font-bold">Tareas pendientes de fecha</p><p className="mt-1">Conservamos tus tareas anteriores. Elige su sesión en el apartado 3 para verlas en el calendario.</p><ul className="mt-2 list-inside list-disc">{form.items.filter((item) => !planSessions.some((session) => session.date === item.sessionDate)).map((item) => <li key={item.id}>{item.activity || "Tarea en preparación"}{item.day ? ` · ${item.day}` : ""}</li>)}</ul></div>}
       </section>
@@ -375,34 +330,17 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
 
       <section className="card p-6 sm:p-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div><h2 className="text-xl font-extrabold">3. Selecciona tareas y concreta la carga</h2><p className="mt-1 text-sm text-slate-500">Elige un ejercicio, asígnalo a una sesión del calendario y adapta su carga. Las dosis son orientaciones escolares; revísalas con el profesor.</p></div>
-          <button type="button" onClick={addItem} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white"><Plus size={17}/>Añadir tarea</button>
+          <div><h2 className="text-xl font-extrabold">3. Selecciona tareas y concreta la carga</h2><p className="mt-1 text-sm text-slate-500">Crea una tarea de circuit training o total training y añade todos sus ejercicios. Asigna la tarea a una sesión y adapta las cargas con el profesor.</p></div>
+          <button type="button" onClick={() => addItem()} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white"><Plus size={17}/>Añadir tarea</button>
         </div>
         <div className="mt-5 space-y-3">
           {form.items.length === 0 && <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">Añade las tareas principales de tu plan. Para resistencia puedes escribir, por ejemplo, “3 × 6 min”; para fuerza, “3 × 10 repeticiones”.</div>}
           {form.items.map((item, index) => (
             <div key={item.id} className="grid gap-3 rounded-2xl border border-slate-200 p-4 md:grid-cols-2">
-              <label className="text-sm font-bold md:col-span-2">Elegir ejercicio {index + 1} del catálogo
-                <select value={item.exerciseId} onChange={(event) => selectExercise(item.id, event.target.value)} className="mt-2 w-full min-w-0 rounded-xl border p-3 text-sm"><option value="">Selecciona un ejercicio o conserva tu tarea propia</option>{secondYearExercises.map((exercise) => <option key={exercise.id} value={exercise.id}>{exercise.name}</option>)}</select>
-              </label>
-              {item.description && <div className="rounded-xl bg-emerald-50 p-4 text-sm leading-6 md:col-span-2"><p>{item.description}</p><p className="mt-2 text-xs text-slate-500">{secondYearExercises.find((exercise) => exercise.id === item.exerciseId)?.source}</p></div>}
               <label className="text-xs font-bold text-slate-500">Sesión del calendario<select value={item.sessionDate} onChange={(event) => assignSession(item.id, event.target.value)} className="mt-2 w-full rounded-xl border p-3 text-sm"><option value="">Por concretar</option>{planSessions.map((session, sessionIndex) => <option key={session.date} value={session.date}>Sesión {sessionIndex + 1} · {formatPlanDate(session.date)} · {session.start}</option>)}</select></label>
               <label className="text-xs font-bold text-slate-500">Objetivo al que contribuye<select value={item.goal} onChange={(event) => updateItem(item.id, "goal", event.target.value)} className="mt-2 w-full rounded-xl border p-3 text-sm"><option value="1">Principal</option><option value="2" disabled={!form.secondaryObjective.trim()}>Segundo objetivo</option><option value="both" disabled={!form.secondaryObjective.trim()}>Ambos</option></select></label>
-              <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Actividad
-                <input value={item.activity} onChange={(event) => updateItem(item.id, "activity", event.target.value)} placeholder={`Ejercicio ${index + 1}`} className="mt-2 w-full rounded-xl border border-slate-200 p-3 text-sm font-medium normal-case tracking-normal" />
-              </label>
-              <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Capacidad
-                <select value={item.capacity} onChange={(event) => updateItem(item.id, "capacity", event.target.value)} className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-medium normal-case tracking-normal">
-                  {capacityOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                </select>
-              </label>
-              <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Dosis
-                <input value={item.dose} onChange={(event) => updateItem(item.id, "dose", event.target.value)} placeholder="3×10 / 20 min" className="mt-2 w-full rounded-xl border border-slate-200 p-3 text-sm font-medium normal-case tracking-normal" />
-              </label>
-              <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Recuperación
-                <input value={item.recovery} onChange={(event) => updateItem(item.id, "recovery", event.target.value)} placeholder="60 s / 2 min" className="mt-2 w-full rounded-xl border border-slate-200 p-3 text-sm font-medium normal-case tracking-normal" />
-              </label>
-              <button type="button" onClick={() => removeItem(item.id)} aria-label="Eliminar ejercicio" className="rounded-xl border border-slate-200 p-3 text-slate-500 hover:bg-red-50 hover:text-red-600"><Trash2 size={18}/></button>
+              <PersonalPlanTaskEditor item={item} onChange={(updated) => updateField("items", form.items.map((entry) => entry.id === item.id ? updated : entry))}/>
+              <button type="button" onClick={() => removeItem(item.id)} aria-label={`Eliminar tarea ${index + 1}`} className="rounded-xl border border-slate-200 p-3 text-slate-500 hover:bg-red-50 hover:text-red-600"><Trash2 className="mr-2 inline" size={18}/>Eliminar tarea completa</button>
             </div>
           ))}
         </div>
