@@ -11,6 +11,7 @@ import type { LucideIcon } from "lucide-react";
 type NavItem = { label: string; mobileLabel?: string; href: string; icon: LucideIcon };
 
 const firstYearItems: NavItem[] = [
+  { label: "Mi agenda", mobileLabel: "Agenda", href: "/alumno/agenda", icon: CalendarDays },
   { label: "Inicio", href: "/alumno", icon: Home },
   { label: "Mi progreso", mobileLabel: "Progreso", href: "/alumno/progreso", icon: BarChart3 },
   { label: "Apuntes entrenamiento", mobileLabel: "Apuntes", href: "/alumno/apuntes-entrenamiento", icon: GraduationCap },
@@ -37,7 +38,7 @@ const secondYearItems: NavItem[] = [
 
 const teacherItems: NavItem[] = [
   { label: "Activar situaciones", mobileLabel: "Activar SA", href: "/profesor/situaciones", icon: BookOpen },
-  { label: "Agenda de 2º", mobileLabel: "Agenda", href: "/profesor/agenda", icon: CalendarDays },
+  { label: "Agenda de clases", mobileLabel: "Agenda", href: "/profesor/agenda", icon: CalendarDays },
   { label: "Dashboard", mobileLabel: "Inicio", href: "/profesor", icon: Gauge },
   { label: "Alumnado", href: "/profesor/alumnado", icon: Users },
   { label: "Crear actividad", mobileLabel: "Crear", href: "/profesor/crear-actividad", icon: PlusCircle },
