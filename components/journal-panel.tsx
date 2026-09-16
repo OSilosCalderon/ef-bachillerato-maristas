@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, Check, Clock3, List, Loader2, Plus, Save } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { firstYearCalendarGroup } from "@/lib/class-groups";
 import { TrainingPlanEditor, type TrainingPlanItem } from "@/components/training-plan-editor";
 
 type ClassSession = {
@@ -81,17 +82,17 @@ export function JournalPanel() {
 
       if (userError || !user) throw new Error("No se ha podido identificar al alumno.");
 
-      const [profileResult, studentResult, sa1Result] = await Promise.all([
+      const [profileResult, studentResult] = await Promise.all([
         supabase.from("profiles").select("class_group").eq("id", user.id).single(),
-        supabase.from("students").select("id").eq("profile_id", user.id).single(),
-        supabase.from("learning_situations").select("id").eq("code", "SA1").single(),
+        supabase.from("students").select("id,course_id").eq("profile_id", user.id).single(),
       ]);
 
       if (profileResult.error) throw new Error("No se ha podido cargar el grupo del alumno.");
       if (studentResult.error || !studentResult.data) throw new Error("No se ha encontrado el perfil de alumno.");
+      const sa1Result = await supabase.from("learning_situations").select("id").eq("code", "SA1").eq("course_id", studentResult.data.course_id).single();
       if (sa1Result.error || !sa1Result.data) throw new Error("No se ha encontrado la situación de aprendizaje SA1.");
 
-      const currentGroup = profileResult.data?.class_group ?? null;
+      const currentGroup = firstYearCalendarGroup(profileResult.data?.class_group) ?? profileResult.data?.class_group ?? null;
       const currentStudentId = studentResult.data.id as string;
       const currentSa1Id = sa1Result.data.id as string;
 
