@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { BarChart3, CheckCircle2, Loader2, Plus, Save, Trash2 } from "lucide-react";
 import { secondYearExercises } from "@/lib/second-year-exercises";
 import { SECOND_YEAR_WEEK } from "@/lib/second-year-agenda-calendar";
+import { FIRST_YEAR_PLAN_SESSIONS, FIRST_YEAR_PLAN_WEEK } from "@/lib/first-year-personal-plan-calendar";
+import { firstYearCalendarGroup } from "@/lib/class-groups";
 import { createClient } from "@/lib/supabase/client";
 import { loadPhysicalTestsForCurrentStudent } from "@/lib/sa1-physical-data";
 import { secondYearPhysicalComparison } from "@/lib/second-year-progress";
@@ -78,10 +80,11 @@ function normalizeItems(value: unknown): PlanItem[] {
     }));
 }
 
-export function SecondYearPersonalPlan() {
+export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 }) {
   const [studentId, setStudentId] = useState<string | null>(null);
   const [courseId, setCourseId] = useState<string | null>(null);
-  const [form, setForm] = useState<PlanForm>(emptyPlan);
+  const [form, setForm] = useState<PlanForm>(() => courseYear === 1 ? { ...emptyPlan, durationWeeks: 4, weeklyFrequency: 2 } : emptyPlan);
+  const [classGroup, setClassGroup] = useState(courseYear === 2 ? "2º Bachillerato" : "");
   const [tests, setTests] = useState<PhysicalTest[]>([]);
   const [reference, setReference] = useState<FitnessReference | null>(null);
   const [loading, setLoading] = useState(true);
@@ -107,6 +110,13 @@ export function SecondYearPersonalPlan() {
         .single();
 
       if (studentError || !student) throw new Error("No se ha encontrado el perfil de alumno.");
+
+      if (courseYear === 1) {
+        const { data: profile, error: profileError } = await supabase.from("profiles").select("class_group").eq("id", auth.user.id).single();
+        const calendarGroup = firstYearCalendarGroup(profile?.class_group);
+        if (profileError || !calendarGroup) throw new Error("Tu cuenta no tiene asignado un grupo de 1º. Consulta con el profesor.");
+        setClassGroup(calendarGroup);
+      }
 
       setStudentId(student.id as string);
       setCourseId(student.course_id as string);
@@ -154,7 +164,7 @@ export function SecondYearPersonalPlan() {
   }
 
     void load();
-  }, []);
+  }, [courseYear]);
 
   const initialSnapshot = useMemo(() => {
     const completed = tests.filter((test) => test.september != null).length;
@@ -165,6 +175,8 @@ export function SecondYearPersonalPlan() {
     const index = indexes.length ? indexes.reduce((sum, value) => sum + value, 0) / indexes.length : null;
     return { completed, index };
   }, [tests, reference]);
+  const planSessions = courseYear === 1 ? FIRST_YEAR_PLAN_SESSIONS[classGroup] ?? [] : [];
+  const week = courseYear === 1 ? FIRST_YEAR_PLAN_WEEK[classGroup] ?? [] : SECOND_YEAR_WEEK;
 
   function updateField<K extends keyof PlanForm>(key: K, value: PlanForm[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -280,6 +292,13 @@ export function SecondYearPersonalPlan() {
         </article>
       </section>
 
+      {courseYear === 1 && <section className="card p-6 sm:p-8">
+        <p className="text-xs font-bold uppercase tracking-[.18em] text-[#1e6b4f]">{classGroup} · 8 sesiones</p>
+        <h2 className="mt-2 text-xl font-extrabold">Calendario del plan personal</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">El trabajo comienza en la última semana de octubre y termina el 23 de noviembre. Consulta la agenda por si el profesor modifica o cancela alguna clase.</p>
+        <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{planSessions.map((session, index) => <article key={session.date} className="rounded-xl border border-slate-200 p-3"><p className="text-xs font-bold text-[#1e6b4f]">Sesión {index + 1}</p><p className="mt-1 text-sm font-extrabold">{new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long" }).format(new Date(`${session.date}T12:00:00`))}</p><p className="mt-1 text-xs text-slate-500">{session.day} · {session.start}–{session.end}</p></article>)}</div>
+      </section>}
+
       {(error || message) && (
         <div className={`rounded-2xl border p-4 text-sm font-semibold ${error ? "border-red-200 bg-red-50 text-red-700" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}>
           {error || message}
@@ -348,7 +367,7 @@ export function SecondYearPersonalPlan() {
                 <select value={item.exerciseId} onChange={(event) => selectExercise(item.id, event.target.value)} className="mt-2 w-full min-w-0 rounded-xl border p-3 text-sm"><option value="">Selecciona un ejercicio o conserva tu tarea propia</option>{secondYearExercises.map((exercise) => <option key={exercise.id} value={exercise.id}>{exercise.name}</option>)}</select>
               </label>
               {item.description && <div className="rounded-xl bg-emerald-50 p-4 text-sm leading-6 md:col-span-2"><p>{item.description}</p><p className="mt-2 text-xs text-slate-500">{secondYearExercises.find((exercise) => exercise.id === item.exerciseId)?.source}</p></div>}
-              <label className="text-xs font-bold text-slate-500">Día de práctica<select value={item.day} onChange={(event) => updateItem(item.id, "day", event.target.value)} className="mt-2 w-full rounded-xl border p-3 text-sm"><option value="">Por concretar con la agenda</option>{SECOND_YEAR_WEEK.map((day) => <option key={day.weekday} value={day.label}>{day.label} · {day.start}–{day.end}</option>)}</select></label>
+              <label className="text-xs font-bold text-slate-500">Día de práctica<select value={item.day} onChange={(event) => updateItem(item.id, "day", event.target.value)} className="mt-2 w-full rounded-xl border p-3 text-sm"><option value="">Por concretar con la agenda</option>{week.map((day) => <option key={day.weekday} value={day.label}>{day.label} · {day.start}–{day.end}</option>)}</select></label>
               <label className="text-xs font-bold text-slate-500">Objetivo al que contribuye<select value={item.goal} onChange={(event) => updateItem(item.id, "goal", event.target.value)} className="mt-2 w-full rounded-xl border p-3 text-sm"><option value="1">Principal</option><option value="2" disabled={!form.secondaryObjective.trim()}>Segundo objetivo</option><option value="both" disabled={!form.secondaryObjective.trim()}>Ambos</option></select></label>
               <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Actividad
                 <input value={item.activity} onChange={(event) => updateItem(item.id, "activity", event.target.value)} placeholder={`Ejercicio ${index + 1}`} className="mt-2 w-full rounded-xl border border-slate-200 p-3 text-sm font-medium normal-case tracking-normal" />

@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { Activity, BookOpen, ClipboardList, Gauge, MessageSquareText, ArrowRight } from "lucide-react";
+import { Activity, BookOpen, ClipboardList, Gauge, MessageSquareText, ArrowRight, Target } from "lucide-react";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { Sa1Layout } from "@/components/sa1-layout";
 
 const sections = [
   { href: "/alumno/sa1/evolucion", title: "Mi evolución física", text: "Registra y compara tus resultados de septiembre y noviembre.", icon: Activity, meta: "4 pruebas con datos demo" },
+  { href: "/alumno/sa1/plan", title: "Mi plan personal", text: "Define objetivos, selecciona tareas y organiza ocho sesiones de trabajo.", icon: Target, meta: "26 octubre – 23 noviembre" },
   { href: "/alumno/sa1/contenidos", title: "Contenidos teóricos", text: "Consulta materiales, recursos y documentos publicados.", icon: BookOpen, meta: "2 de 3 consultados" },
   { href: "/alumno/sa1/diario", title: "Diario de sesiones", text: "Reflexiona sobre lo realizado, tus sensaciones y aprendizajes.", icon: MessageSquareText, meta: "2 entradas" },
   { href: "/alumno/sa1/cuestionarios", title: "Cuestionarios", text: "Responde cuestionarios académicos publicados por tu profesor/a.", icon: ClipboardList, meta: "1 de 2 completado" },
@@ -16,7 +17,7 @@ export default function Page() {
     <>
       <DashboardHeader eyebrow="SA1 · Salud" title="Salud y calidad de vida" description="Observa tu evolución, consulta contenidos y reflexiona sobre tu aprendizaje." />
       <Sa1Layout>
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {sections.map(({ href, title, text, icon: Icon, meta }) => (
             <Link key={href} href={href} className="card group flex min-h-56 flex-col p-5 transition hover:-translate-y-0.5 hover:border-slate-300">
               <span className="w-fit rounded-xl bg-[#e7f2ed] p-2.5 text-[#1e6b4f]"><Icon size={20} /></span>

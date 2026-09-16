@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, BookOpen, ClipboardList, Gauge, MessageSquareText } from "lucide-react";
+import { Activity, BookOpen, ClipboardList, Gauge, MessageSquareText, Target } from "lucide-react";
 
 const items = [
   { href: "/alumno/sa1/evolucion", label: "Mi evolución física", icon: Activity },
+  { href: "/alumno/sa1/plan", label: "Mi plan personal", icon: Target },
   { href: "/alumno/sa1/contenidos", label: "Contenidos teóricos", icon: BookOpen },
   { href: "/alumno/sa1/diario", label: "Diario de sesiones", icon: MessageSquareText },
   { href: "/alumno/sa1/cuestionarios", label: "Cuestionarios", icon: ClipboardList },
@@ -15,7 +16,7 @@ const items = [
 export function Sa1SectionNav() {
   const pathname = usePathname();
   return (
-    <nav aria-label="Apartados de Salud y calidad de vida" className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+    <nav aria-label="Apartados de Salud y calidad de vida" className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
       {items.map(({ href, label, icon: Icon }) => {
         const active = pathname === href;
         return (
