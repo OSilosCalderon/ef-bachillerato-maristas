@@ -1,9 +1,16 @@
 import Link from "next/link";
-import { Activity, ArrowRight, BookOpenCheck, ClipboardCheck, Target } from "lucide-react";
+import { Activity, ArrowRight, BookOpenCheck, ClipboardCheck, ClipboardList, Target } from "lucide-react";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { SecondYearSa1Layout } from "@/components/second-year-sa1-layout";
 
 const sections = [
+  {
+    href: "/alumno/2bach/sa1/cuestionarios",
+    title: "Cuestionarios psicológicos",
+    text: "Completa GOES y BPNES al inicio y al final; tus respuestas son privadas y los informes quedan reservados al profesorado.",
+    icon: ClipboardList,
+    meta: "2 escalas · inicial y final",
+  },
   {
     href: "/alumno/2bach/sa1/evaluacion",
     title: "Evaluación inicial",
@@ -51,7 +58,7 @@ export default function Page() {
           </p>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           {sections.map(({ href, title, text, icon: Icon, meta }) => (
             <Link key={href} href={href} className="card group flex min-h-64 flex-col p-5 transition hover:-translate-y-0.5 hover:border-slate-300">
               <span className="w-fit rounded-xl bg-[#e7f2ed] p-2.5 text-[#1e6b4f]"><Icon size={21}/></span>

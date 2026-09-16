@@ -41,6 +41,7 @@ const teacherItems: NavItem[] = [
   { label: "Agenda de clases", mobileLabel: "Agenda", href: "/profesor/agenda", icon: CalendarDays },
   { label: "Dashboard", mobileLabel: "Inicio", href: "/profesor", icon: Gauge },
   { label: "Alumnado", href: "/profesor/alumnado", icon: Users },
+  { label: "Cuestionarios", mobileLabel: "Tests", href: "/profesor/cuestionarios", icon: ClipboardCheck },
   { label: "Crear actividad", mobileLabel: "Crear", href: "/profesor/crear-actividad", icon: PlusCircle },
   { label: "Contenidos", href: "/profesor/contenidos", icon: BookOpen },
   { label: "Documentos", mobileLabel: "Docs", href: "/profesor/documentos", icon: FileText },
