@@ -4,12 +4,12 @@ import { DashboardHeader } from "@/components/dashboard-header";
 import { Sa1Layout } from "@/components/sa1-layout";
 
 const sections = [
-  { href: "/alumno/sa1/evolucion", title: "Mi evolución física", text: "Registra y compara tus resultados de septiembre y noviembre.", icon: Activity, meta: "4 pruebas con datos demo" },
+  { href: "/alumno/sa1/evolucion", title: "Mi evolución física", text: "Registra y compara tus resultados de septiembre y diciembre.", icon: Activity, meta: "Comparación inicial y final" },
   { href: "/alumno/sa1/plan", title: "Mi plan personal", text: "Define objetivos, selecciona tareas y organiza ocho sesiones de trabajo.", icon: Target, meta: "26 octubre – 23 noviembre" },
-  { href: "/alumno/sa1/contenidos", title: "Contenidos teóricos", text: "Consulta materiales, recursos y documentos publicados.", icon: BookOpen, meta: "2 de 3 consultados" },
-  { href: "/alumno/sa1/diario", title: "Diario de sesiones", text: "Reflexiona sobre lo realizado, tus sensaciones y aprendizajes.", icon: MessageSquareText, meta: "2 entradas" },
-  { href: "/alumno/sa1/cuestionarios", title: "Cuestionarios", text: "Responde cuestionarios académicos publicados por tu profesor/a.", icon: ClipboardList, meta: "1 de 2 completado" },
-  { href: "/alumno/sa1/progreso", title: "Mi progreso", text: "Revisa de forma global tu participación en esta situación.", icon: Gauge, meta: "68% realizado" },
+  { href: "/alumno/sa1/contenidos", title: "Contenidos teóricos", text: "Consulta materiales, recursos y documentos publicados.", icon: BookOpen, meta: "Teoría y recursos" },
+  { href: "/alumno/sa1/diario", title: "Diario de sesiones", text: "Reflexiona sobre lo realizado, tus sensaciones y aprendizajes.", icon: MessageSquareText, meta: "Reflexión de cada sesión" },
+  { href: "/alumno/sa1/cuestionarios", title: "Cuestionarios", text: "Responde cuestionarios académicos publicados por tu profesor/a.", icon: ClipboardList, meta: "GOES y BPNES · inicial y final" },
+  { href: "/alumno/sa1/progreso", title: "Mi progreso", text: "Revisa de forma global tu participación en esta situación.", icon: Gauge, meta: "Tus resultados registrados" },
 ];
 
 export default function Page() {
@@ -31,7 +31,7 @@ export default function Page() {
           <div className="max-w-3xl">
             <p className="text-xs font-bold uppercase tracking-[.18em] text-[#1e6b4f]">Tu proceso</p>
             <h2 className="mt-2 text-2xl font-extrabold text-slate-950">Mejorar también es comprender cómo aprendes y cómo respondes al esfuerzo.</h2>
-            <p className="mt-3 text-sm leading-7 text-slate-600">Los registros sirven para observar cambios personales entre momentos del curso. No se muestran rankings ni comparaciones entre compañeros.</p>
+            <p className="mt-3 text-sm leading-7 text-slate-600">Los registros sirven para observar cambios personales entre momentos del curso. Puedes consultar el promedio de Bachillerato como referencia, sin rankings ni datos individuales de compañeros.</p>
           </div>
         </section>
       </Sa1Layout>
