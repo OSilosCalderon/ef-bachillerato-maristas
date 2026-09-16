@@ -14,7 +14,7 @@
     "check:login": "node scripts/check-student-login.mjs",
     "check:theory": "node scripts/check-second-year-theory.mjs",
     "check:progress": "node scripts/check-second-year-progress.mjs",
-    "check:routes": "node scripts/check-routes.mjs",
+    "check:routes": "node scripts/check-routes.mjs && node scripts/check-class-groups.mjs",
     "audit:static": "node scripts/audit-static.mjs",
     "init:course": "node scripts/init-course.mjs",
     "create:student": "node scripts/create-student.mjs"
