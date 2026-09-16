@@ -28,3 +28,16 @@ for (const group of FIRST_YEAR_CALENDAR_GROUPS) {
   assert.ok(sessions.every((session) => FIRST_YEAR_PLAN_WEEK[group].some((slot) => slot.label === session.day && slot.start === session.start && slot.end === session.end)));
 }
 console.log("First-year personal plan: eight real group sessions from 26 October to 23 November passed.");
+
+const secondYearSource = fs.readFileSync("lib/second-year-personal-plan-calendar.ts", "utf8");
+const secondYearModule = { exports: {} };
+vm.runInNewContext(ts.transpileModule(secondYearSource, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { module: secondYearModule, exports: secondYearModule.exports });
+const { SECOND_YEAR_PLAN_START, SECOND_YEAR_PLAN_SESSIONS } = secondYearModule.exports;
+assert.equal(SECOND_YEAR_PLAN_START, "2026-10-12");
+assert.equal(SECOND_YEAR_PLAN_SESSIONS.length, 10);
+assert.equal(new Set(SECOND_YEAR_PLAN_SESSIONS.map((session) => session.date)).size, 10);
+assert.equal(SECOND_YEAR_PLAN_SESSIONS[0].date, "2026-10-13");
+assert.equal(SECOND_YEAR_PLAN_SESSIONS.at(-1).date, "2026-10-28");
+assert.ok(SECOND_YEAR_PLAN_SESSIONS.every((session) => ["Lunes", "Martes", "Miércoles", "Jueves"].includes(session.day)));
+console.log("Second-year personal plan: ten teaching sessions in the period beginning 12 October passed.");
+

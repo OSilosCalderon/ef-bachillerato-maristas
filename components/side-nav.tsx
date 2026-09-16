@@ -14,7 +14,7 @@ const firstYearItems: NavItem[] = [
   { label: "Mi agenda", mobileLabel: "Agenda", href: "/alumno/agenda", icon: CalendarDays },
   { label: "Inicio", href: "/alumno", icon: Home },
   { label: "Mi progreso", mobileLabel: "Progreso", href: "/alumno/progreso", icon: BarChart3 },
-  { label: "Apuntes entrenamiento", mobileLabel: "Apuntes", href: "/alumno/apuntes-entrenamiento", icon: GraduationCap },
+  { label: "Contenidos teóricos SA1", mobileLabel: "Teoría SA1", href: "/alumno/sa1/contenidos", icon: GraduationCap },
   { label: "SA1 Salud", mobileLabel: "SA1", href: "/alumno/sa1", icon: HeartPulse },
   { label: "SA2 Deportes", mobileLabel: "SA2", href: "/alumno/sa2", icon: Dumbbell },
   { label: "SA3 Ocio activo", mobileLabel: "SA3", href: "/alumno/sa3", icon: Sparkles },

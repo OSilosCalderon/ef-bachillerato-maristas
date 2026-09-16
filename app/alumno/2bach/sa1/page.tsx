@@ -30,14 +30,14 @@ const sections = [
     title: "Mi plan personal",
     text: "Interpreta tus datos, formula un objetivo y concreta ejercicios, dosis, recuperación y progresión.",
     icon: Target,
-    meta: "Guardado en Supabase",
+    meta: "Calendario y reflexión final",
   },
   {
     href: "/alumno/2bach/sa1/teoria",
     title: "Bloque teórico",
-    text: "Usa los 9 temas interactivos para justificar las decisiones de tu plan con principios de entrenamiento.",
+    text: "Usa el módulo teórico de SA1 para justificar las decisiones de tu plan con principios de entrenamiento.",
     icon: BookOpenCheck,
-    meta: "Biblioteca común",
+    meta: "Teoría aplicada de SA1",
   },
 ];
 
@@ -51,7 +51,7 @@ export default function Page() {
       />
       <SecondYearSa1Layout>
         <section className="rounded-3xl bg-slate-950 p-6 text-white sm:p-8">
-          <p className="text-xs font-bold uppercase tracking-[.18em] text-emerald-300">14 septiembre – mediados octubre · 16 sesiones · 4 semanas</p>
+          <p className="text-xs font-bold uppercase tracking-[.18em] text-emerald-300">Evaluación inicial · Plan personal: 13–28 octubre · Revisión final</p>
           <h2 className="mt-3 max-w-4xl text-2xl font-extrabold sm:text-3xl">De los datos a una decisión razonada</h2>
           <p className="mt-3 max-w-4xl text-sm leading-7 text-slate-300">
             En 2º no basta con completar las pruebas. Debes interpretar tu punto de partida, seleccionar un objetivo realista y justificar cómo vas a organizar carga, recuperación, progresión y evaluación.

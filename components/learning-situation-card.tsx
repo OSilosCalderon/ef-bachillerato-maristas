@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, Dumbbell, HeartPulse, Sparkles } from "lucide-react";
 import type { LearningSituation } from "@/lib/types";
-import { ProgressBar } from "@/components/ui/progress-bar";
 
 const icons = { SA1: HeartPulse, SA2: Dumbbell, SA3: Sparkles };
 
@@ -17,7 +16,6 @@ export function LearningSituationCard({ situation }: { situation: LearningSituat
       </div>
       <h3 className="text-xl font-extrabold leading-tight text-slate-900">{situation.name}</h3>
       <p className="mt-3 flex-1 text-sm leading-6 text-slate-600">{situation.description}</p>
-      <div className="mt-6"><ProgressBar value={situation.progress} label="Tu progreso" /></div>
       <Link href={situation.href} className="mt-6 flex items-center justify-center gap-2 rounded-xl bg-[#1e6b4f] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#164c3a]">
         Entrar <ArrowRight size={17} className="transition group-hover:translate-x-1" />
       </Link>
