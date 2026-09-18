@@ -1,5 +1,7 @@
 "use client";
 
+import { ComplementaryMaterials } from "@/components/complementary-materials";
+
 import { TheoryChallengeResponse } from "@/components/theory-challenge-response";
 
 import { useEffect, useMemo, useState } from "react";
@@ -209,7 +211,7 @@ export function TrainingTheoryReader() {
 
           <section className="grid gap-4 md:grid-cols-2">
             <div className="rounded-3xl border border-violet-200 bg-violet-50 p-6"><Target className="text-violet-700"/><p className="mt-3 text-xs font-black uppercase tracking-wide text-violet-700">Reto de aplicación</p><p className="mt-2 text-sm font-semibold leading-7 text-violet-950">{application.appliedChallenge}</p><TheoryChallengeResponse key={topic.slug} topicSlug={topic.slug}/></div>
-            <div className="rounded-3xl border border-sky-200 bg-sky-50 p-6"><p className="text-xs font-black uppercase tracking-wide text-sky-700">Ampliación · 2º Bachillerato</p><p className="mt-2 text-sm font-semibold leading-7 text-sky-950">{topic.secondYearExtension}</p></div>
+            <ComplementaryMaterials key={topic.slug} topicSlug={topic.slug}/>
           </section>
 
           <section className="card p-6 sm:p-8">

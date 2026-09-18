@@ -1,0 +1,10 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const ts = require('typescript');
+const compiled = ts.transpileModule(fs.readFileSync('lib/physical-result-input.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
+const loaded = { exports: {} };
+new Function('exports', 'module', compiled)(loaded.exports, loaded);
+const { parsePhysicalResult: parse } = loaded.exports;
+for (const [raw, expected] of [['7,35', 7.35], ['7.35', 7.35], ['0,08', 0.08], ['12,5', 12.5], ['0', 0], ['7,', 7], ['7.', 7], [',5', 0.5], ['.5', 0.5], [' 7,35 ', 7.35]]) assert.equal(parse(raw), expected, raw);
+for (const raw of ['', ' ', ',', '.', '7,3.5', '7,35 s', '-1', 'Infinity', 'NaN', '1e3']) assert.equal(parse(raw), undefined, raw);
+console.log('Physical results: comma/point, tenths/hundredths, zero and invalid input passed.');

@@ -65,6 +65,7 @@ export async function savePhysicalResult(
   period: AssessmentPeriod,
   value: number,
 ) {
+  if (!Number.isFinite(value) || value < 0) throw new Error("Introduce una marca numérica válida.");
   const supabase = createClient();
   const { data, error } = await supabase
     .from("physical_test_results")
