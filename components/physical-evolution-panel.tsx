@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { parsePhysicalResult } from "@/lib/physical-result-input";
 import { CheckCircle2, Loader2, Minus, Save, TrendingUp } from "lucide-react";
 import {
   loadPhysicalTestsForCurrentStudent,
@@ -46,7 +47,14 @@ function ComparisonLine({ test, value, reference }: { test: PhysicalTest; value?
 }
 
 export function PhysicalEvolutionPanel() {
-  const [tests, setTests] = useState<PhysicalTest[]>([]);
+  const [storedTests, setTests] = useState<PhysicalTest[]>([]);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const tests = useMemo(() => storedTests.map((test) => ({
+    ...test,
+    ...Object.fromEntries((["september", "december"] as const)
+      .filter((period) => Object.hasOwn(drafts, `${test.id}:${period}`))
+      .map((period) => [period, parsePhysicalResult(drafts[`${test.id}:${period}`])])),
+  })), [storedTests, drafts]);
   const [studentId, setStudentId] = useState<string | null>(null);
   const [reference, setReference] = useState<FitnessReference | null>(null);
   const [loading, setLoading] = useState(true);
@@ -77,12 +85,7 @@ export function PhysicalEvolutionPanel() {
   }, []);
 
   const update = (id: string, period: AssessmentPeriod, raw: string) => {
-    const value = raw === "" ? undefined : Number(raw);
-    setTests((current) =>
-      current.map((test) =>
-        test.id === id ? { ...test, [period]: Number.isFinite(value) ? value : undefined } : test,
-      ),
-    );
+    setDrafts((current) => ({ ...current, [`${id}:${period}`]: raw }));
     setSaved(null);
   };
 
@@ -94,6 +97,7 @@ export function PhysicalEvolutionPanel() {
     try {
       await savePhysicalResult(studentId, test.id, period, test[period] as number);
       await refreshFromDatabase(false);
+      setDrafts((current) => { const next = { ...current }; delete next[key]; return next; });
       setSaved(key);
     } catch (err) {
       setError(
@@ -256,20 +260,22 @@ export function PhysicalEvolutionPanel() {
                       {period === "september" ? "Septiembre" : "Diciembre"}
                       <div className="mt-2 flex items-center rounded-xl border border-slate-200 bg-white px-3">
                         <input
-                          type="number"
-                          min="0"
-                          step="any"
+                          type="text"
+                          aria-label={`${test.name} · ${period === "september" ? "Septiembre" : "Diciembre"}`}
+                          disabled={saving !== null}
                           inputMode="decimal"
-                          value={test[period] ?? ""}
+                          value={drafts[key] ?? (test[period] == null ? "" : String(test[period]).replace(".", ","))}
                           onChange={(event) => update(test.id, period, event.target.value)}
                           className="min-w-0 flex-1 bg-transparent py-3 text-base font-semibold text-slate-900 outline-none"
                         />
                         <span className="text-xs font-medium text-slate-400">{test.unit}</span>
                       </div>
                     </label>
+                    <p className="mt-1 text-xs text-slate-500">Admite decimales con coma o punto: 7,35 o 7.35.</p>
+                    {drafts[key]?.trim() && parsePhysicalResult(drafts[key]) === undefined && <p role="alert" className="mt-1 text-xs text-red-700">Introduce una marca válida, sin unidades ni separadores de miles.</p>}
                     <button
                       type="button"
-                      disabled={test[period] == null || saving === key}
+                      disabled={test[period] == null || saving !== null}
                       onClick={() => void save(test, period)}
                       className="mt-2 inline-flex items-center gap-2 text-xs font-bold text-[#1e6b4f] disabled:opacity-40"
                     >

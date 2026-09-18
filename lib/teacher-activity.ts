@@ -1,7 +1,7 @@
 export const activityCategories = {
-  plans: "Planes de trabajo", journals: "Diarios y seguimiento de sesiones", physical: "Pruebas fÃ­sicas",
-  questionnaires: "Cuestionarios", theory: "Lecturas", challenges: "Retos de aplicación", quizzes: "Autoevaluaciones teÃ³ricas",
-  technical: "Pruebas tÃ©cnicas", procedural: "Actividades prÃ¡cticas", habits: "HÃ¡bitos saludables", projects: "Proyectos deportivos",
+  plans: "Planes de trabajo", journals: "Diarios y seguimiento de sesiones", physical: "Pruebas físicas",
+  questionnaires: "Cuestionarios", theory: "Lecturas", challenges: "Retos de aplicación", quizzes: "Autoevaluaciones teóricas",
+  technical: "Pruebas técnicas", procedural: "Actividades prácticas", habits: "Hábitos saludables", projects: "Proyectos deportivos",
 } as const;
 export type ActivityCategory = keyof typeof activityCategories;
 export type TeacherStudent = { id: string; name: string; group: string };
