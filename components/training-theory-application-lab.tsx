@@ -1,5 +1,7 @@
 "use client";
 
+import { TheoryChallengeResponse } from "@/components/theory-challenge-response";
+
 import { useMemo, useState } from "react";
 import { Activity, ArrowRight, BrainCircuit, Dumbbell, Gauge, Lightbulb, Sparkles, Target, Trophy } from "lucide-react";
 import { trainingTheoryTopics } from "@/lib/training-theory-topics";
@@ -101,7 +103,7 @@ export function TrainingTheoryApplicationLab() {
       </div>
 
       <div className="rounded-3xl border border-violet-200 bg-gradient-to-br from-violet-50 to-white p-6 sm:p-8">
-        <div className="flex flex-col gap-5 md:flex-row md:items-center"><span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-violet-600 text-white"><Target size={26}/></span><div className="flex-1"><p className="text-xs font-black uppercase tracking-[.16em] text-violet-700">Reto de aplicación · Tema {topic.number}</p><h3 className="mt-1 text-xl font-black text-violet-950">Ahora toma tú la decisión</h3><p className="mt-2 text-sm font-semibold leading-7 text-violet-950/80">{application.appliedChallenge}</p></div></div>
+        <div className="flex flex-col gap-5 md:flex-row md:items-center"><span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-violet-600 text-white"><Target size={26}/></span><div className="flex-1"><p className="text-xs font-black uppercase tracking-[.16em] text-violet-700">Reto de aplicación · Tema {topic.number}</p><h3 className="mt-1 text-xl font-black text-violet-950">Ahora toma tú la decisión</h3><p className="mt-2 text-sm font-semibold leading-7 text-violet-950/80">{application.appliedChallenge}</p><TheoryChallengeResponse key={topic.slug} topicSlug={topic.slug}/></div></div>
       </div>
     </section>
   );
