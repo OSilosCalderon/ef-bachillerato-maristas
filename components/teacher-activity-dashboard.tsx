@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { refreshTeacherActivity } from "@/app/profesor/actions";
 import { activityCategories, categorySummary, mean, physicalComparison, type ActivityCategory, type TeacherActivityData } from "@/lib/teacher-activity";
 import { physicalCapacity } from "@/lib/second-year-progress";
 import { TeacherPsychologicalReports } from "@/components/teacher-psychological-reports";
@@ -25,11 +26,29 @@ function Bar({ label, value, max = 100, color = "bg-emerald-600", suffix = "" }:
   return <div className="min-w-0"><div className="mb-1 flex justify-between gap-3 text-xs"><span>{label}</span><strong>{fmt(value)}{value !== null ? suffix : ""}</strong></div><div className="h-3 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${color}`} style={{ width: `${value === null ? 0 : Math.min(100, Math.max(0, value / (max || 1) * 100))}%` }}/></div></div>;
 }
 
-export function TeacherActivityDashboard({ data, year }: { data: TeacherActivityData; year: 1 | 2 }) {
+export function TeacherActivityDashboard({ data: initialData, year, initialSituation = "" }: { data: TeacherActivityData; year: 1 | 2; initialSituation?: string }) {
+  const [data, setData] = useState(initialData);
+  const [refreshing, startRefresh] = useTransition();
+  const [refreshMessage, setRefreshMessage] = useState("");
+  const [refreshError, setRefreshError] = useState(false);
+  function refresh() {
+    setRefreshMessage("");
+    setRefreshError(false);
+    startRefresh(async () => {
+      try {
+        const next = await refreshTeacherActivity(year);
+        setData(next);
+        setRefreshMessage("Datos actualizados correctamente.");
+      } catch {
+        setRefreshError(true);
+        setRefreshMessage("No se han podido actualizar los datos. Comprueba tu conexión y vuelve a intentarlo. Si tu sesión ha caducado, vuelve a entrar.");
+      }
+    });
+  }
   const router = useRouter();
   const [changingCourse, startCourseChange] = useTransition();
   const [group, setGroup] = useState(""); const [studentId, setStudentId] = useState("");
-  const [sa, setSa] = useState(""); const [view, setView] = useState<"group" | "individual">("group");
+  const [sa, setSa] = useState(initialSituation); const [view, setView] = useState<"group" | "individual">("group");
   const groups = [...new Set(data.students.map((student) => student.group))].sort();
   const students = data.students.filter((student) => !group || student.group === group);
   const selected = students.find((student) => student.id === studentId) ?? students[0];
@@ -44,14 +63,16 @@ export function TeacherActivityDashboard({ data, year }: { data: TeacherActivity
 
   return <div className="space-y-6">
     <section className="card p-5 sm:p-7">
-      <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-[#1e6b4f]">Seguimiento docente · {year}º Bachillerato</p><h1 className="mt-2 text-2xl font-extrabold">Actividad y resultados del alumnado</h1><p className="mt-2 text-sm text-slate-500">{data.courseName} · Datos guardados en la plataforma. Solo el profesorado puede consultar esta vista.</p></div><button onClick={() => router.refresh()} className="rounded-xl border px-4 py-2 text-sm font-bold">Actualizar datos</button></div>
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-[#1e6b4f]">Seguimiento docente · {year}º Bachillerato</p><h1 className="mt-2 text-2xl font-extrabold">Actividad y resultados del alumnado</h1><p className="mt-2 text-sm text-slate-500">{data.courseName} · Datos guardados en la plataforma. Solo el profesorado puede consultar esta vista.</p></div><button onClick={refresh} disabled={refreshing || changingCourse} aria-busy={refreshing} className="rounded-xl border px-4 py-2 text-sm font-bold disabled:opacity-50">{refreshing ? "Actualizando…" : "Actualizar datos"}</button></div>
       <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <label className="text-sm font-bold">Curso de los resultados<select aria-label="Curso de los resultados" value={year} disabled={changingCourse} onChange={(event) => { const value = event.target.value; startCourseChange(() => router.push(`/profesor?curso=${value}`)); }} className="mt-2 w-full rounded-xl border border-emerald-600 bg-emerald-50 p-3"><option value="1">1º Bachillerato</option><option value="2">2º Bachillerato</option></select></label>
+        <label className="text-sm font-bold">Curso de los resultados<select aria-label="Curso de los resultados" value={year} disabled={changingCourse || refreshing} onChange={(event) => { const value = event.target.value; startCourseChange(() => router.push(`/profesor?curso=${value}`)); }} className="mt-2 w-full rounded-xl border border-emerald-600 bg-emerald-50 p-3"><option value="1">1º Bachillerato</option><option value="2">2º Bachillerato</option></select></label>
         <label className="text-sm font-bold">Grupo<select value={group} onChange={(event) => { setGroup(event.target.value); setStudentId(""); }} className="mt-2 w-full rounded-xl border p-3"><option value="">Todos los grupos del curso</option>{groups.map((value) => <option key={value}>{value}</option>)}</select></label>
-        <label className="text-sm font-bold">Situación<select value={sa} onChange={(event) => setSa(event.target.value)} className="mt-2 w-full rounded-xl border p-3"><option value="">Todas las situaciones</option>{data.situations.map((entry) => <option key={entry.id} value={entry.code}>{entry.code} · {entry.title}</option>)}</select></label>
+        <label className="text-sm font-bold">Situación<select value={sa} onChange={(event) => { const value = event.target.value; if (initialSituation) { startCourseChange(() => router.push(value ? `/profesor/${year === 2 ? "2bach/" : ""}${value.toLowerCase()}` : `/profesor?curso=${year}`)); } else { setSa(value); } }} disabled={changingCourse || refreshing} className="mt-2 w-full rounded-xl border p-3"><option value="">Todas las situaciones</option>{data.situations.map((entry) => <option key={entry.id} value={entry.code}>{entry.code} · {entry.title}</option>)}</select></label>
         <label className="text-sm font-bold">Vista<select value={view} onChange={(event) => setView(event.target.value as typeof view)} className="mt-2 w-full rounded-xl border p-3"><option value="group">Grupal</option><option value="individual">Individual</option></select></label>
         <label className="text-sm font-bold">Alumno/a<select value={selected?.id ?? ""} onChange={(event) => { setStudentId(event.target.value); setView("individual"); }} className="mt-2 w-full rounded-xl border p-3">{students.map((student) => <option key={student.id} value={student.id}>{student.name}</option>)}</select></label>
       </div>
+      <p className="mt-3 text-xs text-slate-500">Última consulta: {new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", dateStyle: "short", timeStyle: "medium" }).format(new Date(data.loadedAt))}</p>
+      {refreshMessage && <p role={refreshError ? "alert" : "status"} className={refreshError ? "mt-2 text-sm text-red-700" : "mt-2 text-sm text-emerald-700"}>{refreshMessage}</p>}
       {changingCourse && <p role="status" className="mt-3 font-semibold text-[#1e6b4f]">Cargando los resultados del curso seleccionado…</p>}
       <p className="mt-4 text-xs text-slate-500">{students.length} alumnos en el filtro · {activities.length} registros. No se calcula una nota global mezclando actividades de naturaleza distinta.</p>
     </section>
@@ -84,7 +105,7 @@ export function TeacherActivityDashboard({ data, year }: { data: TeacherActivity
         const rows = details.filter((row) => row.category === category).sort((a, b) => b.date.localeCompare(a.date));
         return <details key={category} className="rounded-xl border p-4"><summary className="cursor-pointer font-bold">{label} · {rows.length} registros</summary><div className="mt-4 space-y-3">{!rows.length && <p className="text-sm text-slate-500">Sin registros guardados.</p>}{rows.map((row) => <details key={row.id} className="rounded-lg bg-slate-50 p-4"><summary className="cursor-pointer text-sm font-semibold">{view === "group" ? `${students.find((student) => student.id === row.studentId)?.name} · ` : ""}{row.sa} · {row.title} {row.status ? `· ${statuses[row.status] ?? row.status}` : ""}{row.score !== null ? ` · ${fmt(row.score)} ${row.scoreLabel ?? ""}` : ""}</summary><div className="mt-4 text-sm"><p className="mb-3 text-xs text-slate-500">Último registro: {row.date ? new Date(row.date).toLocaleDateString("es-ES") : "Sin fecha"}</p><DetailValue value={row.details}/></div></details>)}</div></details>;
       })}</section>
-      {(!sa || sa === "SA1") && <section className="space-y-4"><h2 className="text-xl font-extrabold">Informes psicológicos · inicial y final</h2><TeacherPsychologicalReports key={`${year}-${group}-${selected?.id}`} initialYear={year} initialStudentId={selected?.id} initialGroup={selected?.group}/></section>}
+      {(!sa || sa === "SA1") && <section className="space-y-4"><h2 className="text-xl font-extrabold">Informes psicológicos · inicial y final</h2><TeacherPsychologicalReports key={`${year}-${group}-${selected?.id}-${data.loadedAt}`} initialYear={year} initialStudentId={selected?.id} initialGroup={selected?.group}/></section>}
     </>}
   </div>;
 }
