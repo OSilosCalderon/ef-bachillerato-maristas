@@ -46,9 +46,15 @@ const teacherItems: NavItem[] = [
   { label: "Contenidos", href: "/profesor/contenidos", icon: BookOpen },
   { label: "Documentos", mobileLabel: "Docs", href: "/profesor/documentos", icon: FileText },
   { label: "Exportar", href: "/profesor/exportar", icon: Download },
-  { label: "SA1", href: "/profesor/sa1", icon: HeartPulse },
-  { label: "SA2", href: "/profesor/sa2", icon: Dumbbell },
-  { label: "SA3", href: "/profesor/sa3", icon: Sparkles },
+  { label: "1º · SA1", mobileLabel: "1º SA1", href: "/profesor/sa1", icon: HeartPulse },
+  { label: "1º · SA2", mobileLabel: "1º SA2", href: "/profesor/sa2", icon: Dumbbell },
+  { label: "1º · SA3", mobileLabel: "1º SA3", href: "/profesor/sa3", icon: Sparkles },
+  { label: "2º · SA1 Punto de partida", mobileLabel: "2º SA1", href: "/profesor/2bach/sa1", icon: Gauge },
+  { label: "2º · SA2 Condición física", mobileLabel: "2º SA2", href: "/profesor/2bach/sa2", icon: Dumbbell },
+  { label: "2º · SA3 Hábitos saludables", mobileLabel: "2º SA3", href: "/profesor/2bach/sa3", icon: HeartPulse },
+  { label: "2º · SA4 Evento deportivo", mobileLabel: "2º SA4", href: "/profesor/2bach/sa4", icon: ClipboardCheck },
+  { label: "2º · SA5 Cultura y expresión", mobileLabel: "2º SA5", href: "/profesor/2bach/sa5", icon: Sparkles },
+  { label: "2º · SA6 Comunidad activa", mobileLabel: "2º SA6", href: "/profesor/2bach/sa6", icon: Users },
   { label: "Configuración", mobileLabel: "Ajustes", href: "/profesor/configuracion", icon: Settings },
 ];
 
