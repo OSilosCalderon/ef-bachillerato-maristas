@@ -24,6 +24,7 @@ export function TeacherPsychologicalReports({ initialYear = 1, initialStudentId 
   const [reports, setReports] = useState<Report[]>([]);
   const [group, setGroup] = useState(initialGroup);
   const [studentId, setStudentId] = useState(initialStudentId);
+  const [revision, setRevision] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -58,8 +59,12 @@ export function TeacherPsychologicalReports({ initialYear = 1, initialStudentId 
         const { data: optionRows, error: optionError } = await supabase.from("questionnaire_options").select("id,question_id").in("question_id", questions.map((question) => question.id));
         if (optionError) throw optionError;
         const optionIds = (optionRows ?? []).map((option) => String(option.id));
-        const scoresResult = optionIds.length ? await supabase.from("questionnaire_option_scores").select("option_id,score").in("option_id", optionIds) : { data: [], error: null };
-        if (scoresResult.error) throw scoresResult.error;
+        const optionScores: { option_id: string; score: number }[] = [];
+        for (let offset = 0; offset < optionIds.length; offset += 50) {
+          const scoresResult = await supabase.from("questionnaire_option_scores").select("option_id,score").in("option_id", optionIds.slice(offset, offset + 50));
+          if (scoresResult.error) throw scoresResult.error;
+          optionScores.push(...(scoresResult.data ?? []));
+        }
         const { data: attemptRows, error: attemptError } = await supabase.from("questionnaire_attempts").select("id,questionnaire_id,student_id").in("questionnaire_id", qIds).eq("status", "submitted");
         if (attemptError) throw attemptError;
         const attempts = (attemptRows ?? []) as Attempt[];
@@ -73,7 +78,7 @@ export function TeacherPsychologicalReports({ initialYear = 1, initialStudentId 
         }
         const dimensionMap = new Map((dimensionRows ?? []).map((row) => [String(row.question_id), String(row.dimension)]));
         const optionQuestionMap = new Map((optionRows ?? []).map((option) => [String(option.id), String(option.question_id)]));
-        const scoreMap = new Map((scoresResult.data ?? []).map((score) => [String(score.option_id), Number(score.score)]));
+        const scoreMap = new Map(optionScores.map((score) => [String(score.option_id), Number(score.score)]));
         const questionnaireMap = new Map(qs.map((q) => [q.id, q]));
         const responseByAttempt = new Map<string, Response[]>();
         for (const response of responseRows) responseByAttempt.set(response.attempt_id, [...(responseByAttempt.get(response.attempt_id) ?? []), response]);
@@ -94,7 +99,7 @@ export function TeacherPsychologicalReports({ initialYear = 1, initialStudentId 
       finally { if (!cancelled) setLoading(false); }
     }
     void load(); return () => { cancelled = true; };
-  }, [courseYear]);
+  }, [courseYear, revision]);
 
   const groups = useMemo(() => [...new Set(students.map((student) => student.classGroup))].sort(), [students]);
   const selectedGroup = groups.includes(group) ? group : groups[0] ?? "";
@@ -109,6 +114,7 @@ export function TeacherPsychologicalReports({ initialYear = 1, initialStudentId 
   return <div className="space-y-6">
     <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950"><LockKeyhole className="mr-2 inline" size={17}/>Información sensible de seguimiento educativo. Los resultados se muestran solo al profesorado y describen respuestas a escalas; no constituyen un diagnóstico clínico.</section>
     <section className="card p-5"><div className="flex flex-wrap gap-3">{([1, 2] as const).map((year) => <button key={year} onClick={() => { setCourseYear(year); setGroup(""); setStudentId(""); }} className={`rounded-xl border px-4 py-3 text-sm font-bold ${courseYear === year ? "border-[#1e6b4f] bg-[#e7f2ed] text-[#164c3a]" : "border-slate-200"}`}>{year}º Bachillerato</button>)}</div><div className="mt-5 grid gap-4 md:grid-cols-2"><label className="text-xs font-bold uppercase tracking-wide text-slate-500">Grupo<select value={selectedGroup} onChange={(event) => { setGroup(event.target.value); setStudentId(""); }} className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-semibold text-slate-900">{groups.map((item) => <option key={item}>{item}</option>)}</select></label><label className="text-xs font-bold uppercase tracking-wide text-slate-500">Alumno/a<select value={selectedStudentId} onChange={(event) => setStudentId(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-semibold text-slate-900">{groupStudents.map((student) => <option key={student.id} value={student.id}>{student.displayName}</option>)}</select></label></div></section>
+    <button type="button" disabled={loading} onClick={() => setRevision((value) => value + 1)} className="rounded-xl border px-4 py-2 text-sm font-bold disabled:opacity-50">{loading ? "Actualizando informes…" : "Actualizar informes"}</button>
     {loading && <section className="card p-6 text-sm text-slate-500">Calculando informes…</section>}{error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800">{error}</p>}
     {!loading && !error && <><section className="card p-6 sm:p-8"><div className="flex items-start gap-3"><BarChart3 className="mt-1 text-[#1e6b4f]"/><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#1e6b4f]">Informe psicológico educativo individual</p><h2 className="mt-2 text-2xl font-extrabold">{selectedStudent?.displayName ?? "Sin alumnado"}</h2><p className="mt-1 text-sm text-slate-500">Comparación inicial/final de SA1. Escala media de 1 a 5.</p></div></div><div className="mt-7 grid gap-6 xl:grid-cols-2">{(["GOES", "BPNES"] as const).map((instrument) => <ReportCard key={instrument} instrument={instrument} getValue={(phase, dimension) => valueFor(instrument, phase, dimension)}/>)}</div><Narrative reports={reports.filter((report) => report.studentId === selectedStudentId)}/></section>
     <section className="card p-6 sm:p-8"><div className="flex items-start gap-3"><Users className="mt-1 text-[#1e6b4f]"/><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#1e6b4f]">Informe grupal</p><h2 className="mt-2 text-2xl font-extrabold">{selectedGroup || `Curso de ${courseYear}º`}</h2><p className="mt-1 text-sm text-slate-500">Media del grupo por dimensión; ningún alumno puede consultar esta comparación.</p></div></div><div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{(["GOES", "BPNES"] as const).flatMap((instrument) => (["initial", "final"] as const).map((phase) => <div key={`${instrument}-${phase}`} className="rounded-xl bg-slate-50 p-4"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">{instrument} · {phase === "initial" ? "Inicial" : "Final"}</p><p className="mt-2 text-2xl font-extrabold">{completedCount(instrument, phase)}<span className="text-sm font-semibold text-slate-400">/{groupStudents.length}</span></p><p className="text-xs text-slate-500">cuestionarios entregados</p></div>))}</div><div className="mt-7 grid gap-6 xl:grid-cols-2">{(["GOES", "BPNES"] as const).map((instrument) => <ReportCard key={instrument} instrument={instrument} getValue={(phase, dimension) => groupValue(instrument, phase, dimension)}/>)}</div><Narrative reports={reports.filter((report) => groupIds.has(report.studentId))} group/></section></>}
