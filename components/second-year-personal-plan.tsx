@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/client";
 import { loadPhysicalTestsForCurrentStudent } from "@/lib/sa1-physical-data";
 import { secondYearPhysicalComparison } from "@/lib/second-year-progress";
 import type { FitnessReference, PhysicalTest } from "@/lib/sa1-types";
+import { downloadPersonalPlanPdf } from "@/lib/personal-plan-pdf";
 
 type PlanForm = {
   initialAnalysis: string;
@@ -242,11 +243,21 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
   }
 
   function exportPdf() {
-    const previousTitle = document.title;
-    document.title = `Plan personal SA1 - ${studentName} - ${courseYear} Bachillerato`;
-    const restoreTitle = () => { document.title = previousTitle; };
-    window.addEventListener("afterprint", restoreTitle, { once: true });
-    window.print();
+    const capacity = capacityOptions.find(([value]) => value === form.priorityCapacity)?.[1] ?? form.priorityCapacity;
+    const status = form.status === "draft" ? "Borrador" : form.status === "active" ? "En marcha" : "Finalizado";
+    const taskLines = planSessions.flatMap((session, index) => {
+      const items = form.items.filter((item) => item.sessionDate === session.date);
+      if (!items.length) return [`• Sesión ${index + 1} - ${formatPlanDate(session.date)} - Sin tareas asignadas`];
+      return items.flatMap((item) => [`• Sesión ${index + 1} - ${formatPlanDate(session.date)} - ${item.activity || "Tarea"} - ${methodologyLabels[item.methodology]} - ${item.rounds} vuelta(s)`, ...item.exercises.map((exercise, exerciseIndex) => `  ${exerciseIndex + 1}. ${exercise.activity || "Ejercicio por concretar"}${exercise.dose ? ` - ${exercise.dose}` : ""}${exercise.recovery ? ` - descanso ${exercise.recovery}` : ""}`)]);
+    });
+    downloadPersonalPlanPdf({ studentName, courseLabel: `${courseYear}º Bachillerato`, group: classGroup || `${courseYear}º Bachillerato`, status, capacity, sections: [
+      { title: "1. Punto de partida", lines: [form.initialAnalysis || "Sin completar"] },
+      { title: "2. Objetivos y dosis general", lines: [`Objetivo principal: ${form.objective || "Sin completar"}`, ...(form.secondaryObjective ? [`Segundo objetivo: ${form.secondaryObjective}`, `Indicador del segundo objetivo: ${form.secondarySuccessIndicator || "Sin completar"}`] : []), `${form.durationWeeks} semanas - ${form.weeklyFrequency} sesiones/semana - ${form.sessionDurationMinutes} min por sesión`] },
+      { title: "3. Calendario, tareas y cargas", lines: taskLines },
+      { title: "4. Progresión, recuperación y evaluación", lines: [`Progresión: ${form.progressionStrategy || "Sin completar"}`, `Recuperación: ${form.recoveryStrategy || "Sin completar"}`, `Indicador de logro: ${form.successIndicator || "Sin completar"}`] },
+      { title: "5. Reflexión final", lines: [`Conclusiones: ${form.finalConclusions || "Pendiente al finalizar el plan"}`, `Qué quiero seguir trabajando: ${form.futureWork || "Pendiente al finalizar el plan"}`] },
+    ] });
+    setMessage("PDF descargado. Revisa la carpeta de descargas de tu dispositivo.");
   }
 
   if (loading) {
@@ -395,7 +406,7 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
 
       <section className="plan-actions flex flex-col gap-3 rounded-2xl bg-slate-950 p-5 text-white sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3"><CheckCircle2 className="mt-0.5 text-emerald-300" size={20}/><div><p className="font-extrabold">Justifica el plan con tus datos y con la teoría</p><p className="mt-1 text-xs leading-5 text-slate-300">Tu objetivo, carga, progresión y recuperación deben poder explicarse usando los principios de entrenamiento estudiados.</p></div></div>
-        <div className="flex flex-col gap-2 sm:flex-row"><button type="button" disabled={!form.objective.trim() || form.items.length === 0} onClick={exportPdf} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-white/25 px-4 py-2.5 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-40" title={!form.objective.trim() || form.items.length === 0 ? "Añade al menos un objetivo y una tarea para exportar" : "Abrir la impresión para guardar como PDF"}><FileDown size={17}/>Exportar a PDF</button><button type="button" disabled={saving} onClick={() => void save()} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-extrabold text-slate-950 disabled:opacity-50">{saving ? <Loader2 className="animate-spin" size={17}/> : <Save size={17}/>}Guardar plan</button></div>
+        <div className="flex flex-col gap-2 sm:flex-row"><button type="button" disabled={!form.objective.trim() || form.items.length === 0} onClick={exportPdf} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-white/25 px-4 py-2.5 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-40" title={!form.objective.trim() || form.items.length === 0 ? "Añade al menos un objetivo y una tarea para exportar" : "Descargar el plan en formato PDF"}><FileDown size={17}/>Descargar PDF</button><button type="button" disabled={saving} onClick={() => void save()} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-extrabold text-slate-950 disabled:opacity-50">{saving ? <Loader2 className="animate-spin" size={17}/> : <Save size={17}/>}Guardar plan</button></div>
       </section>
     </fieldset>
   );
