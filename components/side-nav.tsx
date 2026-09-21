@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  CalendarDays, BarChart3, BookOpen, ClipboardCheck, Download, Dumbbell, FileText, Gauge, GraduationCap, HeartPulse,
+  CalendarDays, BarChart3, BookOpen, ClipboardCheck, Download, Dumbbell, Eye, FileText, Gauge, GraduationCap, HeartPulse,
   Home, PlusCircle, Settings, Sparkles, User, Users
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -37,6 +37,7 @@ const secondYearItems: NavItem[] = [
 ];
 
 const teacherItems: NavItem[] = [
+  { label: "Ver como alumno", mobileLabel: "Vista alumno", href: "/profesor/vista-alumno", icon: Eye },
   { label: "Activar situaciones", mobileLabel: "Activar SA", href: "/profesor/situaciones", icon: BookOpen },
   { label: "Agenda de clases", mobileLabel: "Agenda", href: "/profesor/agenda", icon: CalendarDays },
   { label: "Resultados del alumnado", mobileLabel: "Resultados", href: "/profesor", icon: Gauge },
@@ -67,25 +68,25 @@ export function SideNav({ role, courseYear = 1, visibleSituations }: { role: "st
 
   return (
     <>
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-slate-200 bg-white/95 px-4 py-6 backdrop-blur lg:block">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-white/10 bg-[#071f1c] px-4 py-6 text-white lg:block">
         <Link href="/" className="mb-8 block rounded-xl px-3 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1e6b4f]">
-          <div className="text-xs font-bold uppercase tracking-[.2em] text-[#1e6b4f]">Maristas Badajoz</div>
-          <div className="mt-1 text-lg font-extrabold text-slate-900">{courseLabel}</div>
+          <div className="text-xs font-bold uppercase tracking-[.2em] text-[#b8f34a]">Maristas Badajoz</div>
+          <div className="mt-1 text-lg font-extrabold text-white">{courseLabel}</div>
         </Link>
         <nav aria-label={role === "student" ? "Navegación del alumnado" : "Navegación del profesorado"} className="max-h-[calc(100dvh-220px)] space-y-1 overflow-y-auto">
           {items.map((item) => {
             const active = isActive(item.href);
             const Icon = item.icon;
-            return <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1e6b4f] ${active ? "bg-[#e7f2ed] text-[#164c3a]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"}`}><Icon size={19}/>{item.label}</Link>;
+            return <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b8f34a] ${active ? "bg-[#b8f34a] text-[#10221d]" : "text-slate-300 hover:bg-white/10 hover:text-white"}`}><Icon size={19}/>{item.label}</Link>;
           })}
         </nav>
-        <div className="absolute bottom-5 left-4 right-4 rounded-2xl bg-slate-950 p-4 text-white">
-          <div className="text-xs uppercase tracking-wider text-slate-400">Entorno privado</div>
+        <div className="absolute bottom-5 left-4 right-4 rounded-2xl border border-white/10 bg-white/5 p-4 text-white">
+          <div className="text-xs uppercase tracking-wider text-[#b8f34a]">Entorno privado</div>
           <div className="mt-1 text-sm font-semibold">{role === "student" ? `Vista alumno/a · ${courseYear}º` : "Vista profesor/a"}</div>
         </div>
       </aside>
 
-      <nav aria-label="Navegación móvil" className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-2 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur lg:hidden">
+      <nav aria-label="Navegación móvil" className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#071f1c]/95 px-2 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 text-white backdrop-blur lg:hidden">
         <div className="flex gap-1 overflow-x-auto overscroll-x-contain">
           {items.map((item) => {
             const active = isActive(item.href);
@@ -96,7 +97,7 @@ export function SideNav({ role, courseYear = 1, visibleSituations }: { role: "st
                 href={item.href}
                 aria-label={item.label}
                 aria-current={active ? "page" : undefined}
-                className={`flex w-[70px] shrink-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[10px] font-semibold leading-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1e6b4f] ${active ? "bg-[#e7f2ed] text-[#164c3a]" : "text-slate-500"}`}
+                className={`flex w-[70px] shrink-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[10px] font-semibold leading-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b8f34a] ${active ? "bg-[#b8f34a] text-[#10221d]" : "text-slate-300"}`}
               >
                 <Icon size={18}/>
                 <span className="block w-full truncate">{item.mobileLabel ?? item.label}</span>
@@ -108,3 +109,4 @@ export function SideNav({ role, courseYear = 1, visibleSituations }: { role: "st
     </>
   );
 }
+

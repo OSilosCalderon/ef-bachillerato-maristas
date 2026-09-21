@@ -6,6 +6,7 @@ import { refreshTeacherActivity } from "@/app/profesor/actions";
 import { activityCategories, categorySummary, mean, physicalComparison, type ActivityCategory, type TeacherActivityData } from "@/lib/teacher-activity";
 import { physicalCapacity } from "@/lib/second-year-progress";
 import { TeacherPsychologicalReports } from "@/components/teacher-psychological-reports";
+import { PhysicalRadarChart } from "@/components/physical-radar-chart";
 
 const fmt = (value: number | null) => value === null ? "Sin datos" : new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1 }).format(value);
 const statuses: Record<string, string> = { draft: "Borrador", active: "En marcha", completed: "Finalizado", submitted: "Enviado", in_progress: "En curso", planned: "Planificado" };
@@ -24,6 +25,10 @@ function DetailValue({ value }: { value: unknown }) {
 
 function Bar({ label, value, max = 100, color = "bg-emerald-600", suffix = "" }: { label: string; value: number | null; max?: number; color?: string; suffix?: string }) {
   return <div className="min-w-0"><div className="mb-1 flex justify-between gap-3 text-xs"><span>{label}</span><strong>{fmt(value)}{value !== null ? suffix : ""}</strong></div><div className="h-3 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${color}`} style={{ width: `${value === null ? 0 : Math.min(100, Math.max(0, value / (max || 1) * 100))}%` }}/></div></div>;
+}
+
+function Value({ label, value, suffix = "" }: { label: string; value: number | null; suffix?: string }) {
+  return <div className="rounded-xl bg-slate-50 p-3"><p className="text-[11px] leading-4 text-slate-500">{label}</p><p className="mt-1 text-lg font-black text-slate-950">{fmt(value)}{value !== null ? ` ${suffix}` : ""}</p></div>;
 }
 
 export function TeacherActivityDashboard({ data: initialData, year, initialSituation = "" }: { data: TeacherActivityData; year: 1 | 2; initialSituation?: string }) {
@@ -60,6 +65,22 @@ export function TeacherActivityDashboard({ data: initialData, year, initialSitua
   const individualScores = scoreRows(selected?.id ?? "").map((row) => row.score!);
   const groupScores = students.map((student) => mean(scoreRows(student.id).map((row) => row.score!))).filter((value): value is number => value !== null);
   const details = view === "individual" ? personal : activities;
+  const physicalRadar = ["Fuerza", "Resistencia", "Velocidad", "Flexibilidad / movilidad", "Otras pruebas"].flatMap((capacity) => {
+    const tests = data.physicalTests.filter((test) => physicalCapacity(test.name) === capacity);
+    const indexes = (period: "september" | "december") => tests.flatMap((test) => {
+      const values = physicalComparison(activities, selected?.id ?? "", test, groupIds);
+      const own = period === "september" ? values.first : values.last;
+      const average = period === "september" ? values.initialMean : values.finalMean;
+      if (view === "group") {
+        if (values.initialMean === null || average === null || values.initialMean === 0) return [];
+        return [(test.direction === "lower_better" ? values.initialMean / average : average / values.initialMean) * 100];
+      }
+      if (own === null || average === null || own === 0 || average === 0) return [];
+      return [(test.direction === "lower_better" ? average / own : own / average) * 100];
+    });
+    const initial = indexes("september"); const final = indexes("december");
+    return initial.length || final.length ? [{ capacity: capacity.replace("Flexibilidad / movilidad", "Flexibilidad"), initial: mean(initial), final: mean(final), reference: 100 }] : [];
+  });
 
   return <div className="space-y-6">
     <section className="card p-5 sm:p-7">
@@ -92,12 +113,11 @@ export function TeacherActivityDashboard({ data: initialData, year, initialSitua
         return <div key={label} className="rounded-xl bg-slate-50 p-4"><p className="text-sm font-bold">{label}</p><p className="mt-2 text-2xl font-extrabold">{fmt(mean(rows.map((row) => row.score!)))}</p><p className="mt-1 text-xs text-slate-500">Media de {rows.length} registros con este indicador. Los diarios sin respuesta no se incluyen.</p></div>;
       })}</div></section>
       <section className="card space-y-4 p-5 sm:p-7"><h2 className="text-xl font-extrabold">Resultados de autoevaluación teórica</h2><p className="text-sm text-slate-500">Se utiliza la mejor puntuación guardada de cada tema. La media de grupo da el mismo peso a cada alumno que ha realizado algún test; los pendientes no se cuentan como cero.</p>{view === "individual" && <Bar label={`Resultado medio · ${individualScores.length} tests`} value={mean(individualScores)} suffix="%"/>}<Bar label={`Media del grupo · ${groupScores.length} alumnos con tests`} value={mean(groupScores)} suffix="%" color="bg-sky-500"/><p className="text-sm">{view === "individual" ? `${individualScores.filter((score) => score >= 67).length} de ${individualScores.length} tests realizados superados (mínimo 67%).` : `${activities.filter((row) => row.category === "quizzes" && (row.score ?? -1) >= 67).length} tests superados en el grupo (mínimo 67%).`}</p></section>
-      {(!sa || sa === "SA1") && <section className="card space-y-5 p-5 sm:p-7"><h2 className="text-xl font-extrabold">Evolución física por capacidades</h2><p className="text-sm text-slate-500">Septiembre y diciembre en las unidades de cada prueba. Cada media indica cuántos registros incluye; la comparación emparejada utiliza únicamente alumnos con ambas tomas.</p>{["Fuerza", "Resistencia", "Velocidad", "Flexibilidad / movilidad", "Otras pruebas"].map((capacity) => {
+      {(!sa || sa === "SA1") && <section className="card space-y-5 p-5 sm:p-7"><h2 className="text-xl font-extrabold">Evolución física por capacidades</h2><p className="text-sm text-slate-500">La red compara septiembre y diciembre con el promedio del grupo, situado en el 100 %. Debajo se conservan todas las marcas, unidades, tamaños de muestra y cambios emparejados.</p>{physicalRadar.length >= 3 && <PhysicalRadarChart data={physicalRadar} title={view === "individual" ? `Perfil físico de ${selected!.name}` : "Evolución del grupo por capacidades"}/>} {["Fuerza", "Resistencia", "Velocidad", "Flexibilidad / movilidad", "Otras pruebas"].map((capacity) => {
         const tests = data.physicalTests.filter((test) => physicalCapacity(test.name) === capacity && activities.some((row) => row.category === "physical" && row.details.physical_test_id === test.id));
         return tests.length ? <div key={capacity}><h3 className="mb-3 font-extrabold text-[#1e6b4f]">{capacity}</h3><div className="grid gap-4 md:grid-cols-2">{tests.map((test) => {
           const values = physicalComparison(activities, selected!.id, test, groupIds);
-          const max = Math.max(1, values.first ?? 0, values.last ?? 0, values.initialMean ?? 0, values.finalMean ?? 0);
-          return <article key={test.id} className="space-y-3 rounded-xl border p-4"><h4 className="font-bold">{test.name} · {test.unit}</h4>{view === "individual" && <><Bar label="Septiembre · alumno/a" value={values.first} max={max} suffix={` ${test.unit}`}/><Bar label="Diciembre · alumno/a" value={values.last} max={max} suffix={` ${test.unit}`} color="bg-violet-500"/><p className="text-xs">Mejora entre tomas: {fmt(values.improvement)}{values.improvement !== null ? "%" : ""}</p></>}<Bar label={`Media septiembre · n=${values.initialN}`} value={values.initialMean} max={max} suffix={` ${test.unit}`} color="bg-sky-500"/><Bar label={`Media diciembre · n=${values.finalN}`} value={values.finalMean} max={max} suffix={` ${test.unit}`} color="bg-orange-400"/><p className="text-xs text-slate-500">Mismos {values.pairedN} alumnos en ambas tomas: {fmt(values.pairedInitial)} → {fmt(values.pairedFinal)} {test.unit}. {test.direction === "lower_better" ? "Menor marca indica mejor resultado." : "Mayor marca indica mejor resultado."}</p></article>;
+          return <article key={test.id} className="space-y-3 rounded-xl border p-4"><h4 className="font-bold">{test.name} · {test.unit}</h4>{view === "individual" && <div className="grid grid-cols-2 gap-3"><Value label="Septiembre · alumno/a" value={values.first} suffix={test.unit}/><Value label="Diciembre · alumno/a" value={values.last} suffix={test.unit}/><p className="col-span-2 text-xs">Mejora entre tomas: {fmt(values.improvement)}{values.improvement !== null ? "%" : ""}</p></div>}<div className="grid grid-cols-2 gap-3"><Value label={`Media septiembre · n=${values.initialN}`} value={values.initialMean} suffix={test.unit}/><Value label={`Media diciembre · n=${values.finalN}`} value={values.finalMean} suffix={test.unit}/></div><p className="text-xs text-slate-500">Mismos {values.pairedN} alumnos en ambas tomas: {fmt(values.pairedInitial)} → {fmt(values.pairedFinal)} {test.unit}. {test.direction === "lower_better" ? "Menor marca indica mejor resultado." : "Mayor marca indica mejor resultado."}</p></article>;
         })}</div></div> : null;
       })}{!activities.some((row) => row.category === "physical") && <p>Sin marcas físicas registradas en este filtro.</p>}</section>}
       <section className="card overflow-hidden p-5 sm:p-7"><h2 className="text-xl font-extrabold">Resumen de cada alumno/a</h2><p className="mt-2 text-sm text-slate-500">Número de registros por apartado. Pulsa un nombre para consultar el trabajo completo.</p><div className="mt-4 overflow-x-auto"><table className="w-full text-left text-xs"><thead><tr><th className="p-3">Alumno/a</th>{categories.map(([key, label]) => <th key={key} className="p-3">{label}</th>)}</tr></thead><tbody>{students.map((student) => <tr key={student.id} className="border-t"><td className="p-3"><button className="font-bold text-[#1e6b4f] underline" onClick={() => { setStudentId(student.id); setView("individual"); }}>{student.name}</button></td>{categories.map(([key]) => <td key={key} className="p-3">{activities.filter((row) => row.studentId === student.id && row.category === key).length}</td>)}</tr>)}</tbody></table></div></section>
@@ -109,3 +129,4 @@ export function TeacherActivityDashboard({ data: initialData, year, initialSitua
     </>}
   </div>;
 }
+

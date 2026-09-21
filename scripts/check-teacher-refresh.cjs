@@ -20,6 +20,7 @@ Module._load = function(request, parent, ...args) {
   if (request === 'next/navigation') return { useRouter: () => ({ push: value => { destination = value; } }) };
   if (request === '@/app/profesor/actions') return { refreshTeacherActivity: async year => { calls.push(year); if (fail) throw Error('Offline'); return fresh; } };
   if (request === '@/components/teacher-psychological-reports') return { TeacherPsychologicalReports: () => null };
+  if (request === '@/components/physical-radar-chart') return { PhysicalRadarChart: () => null };
   return originalLoad.call(this, request, parent, ...args);
 };
 for (const ext of ['.ts', '.tsx']) Module._extensions[ext] = (mod, filename) => mod._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2020 } }).outputText, filename);
@@ -50,3 +51,4 @@ const button = tree => tree.find(node => node.type === 'button' && node.props.ch
   assert.equal(destination, '/profesor/2bach/sa2');
   console.log('Teacher refresh: fresh records, preserved filters, failure recovery and second-year SA navigation passed.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
+

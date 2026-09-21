@@ -10,6 +10,7 @@ import { DashboardHeader } from "@/components/dashboard-header";
 import { LearningSituationCard } from "@/components/learning-situation-card";
 import { learningSituations } from "@/lib/demo-data";
 import { getCurrentStudentCourse } from "@/lib/student-course";
+import { StudentSituationPulse } from "@/components/student-situation-pulse";
 import {
   secondYearLearningSituations,
   secondYearPlannedSessions,
@@ -42,6 +43,7 @@ export default async function StudentDashboard() {
         </section>
 
         {!visible.length && <p className="card p-5">El profesor todavía no ha activado ninguna situación de aprendizaje.</p>}
+        {visible.length > 0 && <StudentSituationPulse courseYear={2} visibleSituations={visible}/>} 
         <section>
           <p className="text-xs font-bold uppercase tracking-[.18em] text-[#1e6b4f]">Mi curso</p>
           <h2 className="mt-1 text-2xl font-extrabold">Situaciones de aprendizaje de 2º</h2>
@@ -96,6 +98,7 @@ export default async function StudentDashboard() {
     <div className="mx-auto max-w-7xl space-y-8 p-5 sm:p-8">
       <section className="card flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-bold uppercase tracking-[.18em] text-[#1e6b4f]">Tu grupo</p><h2 className="mt-1 text-xl font-extrabold">Clases y recordatorios</h2><p className="mt-2 text-sm text-slate-500">Consulta las fechas de 1ºA o 1ºB según el grupo asignado a tu cuenta.</p></div><Link href="/alumno/agenda" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#1e6b4f] px-4 py-3 text-sm font-bold text-white"><CalendarDays size={18}/>Abrir mi agenda</Link></section>
       {!visible.length && <p className="card p-5">El profesor todavía no ha activado ninguna situación de aprendizaje.</p>}
+      {visible.length > 0 && <StudentSituationPulse courseYear={1} visibleSituations={visible}/>} 
 
       <section>
         <p className="text-xs font-bold uppercase tracking-[.18em] text-[#1e6b4f]">Mi curso</p>
@@ -109,3 +112,4 @@ export default async function StudentDashboard() {
     </div>
   </>;
 }
+

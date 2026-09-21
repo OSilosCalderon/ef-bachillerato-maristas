@@ -36,19 +36,19 @@ export default function HomePage() {
           <span className="rounded-full border border-[#d7c4ab] bg-white/85 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm">Entorno educativo privado</span>
         </nav>
 
-        <div className="grid gap-10 lg:grid-cols-[1.08fr_.92fr] lg:items-center">
+        <div className="hero-surface grid gap-10 overflow-hidden rounded-[2rem] p-7 shadow-2xl sm:p-10 lg:grid-cols-[1.08fr_.92fr] lg:items-center lg:p-14">
           <div className="min-w-0">
-            <span className="inline-flex items-center gap-2 rounded-full bg-[#e7f2ed] px-3 py-2 text-xs font-bold text-[#1e6b4f]">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-xs font-bold text-[#b8f34a]">
               <GraduationCap size={16}/> Curso 2026/27
             </span>
-            <h1 className="mt-6 max-w-4xl text-4xl font-black tracking-[-.045em] text-slate-950 sm:text-6xl lg:text-7xl">
-              Educación Física
-              <span className="mt-1 block text-[#1e6b4f]">Bachillerato</span>
+            <h1 className="mt-6 max-w-4xl text-4xl font-black tracking-[-.055em] text-white sm:text-6xl lg:text-7xl">
+              Moverse es
+              <span className="mt-1 block text-[#b8f34a]">aprender.</span>
             </h1>
-            <p className="mt-6 max-w-2xl text-lg font-semibold text-slate-600 sm:text-xl">
+            <p className="mt-6 max-w-2xl text-lg font-semibold text-emerald-50/80 sm:text-xl">
               Un mismo portal para 1º y 2º de Bachillerato, con entornos, situaciones de aprendizaje y seguimiento adaptados a cada curso.
             </p>
-            <p className="mt-4 text-sm font-bold uppercase tracking-[.16em] text-[#8b5e3c]">Elige tu curso para acceder</p>
+            <p className="mt-4 text-sm font-bold uppercase tracking-[.16em] text-[#b8f34a]">Tus marcas · tu evolución · tu aprendizaje</p>
           </div>
           <div className="flex justify-center lg:justify-end">
             <CoursePoster />
@@ -58,7 +58,7 @@ export default function HomePage() {
         <section className="mt-14 grid gap-5 lg:grid-cols-2" aria-label="Acceso por curso">
           {courses.map((course) => (
             <article key={course.year} className="card flex min-h-[330px] flex-col overflow-hidden p-0">
-              <div className={`p-6 sm:p-7 ${course.year === 1 ? "bg-slate-950 text-white" : "bg-[#1e6b4f] text-white"}`}>
+              <div className={`p-6 sm:p-7 ${course.year === 1 ? "bg-[#071f1c] text-white" : "bg-[#0f6258] text-white"}`}>
                 <div className="flex items-center justify-between gap-3">
                   <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-extrabold uppercase tracking-[.16em]">Acceso {course.year}º</span>
                   <Layers3 size={22} className="opacity-80"/>
@@ -72,7 +72,7 @@ export default function HomePage() {
                   <BookOpenCheck size={18} className="text-[#1e6b4f]"/>
                   <span>{course.meta}</span>
                 </div>
-                <Link href={course.href} className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-extrabold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1e6b4f]">
+                <Link href={course.href} className="accent-button mt-6 inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-extrabold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f766e]">
                   Acceso alumnado · {course.title} <ArrowRight size={17}/>
                 </Link>
                 <Link href={`/auth/login?curso=${course.year}&perfil=profesor`} className="mt-3 rounded-xl border border-slate-200 px-5 py-3 text-center text-sm font-bold text-[#1e6b4f]">Acceso profesorado · {course.title}</Link>
@@ -88,3 +88,4 @@ export default function HomePage() {
     </main>
   );
 }
+
