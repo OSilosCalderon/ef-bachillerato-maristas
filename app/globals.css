@@ -192,3 +192,33 @@ button:disabled { cursor: not-allowed; }
   }
 }
 
+.plan-print-sheet { display: none; }
+
+@media print {
+  @page { size: A4; margin: 14mm; }
+  body { background: #fff !important; color: #111827 !important; font-family: Arial, Helvetica, sans-serif; }
+  body::before, body::after, .corporate-strip, aside, nav, .plan-actions { display: none !important; }
+  body * { visibility: hidden !important; }
+  #personal-plan-export, #personal-plan-export * { visibility: visible !important; }
+  #personal-plan-export { position: absolute; inset: 0; display: block !important; width: 100%; font-size: 10pt; line-height: 1.4; }
+  .plan-print-header { display: flex; align-items: flex-end; justify-content: space-between; border-bottom: 3px solid #0f766e; padding-bottom: 8mm; }
+  .plan-print-header p { margin: 0 0 2mm; color: #0f766e; font-size: 9pt; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+  .plan-print-header h1 { margin: 0; font-size: 24pt; line-height: 1; }
+  .plan-print-header strong { border-radius: 999px; background: #dff8ed; padding: 3mm 5mm; color: #0b3d36; }
+  .plan-print-meta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 3mm; margin: 7mm 0; }
+  .plan-print-meta div { border: 1px solid #cbd5e1; border-radius: 3mm; padding: 3mm; }
+  .plan-print-meta dt { color: #64748b; font-size: 8pt; font-weight: 700; text-transform: uppercase; }
+  .plan-print-meta dd { margin: 1mm 0 0; font-weight: 700; }
+  .plan-print-section { break-inside: avoid; margin-top: 6mm; }
+  .plan-print-section > h2 { margin: 0 0 3mm; border-left: 4px solid #b8f34a; padding-left: 3mm; color: #0b3d36; font-size: 14pt; }
+  .plan-print-section h3 { margin: 3mm 0 1mm; color: #334155; font-size: 10pt; }
+  .plan-print-section p { margin: 0 0 2mm; white-space: pre-wrap; }
+  .plan-print-sessions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 3mm; }
+  .plan-print-sessions > section { break-inside: avoid; border: 1px solid #cbd5e1; border-radius: 3mm; padding: 3mm; }
+  .plan-print-sessions h3 { margin-top: 0; color: #0f766e; }
+  .plan-print-task { margin-top: 2mm; padding-top: 2mm; border-top: 1px solid #e2e8f0; }
+  .plan-print-task ol { margin: 1mm 0 0; padding-left: 5mm; }
+  .plan-print-empty { color: #94a3b8; font-style: italic; }
+  .plan-print-sheet footer { margin-top: 8mm; border-top: 1px solid #cbd5e1; padding-top: 3mm; color: #64748b; font-size: 8pt; text-align: center; }
+}
+

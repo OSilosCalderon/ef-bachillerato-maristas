@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { BarChart3, CalendarDays, CheckCircle2, Loader2, MessageSquareText, Plus, Save, Trash2 } from "lucide-react";
+import { BarChart3, CalendarDays, CheckCircle2, FileDown, Loader2, MessageSquareText, Plus, Save, Trash2 } from "lucide-react";
 import { PersonalPlanTaskEditor } from "@/components/personal-plan-task-editor";
 import { cleanPlanItems, emptyExercise, methodologyLabels, normalizeItems, type PlanItem } from "@/lib/personal-plan-tasks";
 import { FIRST_YEAR_PLAN_SESSIONS } from "@/lib/first-year-personal-plan-calendar";
@@ -61,6 +61,7 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
   const [courseId, setCourseId] = useState<string | null>(null);
   const [form, setForm] = useState<PlanForm>(() => courseYear === 1 ? { ...emptyPlan, durationWeeks: 4, weeklyFrequency: 2 } : emptyPlan);
   const [classGroup, setClassGroup] = useState(courseYear === 2 ? "2º Bachillerato" : "");
+  const [studentName, setStudentName] = useState("Alumno/a");
   const [tests, setTests] = useState<PhysicalTest[]>([]);
   const [reference, setReference] = useState<FitnessReference | null>(null);
   const [loading, setLoading] = useState(true);
@@ -87,10 +88,13 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
 
       if (studentError || !student) throw new Error("No se ha encontrado el perfil de alumno.");
 
+      const { data: profile, error: profileError } = await supabase.from("profiles").select("display_name,class_group").eq("id", auth.user.id).single();
+      if (profileError) throw new Error("No se ha podido cargar tu perfil.");
+      setStudentName(profile?.display_name?.trim() || "Alumno/a");
+
       if (courseYear === 1) {
-        const { data: profile, error: profileError } = await supabase.from("profiles").select("class_group").eq("id", auth.user.id).single();
         const calendarGroup = firstYearCalendarGroup(profile?.class_group);
-        if (profileError || !calendarGroup) throw new Error("Tu cuenta no tiene asignado un grupo de 1º. Consulta con el profesor.");
+        if (!calendarGroup) throw new Error("Tu cuenta no tiene asignado un grupo de 1º. Consulta con el profesor.");
         setClassGroup(calendarGroup);
       }
 
@@ -237,6 +241,14 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
     }
   }
 
+  function exportPdf() {
+    const previousTitle = document.title;
+    document.title = `Plan personal SA1 - ${studentName} - ${courseYear} Bachillerato`;
+    const restoreTitle = () => { document.title = previousTitle; };
+    window.addEventListener("afterprint", restoreTitle, { once: true });
+    window.print();
+  }
+
   if (loading) {
     return <div className="card flex items-center gap-3 p-6 text-sm text-slate-500"><Loader2 className="animate-spin" size={20}/>Cargando tu plan personal…</div>;
   }
@@ -245,6 +257,7 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
 
   return (
     <fieldset disabled={saving} className="space-y-6">
+      <PrintablePlan courseYear={courseYear} classGroup={classGroup} studentName={studentName} form={form} sessions={planSessions}/>
       <section className="grid gap-4 sm:grid-cols-3">
         <article className="card p-5">
           <p className="text-sm text-slate-500">Pruebas iniciales registradas</p>
@@ -380,14 +393,34 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
         </div>
       </section>
 
-      <section className="flex flex-col gap-3 rounded-2xl bg-slate-950 p-5 text-white sm:flex-row sm:items-center sm:justify-between">
+      <section className="plan-actions flex flex-col gap-3 rounded-2xl bg-slate-950 p-5 text-white sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3"><CheckCircle2 className="mt-0.5 text-emerald-300" size={20}/><div><p className="font-extrabold">Justifica el plan con tus datos y con la teoría</p><p className="mt-1 text-xs leading-5 text-slate-300">Tu objetivo, carga, progresión y recuperación deben poder explicarse usando los principios de entrenamiento estudiados.</p></div></div>
-        <button type="button" disabled={saving} onClick={() => void save()} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-extrabold text-slate-950 disabled:opacity-50">{saving ? <Loader2 className="animate-spin" size={17}/> : <Save size={17}/>}Guardar plan</button>
+        <div className="flex flex-col gap-2 sm:flex-row"><button type="button" disabled={!form.objective.trim() || form.items.length === 0} onClick={exportPdf} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-white/25 px-4 py-2.5 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-40" title={!form.objective.trim() || form.items.length === 0 ? "Añade al menos un objetivo y una tarea para exportar" : "Abrir la impresión para guardar como PDF"}><FileDown size={17}/>Exportar a PDF</button><button type="button" disabled={saving} onClick={() => void save()} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-extrabold text-slate-950 disabled:opacity-50">{saving ? <Loader2 className="animate-spin" size={17}/> : <Save size={17}/>}Guardar plan</button></div>
       </section>
     </fieldset>
   );
 }
 
+function PrintablePlan({ courseYear, classGroup, studentName, form, sessions }: { courseYear: 1 | 2; classGroup: string; studentName: string; form: PlanForm; sessions: typeof SECOND_YEAR_PLAN_SESSIONS }) {
+  const capacity = capacityOptions.find(([value]) => value === form.priorityCapacity)?.[1] ?? form.priorityCapacity;
+  const status = form.status === "draft" ? "Borrador" : form.status === "active" ? "En marcha" : "Finalizado";
+  return <article id="personal-plan-export" className="plan-print-sheet" aria-hidden="true">
+    <header className="plan-print-header"><div><p>Educación Física · Maristas Badajoz</p><h1>Plan personal · SA1</h1></div><strong>{courseYear}º Bachillerato</strong></header>
+    <dl className="plan-print-meta"><div><dt>Alumno/a</dt><dd>{studentName}</dd></div><div><dt>Grupo</dt><dd>{classGroup || `${courseYear}º Bachillerato`}</dd></div><div><dt>Estado</dt><dd>{status}</dd></div><div><dt>Capacidad prioritaria</dt><dd>{capacity}</dd></div></dl>
+    <PrintSection title="1. Punto de partida"><p>{form.initialAnalysis || "Sin completar"}</p></PrintSection>
+    <PrintSection title="2. Objetivos y dosis general"><h3>Objetivo principal</h3><p>{form.objective || "Sin completar"}</p>{form.secondaryObjective && <><h3>Segundo objetivo</h3><p>{form.secondaryObjective}</p><h3>Indicador del segundo objetivo</h3><p>{form.secondarySuccessIndicator || "Sin completar"}</p></>}<p><strong>Duración:</strong> {form.durationWeeks} semanas · <strong>Frecuencia:</strong> {form.weeklyFrequency} sesiones/semana · <strong>Sesión:</strong> {form.sessionDurationMinutes} min</p></PrintSection>
+    <PrintSection title="3. Calendario y tareas"><div className="plan-print-sessions">{sessions.map((session, index) => { const items = form.items.filter((item) => item.sessionDate === session.date); return <section key={session.date}><h3>Sesión {index + 1} · {formatPlanDate(session.date)} · {session.start}-{session.end}</h3>{items.length ? items.map((item) => <div key={item.id} className="plan-print-task"><p><strong>{item.activity || "Tarea"}</strong> · {methodologyLabels[item.methodology]} · {item.rounds} vuelta(s){item.roundRecovery ? ` · pausa ${item.roundRecovery}` : ""}</p><ol>{item.exercises.map((exercise) => <li key={exercise.id}>{exercise.activity || "Ejercicio por concretar"}{exercise.dose ? ` · ${exercise.dose}` : ""}{exercise.recovery ? ` · descanso ${exercise.recovery}` : ""}</li>)}</ol></div>) : <p className="plan-print-empty">Sin tareas asignadas</p>}</section>; })}</div></PrintSection>
+    <PrintSection title="4. Progresión, recuperación y evaluación"><h3>Progresión</h3><p>{form.progressionStrategy || "Sin completar"}</p><h3>Recuperación</h3><p>{form.recoveryStrategy || "Sin completar"}</p><h3>Indicador de logro</h3><p>{form.successIndicator || "Sin completar"}</p></PrintSection>
+    <PrintSection title="5. Reflexión final"><h3>Conclusiones</h3><p>{form.finalConclusions || "Pendiente al finalizar el plan"}</p><h3>Qué quiero seguir trabajando</h3><p>{form.futureWork || "Pendiente al finalizar el plan"}</p></PrintSection>
+    <footer>Documento generado desde la plataforma de Educación Física · Los datos corresponden al plan visible en pantalla.</footer>
+  </article>;
+}
+
+function PrintSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return <section className="plan-print-section"><h2>{title}</h2>{children}</section>;
+}
+
 function formatPlanDate(value: string) {
   return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long" }).format(new Date(`${value}T12:00:00`));
 }
+
