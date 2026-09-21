@@ -99,24 +99,18 @@ export function PsychologicalQuestionnaires({ courseYear }: { courseYear: 1 | 2 
     setMessage("");
     try {
       const supabase = createClient();
-      let attempt = attempts.find((item) => item.questionnaire_id === active.id);
-      if (!attempt) {
-        const { data, error } = await supabase.from("questionnaire_attempts").insert({ questionnaire_id: active.id, student_id: studentId }).select("id,questionnaire_id,status,submitted_at").single();
-        if (error || !data) throw error ?? new Error("No se ha podido iniciar el cuestionario.");
-        attempt = data as Attempt;
-      }
-      const rows = active.questionnaire_questions.map((question) => {
-        const option = question.questionnaire_options.find((item) => item.id === answers[question.id]);
-        if (!option) throw new Error("Hay una respuesta que no es válida.");
-        return { attempt_id: attempt!.id, question_id: question.id, answer: { option_id: option.id, value: option.value, label: option.label }, updated_at: new Date().toISOString() };
+      const { data, error } = await supabase.rpc("submit_psychological_questionnaire", {
+        p_questionnaire_id: active.id,
+        p_answers: answers,
       });
-      const { error: responseError } = await supabase.from("questionnaire_responses").upsert(rows, { onConflict: "attempt_id,question_id" });
-      if (responseError) throw responseError;
-      const submittedAt = new Date().toISOString();
-      const { error: attemptError } = await supabase.from("questionnaire_attempts").update({ status: "submitted", submitted_at: submittedAt }).eq("id", attempt.id);
-      if (attemptError) throw attemptError;
-      await load();
-      setActiveId(active.id);
+      if (error) throw new Error(error.message);
+      const receipt = data as { attempt: Attempt; responses: SavedResponse[] } | null;
+      if (!receipt?.attempt || receipt.attempt.status !== "submitted" || !Array.isArray(receipt.responses) || receipt.responses.length !== active.questionnaire_questions.length) {
+        throw new Error("No se ha podido confirmar la entrega. Pulsa Entregar otra vez; no se duplicará tu cuestionario.");
+      }
+      setAttempts((current) => [...current.filter((item) => item.questionnaire_id !== active.id), receipt.attempt]);
+      setResponses((current) => [...current.filter((item) => item.attempt_id !== receipt.attempt.id), ...receipt.responses]);
+      setAnswers(Object.fromEntries(receipt.responses.map((item) => [item.question_id, String(item.answer.option_id ?? "")])));
       setMessage("Cuestionario entregado. Puedes revisar tus respuestas, pero no las estadísticas ni las puntuaciones.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "No se ha podido guardar el cuestionario.");
@@ -141,17 +135,17 @@ export function PsychologicalQuestionnaires({ courseYear }: { courseYear: 1 | 2 
           <h2 className="mt-2 text-lg font-extrabold">{q.title}</h2>
           <p className="mt-2 flex-1 text-sm leading-6 text-slate-500">{q.description}</p>
           <p className="mt-4 flex items-center gap-2 text-xs text-slate-500"><Clock3 size={14}/>{q.questionnaire_questions.length} enunciados · escala 1–5</p>
-          <button onClick={() => openQuestionnaire(q)} className="mt-5 rounded-xl bg-[#1e6b4f] px-4 py-2.5 text-sm font-bold text-white">{completed ? "Revisar mis respuestas" : "Responder"}</button>
+          <button disabled={saving} onClick={() => openQuestionnaire(q)} className="mt-5 rounded-xl bg-[#1e6b4f] px-4 py-2.5 text-sm font-bold text-white">{completed ? "Revisar mis respuestas" : "Responder"}</button>
         </article>;
       })}
     </section>}
 
     {active && <section className="card p-5 sm:p-7">
-      <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#1e6b4f]">{active.instrument_code} · {phaseLabel[active.assessment_phase]}</p><h2 className="mt-2 text-2xl font-extrabold">{active.title}</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">{active.instructions}</p></div><button onClick={() => setActiveId(null)} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold">Cerrar</button></div>
+      <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#1e6b4f]">{active.instrument_code} · {phaseLabel[active.assessment_phase]}</p><h2 className="mt-2 text-2xl font-extrabold">{active.title}</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">{active.instructions}</p></div><button disabled={saving} onClick={() => setActiveId(null)} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold">Cerrar</button></div>
       <div className="mt-7 space-y-6">
         {active.questionnaire_questions.map((question) => {
           const saved = activeResponses.find((response) => response.question_id === question.id);
-          return <fieldset key={question.id} disabled={activeAttempt?.status === "submitted"} className="rounded-2xl border border-slate-200 p-4 sm:p-5">
+          return <fieldset key={question.id} disabled={saving || activeAttempt?.status === "submitted"} className="rounded-2xl border border-slate-200 p-4 sm:p-5">
             <legend className="px-2 text-sm font-bold text-slate-900">{question.position}. {question.prompt}</legend>
             <div className="mt-3 grid gap-2 sm:grid-cols-5">
               {question.questionnaire_options.map((option) => {
