@@ -15,7 +15,7 @@ loaded.filename = sourcePath;
 loaded.paths = module.paths;
 loaded._compile(code, sourcePath);
 
-const sessions = Array.from({ length: 10 }, (_, index) => `• Sesión ${index + 1} - ${13 + index} de octubre - Circuito global - 3 vueltas\n  1. Sentadilla sin carga - 2 x 10 repeticiones - descanso 45 s\n  2. Carrera controlada - 3 min - descanso 60 s`);
+const sessions = Array.from({ length: 30 }, (_, index) => `• Sesión ${index + 1} - ${13 + index} de octubre - Circuito global - 3 series\n  1. Sentadilla sin carga - 2 x 10 repeticiones - descanso 45 s\n  2. Carrera controlada - 3 min - descanso 60 s`);
 const bytes = loaded.exports.buildPersonalPlanPdf({
   studentName: "Alumno de prueba",
   courseLabel: "2º Bachillerato",
@@ -35,7 +35,10 @@ fs.writeFileSync(outputPath, bytes);
 const text = Buffer.from(bytes).toString("latin1");
 assert.ok(text.startsWith("%PDF-1.4"));
 assert.ok(text.includes("/Type /Catalog"));
-assert.ok((text.match(/\/Type \/Page\b/g) || []).length >= 1);
+const pageCount = (text.match(/\/Type \/Page\b/g) || []).length;
+assert.ok(pageCount >= 1);
+assert.ok(text.includes("/Subtype /Image"));
+assert.equal((text.match(/\/Logo Do/g) || []).length, pageCount);
 assert.ok(bytes.length > 3000);
 const exerciseCode = ts.transpileModule(fs.readFileSync(exercisesPath, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 const exerciseModule = new Module(exercisesPath, module);
@@ -45,4 +48,3 @@ exerciseModule._compile(exerciseCode, exercisesPath);
 assert.ok(exerciseModule.exports.secondYearExercises.length >= 30);
 assert.match(fs.readFileSync(path.join(root, "components", "personal-plan-task-editor.tsx"), "utf8"), /Otro ejercicio: escribirlo manualmente/);
 console.log(`PDF plan: valid structure, pagination, direct download bytes, expanded catalogue and custom exercise passed. ${outputPath}`);
-
