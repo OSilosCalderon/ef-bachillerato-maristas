@@ -45,6 +45,7 @@ assert.ok(text.includes("/Subtype /Image"));
 assert.equal((text.match(/\/Subtype \/Image/g) || []).length, pageCount);
 assert.ok(text.includes("/ASCIIHexDecode /DCTDecode"));
 assert.equal((text.match(/\/Logo Do/g) || []).length, pageCount);
+assert.ok(!text.includes(Buffer.from("5. Reflexión final", "latin1").toString("hex")));
 assert.ok(bytes.length > 3000);
 const exerciseCode = ts.transpileModule(fs.readFileSync(exercisesPath, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 const exerciseModule = new Module(exercisesPath, module);
