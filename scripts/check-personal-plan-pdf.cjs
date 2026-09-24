@@ -28,7 +28,7 @@ const bytes = loaded.exports.buildPersonalPlanPdf({
   capacity: "Condición física general",
   sections: [
     { title: "1. Punto de partida", lines: ["Análisis inicial con fuerza, resistencia, velocidad y movilidad."] },
-    { title: "2. Objetivos y dosis general", lines: ["Objetivo principal: mejorar la resistencia de forma progresiva.", "Cómo comprobaré mi objetivo principal: compararé el tiempo de carrera y mi esfuerzo percibido.", "3 semanas - 4 sesiones/semana - 55 min por sesión"] },
+    { title: "2. Objetivos y temporalización", lines: ["Objetivo principal: mejorar la resistencia de forma progresiva.", "Cómo comprobaré mi objetivo principal: compararé el tiempo de carrera y mi esfuerzo percibido.", "3 semanas - 4 sesiones/semana - 55 min por sesión"] },
     { title: "3. Calendario, tareas y cargas", lines: sessions },
     { title: "4. Progresión y recuperación", lines: ["Progresión: aumentar una variable cada semana.", "Recuperación: alternar sesiones y cuidar el sueño."] },
     { title: "5. Reflexión final", lines: ["Conclusiones: revisar los resultados finales."] },
@@ -46,6 +46,8 @@ assert.equal((text.match(/\/Subtype \/Image/g) || []).length, pageCount);
 assert.ok(text.includes("/ASCIIHexDecode /DCTDecode"));
 assert.equal((text.match(/\/Logo Do/g) || []).length, pageCount);
 assert.ok(!text.includes(Buffer.from("5. Reflexión final", "latin1").toString("hex")));
+assert.ok(text.includes(Buffer.from("2. Objetivos y temporalización", "latin1").toString("hex")));
+assert.ok(!text.includes(Buffer.from("Objetivos y dosis general", "latin1").toString("hex")));
 assert.ok(bytes.length > 3000);
 const exerciseCode = ts.transpileModule(fs.readFileSync(exercisesPath, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 const exerciseModule = new Module(exercisesPath, module);
