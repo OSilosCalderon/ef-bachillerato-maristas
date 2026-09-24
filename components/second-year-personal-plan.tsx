@@ -318,7 +318,7 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
       </section>
 
       <section className="card p-6 sm:p-8">
-        <h2 className="text-xl font-extrabold">2. Define uno o dos objetivos y la dosis general</h2>
+        <h2 className="text-xl font-extrabold">2. Define uno o dos objetivos y la temporalización</h2>
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <label className="text-sm font-bold text-slate-700 md:col-span-2">Objetivo principal
             <textarea value={form.objective} onChange={(event) => updateField("objective", event.target.value)} rows={3} placeholder="Qué quiero mejorar, cuánto y en qué periodo" className="mt-2 w-full rounded-xl border border-slate-200 p-3 text-sm font-normal outline-none focus:border-[#1e6b4f]" />
@@ -406,7 +406,7 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
 
       <section className="plan-actions flex flex-col gap-3 rounded-2xl bg-slate-950 p-5 text-white sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3"><CheckCircle2 className="mt-0.5 text-emerald-300" size={20}/><div><p className="font-extrabold">Justifica el plan con tus datos y con la teoría</p><p className="mt-1 text-xs leading-5 text-slate-300">Tu objetivo, carga, progresión y recuperación deben poder explicarse usando los principios de entrenamiento estudiados.</p></div></div>
-        <div className="flex flex-col gap-2 sm:flex-row"><button type="button" disabled={!form.objective.trim() || form.items.length === 0} onClick={exportPdf} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-white/25 px-4 py-2.5 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-40" title={!form.objective.trim() || form.items.length === 0 ? "Añade al menos un objetivo y una tarea para exportar" : "Descargar el plan en formato PDF"}><FileDown size={17}/>Descargar PDF</button><button type="button" disabled={saving} onClick={() => void save()} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-extrabold text-slate-950 disabled:opacity-50">{saving ? <Loader2 className="animate-spin" size={17}/> : <Save size={17}/>}Guardar plan</button></div>
+        <div className="flex flex-col gap-2 sm:flex-row"><button type="button" onClick={exportPdf} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-white/25 px-4 py-2.5 text-sm font-extrabold text-white" title="Descargar el plan visible en formato PDF"><FileDown size={17}/>Descargar PDF</button><button type="button" disabled={saving} onClick={() => void save()} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-extrabold text-slate-950 disabled:opacity-50">{saving ? <Loader2 className="animate-spin" size={17}/> : <Save size={17}/>}Guardar plan</button></div>
       </section>
     </fieldset>
   );
