@@ -26,10 +26,12 @@ assert.equal(normalizeItems([{ ...task, exercises: [] }])[0].exercises.length, 0
 const planUi = fs.readFileSync("components/second-year-personal-plan.tsx", "utf8");
 const taskUi = fs.readFileSync("components/personal-plan-task-editor.tsx", "utf8");
 assert.match(planUi, /¿Cómo comprobaré mi objetivo principal\?/);
+assert.match(planUi, /Define uno o dos objetivos y la temporalización/);
+assert.match(planUi, /title="Descargar el plan visible en formato PDF"/);
+assert.doesNotMatch(planUi, /disabled={!form\.objective\.trim\(\) \|\| form\.items\.length === 0}/);
 assert.match(planUi, /courseYear === 2 \? 3/);
 assert.match(planUi, /courseYear === 2 \? 4/);
 assert.match(taskUi, /Series de la tarea completa/);
 assert.match(taskUi, /Descanso entre series \(minutos\)/);
 assert.doesNotMatch(taskUi, /Vueltas de la tarea completa|Descanso entre vueltas/);
 console.log("Personal plans: legacy data survives save/reload and the SA1 form uses the fixed schedule and series terminology.");
-
