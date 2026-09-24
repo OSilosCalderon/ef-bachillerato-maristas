@@ -126,8 +126,8 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
           secondaryObjective: row.secondary_objective ?? "",
           secondarySuccessIndicator: row.secondary_success_indicator ?? "",
           priorityCapacity: row.priority_capacity || "condicion-fisica-general",
-          durationWeeks: Number(row.duration_weeks) || 6,
-          weeklyFrequency: Number(row.weekly_frequency) || 3,
+          durationWeeks: courseYear === 2 ? 3 : Number(row.duration_weeks) || 4,
+          weeklyFrequency: courseYear === 2 ? 4 : Number(row.weekly_frequency) || 2,
           sessionDurationMinutes: Number(row.session_duration_minutes) || 45,
           progressionStrategy: row.progression_strategy ?? "",
           recoveryStrategy: row.recovery_strategy ?? "",
@@ -214,8 +214,8 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
             secondary_objective: form.secondaryObjective.trim(),
             secondary_success_indicator: form.secondarySuccessIndicator.trim(),
             priority_capacity: form.priorityCapacity,
-            duration_weeks: form.durationWeeks,
-            weekly_frequency: form.weeklyFrequency,
+            duration_weeks: courseYear === 2 ? 3 : form.durationWeeks,
+            weekly_frequency: courseYear === 2 ? 4 : form.weeklyFrequency,
             session_duration_minutes: form.sessionDurationMinutes,
             progression_strategy: form.progressionStrategy.trim(),
             recovery_strategy: form.recoveryStrategy.trim(),
@@ -248,13 +248,13 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
     const taskLines = planSessions.flatMap((session, index) => {
       const items = form.items.filter((item) => item.sessionDate === session.date);
       if (!items.length) return [`• Sesión ${index + 1} - ${formatPlanDate(session.date)} - Sin tareas asignadas`];
-      return items.flatMap((item) => [`• Sesión ${index + 1} - ${formatPlanDate(session.date)} - ${item.activity || "Tarea"} - ${methodologyLabels[item.methodology]} - ${item.rounds} vuelta(s)`, ...item.exercises.map((exercise, exerciseIndex) => `  ${exerciseIndex + 1}. ${exercise.activity || "Ejercicio por concretar"}${exercise.dose ? ` - ${exercise.dose}` : ""}${exercise.recovery ? ` - descanso ${exercise.recovery}` : ""}`)]);
+      return items.flatMap((item) => [`• Sesión ${index + 1} - ${formatPlanDate(session.date)} - ${item.activity || "Tarea"} - ${methodologyLabels[item.methodology]} - ${item.rounds} serie(s)${item.roundRecovery ? ` - descanso entre series: ${item.roundRecovery} min` : ""}`, ...item.exercises.map((exercise, exerciseIndex) => `  ${exerciseIndex + 1}. ${exercise.activity || "Ejercicio por concretar"}${exercise.dose ? ` - ${exercise.dose}` : ""}${exercise.recovery ? ` - descanso ${exercise.recovery}` : ""}`)]);
     });
     downloadPersonalPlanPdf({ studentName, courseLabel: `${courseYear}º Bachillerato`, group: classGroup || `${courseYear}º Bachillerato`, status, capacity, sections: [
       { title: "1. Punto de partida", lines: [form.initialAnalysis || "Sin completar"] },
-      { title: "2. Objetivos y dosis general", lines: [`Objetivo principal: ${form.objective || "Sin completar"}`, ...(form.secondaryObjective ? [`Segundo objetivo: ${form.secondaryObjective}`, `Indicador del segundo objetivo: ${form.secondarySuccessIndicator || "Sin completar"}`] : []), `${form.durationWeeks} semanas - ${form.weeklyFrequency} sesiones/semana - ${form.sessionDurationMinutes} min por sesión`] },
+      { title: "2. Objetivos y dosis general", lines: [`Objetivo principal: ${form.objective || "Sin completar"}`, `Cómo comprobaré mi objetivo principal: ${form.successIndicator || "Sin completar"}`, ...(form.secondaryObjective ? [`Segundo objetivo: ${form.secondaryObjective}`, `Indicador del segundo objetivo: ${form.secondarySuccessIndicator || "Sin completar"}`] : []), `${courseYear === 2 ? 3 : form.durationWeeks} semanas - ${courseYear === 2 ? 4 : form.weeklyFrequency} sesiones/semana - ${form.sessionDurationMinutes} min por sesión`] },
       { title: "3. Calendario, tareas y cargas", lines: taskLines },
-      { title: "4. Progresión, recuperación y evaluación", lines: [`Progresión: ${form.progressionStrategy || "Sin completar"}`, `Recuperación: ${form.recoveryStrategy || "Sin completar"}`, `Indicador de logro: ${form.successIndicator || "Sin completar"}`] },
+      { title: "4. Progresión y recuperación", lines: [`Progresión: ${form.progressionStrategy || "Sin completar"}`, `Recuperación: ${form.recoveryStrategy || "Sin completar"}`] },
       { title: "5. Reflexión final", lines: [`Conclusiones: ${form.finalConclusions || "Pendiente al finalizar el plan"}`, `Qué quiero seguir trabajando: ${form.futureWork || "Pendiente al finalizar el plan"}`] },
     ] });
     setMessage("PDF descargado. Revisa la carpeta de descargas de tu dispositivo.");
@@ -292,7 +292,7 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
         <p className="mt-3 text-sm leading-6 text-slate-600">{courseYear === 1 ? "El trabajo comienza en la última semana de octubre y termina el 23 de noviembre." : `El periodo comienza el ${formatPlanDate(SECOND_YEAR_PLAN_START)}. Al ser festivo, la primera sesión lectiva es el 13 de octubre y la décima termina el 28 de octubre.`} Las tareas que añadas abajo aparecerán automáticamente en la sesión elegida.</p>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{planSessions.map((session, index) => {
           const assigned = form.items.filter((item) => item.sessionDate === session.date);
-          return <article key={session.date} className={`rounded-xl border p-4 ${assigned.length ? "border-emerald-300 bg-emerald-50" : "border-slate-200"}`}><p className="text-xs font-bold text-[#1e6b4f]">Sesión {index + 1}</p><p className="mt-1 text-sm font-extrabold">{formatPlanDate(session.date)}</p><p className="mt-1 text-xs text-slate-500">{session.day} · {session.start}–{session.end}</p><div className="mt-3 space-y-2">{assigned.map((item) => <div key={item.id} className="rounded-lg bg-white px-3 py-2 text-xs text-slate-700"><p className="font-bold">{item.activity.trim() || "Tarea en preparación"}</p><p className="mt-1">{methodologyLabels[item.methodology]} · {item.rounds} vuelta(s)</p><ol className="mt-2 list-inside list-decimal space-y-1">{item.exercises.map((exercise) => <li key={exercise.id}>{exercise.activity || "Ejercicio por elegir"}{exercise.dose ? ` · ${exercise.dose}` : ""}</li>)}</ol></div>)}{!assigned.length && <p className="text-xs text-slate-400">Sin tareas asignadas</p>}</div><button type="button" onClick={() => addItem(session.date)} className="mt-3 text-xs font-bold text-[#1e6b4f] underline">Añadir tarea a esta sesión</button></article>;
+          return <article key={session.date} className={`rounded-xl border p-4 ${assigned.length ? "border-emerald-300 bg-emerald-50" : "border-slate-200"}`}><p className="text-xs font-bold text-[#1e6b4f]">Sesión {index + 1}</p><p className="mt-1 text-sm font-extrabold">{formatPlanDate(session.date)}</p><p className="mt-1 text-xs text-slate-500">{session.day} · {session.start}–{session.end}</p><div className="mt-3 space-y-2">{assigned.map((item) => <div key={item.id} className="rounded-lg bg-white px-3 py-2 text-xs text-slate-700"><p className="font-bold">{item.activity.trim() || "Tarea en preparación"}</p><p className="mt-1">{methodologyLabels[item.methodology]} · {item.rounds} serie(s)</p><ol className="mt-2 list-inside list-decimal space-y-1">{item.exercises.map((exercise) => <li key={exercise.id}>{exercise.activity || "Ejercicio por elegir"}{exercise.dose ? ` · ${exercise.dose}` : ""}</li>)}</ol></div>)}{!assigned.length && <p className="text-xs text-slate-400">Sin tareas asignadas</p>}</div><button type="button" onClick={() => addItem(session.date)} className="mt-3 text-xs font-bold text-[#1e6b4f] underline">Añadir tarea a esta sesión</button></article>;
         })}</div>
         {form.items.some((item) => !planSessions.some((session) => session.date === item.sessionDate)) && <div className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900"><p className="font-bold">Tareas pendientes de fecha</p><p className="mt-1">Conservamos tus tareas anteriores. Elige su sesión en el apartado 3 para verlas en el calendario.</p><ul className="mt-2 list-inside list-disc">{form.items.filter((item) => !planSessions.some((session) => session.date === item.sessionDate)).map((item) => <li key={item.id}>{item.activity || "Tarea en preparación"}{item.day ? ` · ${item.day}` : ""}</li>)}</ul></div>}
       </section>
@@ -323,6 +323,9 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
           <label className="text-sm font-bold text-slate-700 md:col-span-2">Objetivo principal
             <textarea value={form.objective} onChange={(event) => updateField("objective", event.target.value)} rows={3} placeholder="Qué quiero mejorar, cuánto y en qué periodo" className="mt-2 w-full rounded-xl border border-slate-200 p-3 text-sm font-normal outline-none focus:border-[#1e6b4f]" />
           </label>
+          <label className="text-sm font-bold text-slate-700 md:col-span-2">¿Cómo comprobaré mi objetivo principal?
+            <textarea value={form.successIndicator} onChange={(event) => updateField("successIndicator", event.target.value)} rows={3} placeholder="Indica qué prueba, marca o evidencia compararás al terminar el plan" className="mt-2 w-full rounded-xl border border-slate-200 p-3 text-sm font-normal outline-none focus:border-[#1e6b4f]" />
+          </label>
           <label className="text-sm font-bold text-slate-700 md:col-span-2">Segundo objetivo (opcional)
             <textarea value={form.secondaryObjective} onChange={(event) => updateField("secondaryObjective", event.target.value)} rows={2} placeholder="Una segunda mejora concreta que complemente la principal" className="mt-2 w-full rounded-xl border border-slate-200 p-3 text-sm font-normal" />
           </label>
@@ -334,16 +337,16 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
               {capacityOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </label>
-          <label className="text-sm font-bold text-slate-700">Duración del plan
+          {courseYear === 2 ? <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-slate-700"><p className="font-bold">Duración del plan</p><p className="mt-2 text-base font-extrabold text-[#1e6b4f]">3 semanas</p><p className="mt-1 text-xs">Establecida por el calendario de la SA1.</p></div> : <label className="text-sm font-bold text-slate-700">Duración del plan
             <select value={form.durationWeeks} onChange={(event) => updateField("durationWeeks", Number(event.target.value))} className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-semibold">
               {[3, 4, 6, 8, 10, 12].map((value) => <option key={value} value={value}>{value} semanas</option>)}
             </select>
-          </label>
-          <label className="text-sm font-bold text-slate-700">Frecuencia semanal
+          </label>}
+          {courseYear === 2 ? <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-slate-700"><p className="font-bold">Frecuencia semanal</p><p className="mt-2 text-base font-extrabold text-[#1e6b4f]">4 sesiones por semana</p><p className="mt-1 text-xs">Distribuidas según el calendario lectivo.</p></div> : <label className="text-sm font-bold text-slate-700">Frecuencia semanal
             <select value={form.weeklyFrequency} onChange={(event) => updateField("weeklyFrequency", Number(event.target.value))} className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-semibold">
               {[2, 3, 4, 5].map((value) => <option key={value} value={value}>{value} sesiones/semana</option>)}
             </select>
-          </label>
+          </label>}
           <label className="text-sm font-bold text-slate-700">Duración orientativa de sesión
             <select value={form.sessionDurationMinutes} onChange={(event) => updateField("sessionDurationMinutes", Number(event.target.value))} className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-semibold">
               {[30, 45, 55, 60, 75].map((value) => <option key={value} value={value}>{value} min</option>)}
@@ -371,16 +374,13 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
       </section>
 
       <section className="card p-6 sm:p-8">
-        <h2 className="text-xl font-extrabold">4. Planifica progresión, recuperación y evaluación</h2>
+        <h2 className="text-xl font-extrabold">4. Planifica la progresión y la recuperación</h2>
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <label className="text-sm font-bold text-slate-700">¿Cómo progresaré?
             <textarea value={form.progressionStrategy} onChange={(event) => updateField("progressionStrategy", event.target.value)} rows={4} placeholder="Qué variable modificaré y cuándo" className="mt-2 w-full rounded-xl border border-slate-200 p-3 text-sm font-normal" />
           </label>
           <label className="text-sm font-bold text-slate-700">¿Cómo recuperaré?
             <textarea value={form.recoveryStrategy} onChange={(event) => updateField("recoveryStrategy", event.target.value)} rows={4} placeholder="Descansos, distribución semanal, sueño, días suaves…" className="mt-2 w-full rounded-xl border border-slate-200 p-3 text-sm font-normal" />
-          </label>
-          <label className="text-sm font-bold text-slate-700 md:col-span-2">¿Cómo sabré si mi plan funciona?
-            <textarea value={form.successIndicator} onChange={(event) => updateField("successIndicator", event.target.value)} rows={3} placeholder="Marca o indicador que compararé en la segunda toma" className="mt-2 w-full rounded-xl border border-slate-200 p-3 text-sm font-normal" />
           </label>
           <label className="text-sm font-bold text-slate-700">Estado
             <select value={form.status} onChange={(event) => updateField("status", event.target.value as PlanForm["status"])} className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-semibold">
@@ -419,9 +419,9 @@ function PrintablePlan({ courseYear, classGroup, studentName, form, sessions }: 
     <header className="plan-print-header"><div><p>Educación Física · Maristas Badajoz</p><h1>Plan personal · SA1</h1></div><strong>{courseYear}º Bachillerato</strong></header>
     <dl className="plan-print-meta"><div><dt>Alumno/a</dt><dd>{studentName}</dd></div><div><dt>Grupo</dt><dd>{classGroup || `${courseYear}º Bachillerato`}</dd></div><div><dt>Estado</dt><dd>{status}</dd></div><div><dt>Capacidad prioritaria</dt><dd>{capacity}</dd></div></dl>
     <PrintSection title="1. Punto de partida"><p>{form.initialAnalysis || "Sin completar"}</p></PrintSection>
-    <PrintSection title="2. Objetivos y dosis general"><h3>Objetivo principal</h3><p>{form.objective || "Sin completar"}</p>{form.secondaryObjective && <><h3>Segundo objetivo</h3><p>{form.secondaryObjective}</p><h3>Indicador del segundo objetivo</h3><p>{form.secondarySuccessIndicator || "Sin completar"}</p></>}<p><strong>Duración:</strong> {form.durationWeeks} semanas · <strong>Frecuencia:</strong> {form.weeklyFrequency} sesiones/semana · <strong>Sesión:</strong> {form.sessionDurationMinutes} min</p></PrintSection>
-    <PrintSection title="3. Calendario y tareas"><div className="plan-print-sessions">{sessions.map((session, index) => { const items = form.items.filter((item) => item.sessionDate === session.date); return <section key={session.date}><h3>Sesión {index + 1} · {formatPlanDate(session.date)} · {session.start}-{session.end}</h3>{items.length ? items.map((item) => <div key={item.id} className="plan-print-task"><p><strong>{item.activity || "Tarea"}</strong> · {methodologyLabels[item.methodology]} · {item.rounds} vuelta(s){item.roundRecovery ? ` · pausa ${item.roundRecovery}` : ""}</p><ol>{item.exercises.map((exercise) => <li key={exercise.id}>{exercise.activity || "Ejercicio por concretar"}{exercise.dose ? ` · ${exercise.dose}` : ""}{exercise.recovery ? ` · descanso ${exercise.recovery}` : ""}</li>)}</ol></div>) : <p className="plan-print-empty">Sin tareas asignadas</p>}</section>; })}</div></PrintSection>
-    <PrintSection title="4. Progresión, recuperación y evaluación"><h3>Progresión</h3><p>{form.progressionStrategy || "Sin completar"}</p><h3>Recuperación</h3><p>{form.recoveryStrategy || "Sin completar"}</p><h3>Indicador de logro</h3><p>{form.successIndicator || "Sin completar"}</p></PrintSection>
+    <PrintSection title="2. Objetivos y dosis general"><h3>Objetivo principal</h3><p>{form.objective || "Sin completar"}</p><h3>¿Cómo comprobaré mi objetivo principal?</h3><p>{form.successIndicator || "Sin completar"}</p>{form.secondaryObjective && <><h3>Segundo objetivo</h3><p>{form.secondaryObjective}</p><h3>Indicador del segundo objetivo</h3><p>{form.secondarySuccessIndicator || "Sin completar"}</p></>}<p><strong>Duración:</strong> {courseYear === 2 ? 3 : form.durationWeeks} semanas · <strong>Frecuencia:</strong> {courseYear === 2 ? 4 : form.weeklyFrequency} sesiones/semana · <strong>Sesión:</strong> {form.sessionDurationMinutes} min</p></PrintSection>
+    <PrintSection title="3. Calendario y tareas"><div className="plan-print-sessions">{sessions.map((session, index) => { const items = form.items.filter((item) => item.sessionDate === session.date); return <section key={session.date}><h3>Sesión {index + 1} · {formatPlanDate(session.date)} · {session.start}-{session.end}</h3>{items.length ? items.map((item) => <div key={item.id} className="plan-print-task"><p><strong>{item.activity || "Tarea"}</strong> · {methodologyLabels[item.methodology]} · {item.rounds} serie(s){item.roundRecovery ? ` · descanso entre series: ${item.roundRecovery} min` : ""}</p><ol>{item.exercises.map((exercise) => <li key={exercise.id}>{exercise.activity || "Ejercicio por concretar"}{exercise.dose ? ` · ${exercise.dose}` : ""}{exercise.recovery ? ` · descanso ${exercise.recovery}` : ""}</li>)}</ol></div>) : <p className="plan-print-empty">Sin tareas asignadas</p>}</section>; })}</div></PrintSection>
+    <PrintSection title="4. Progresión y recuperación"><h3>Progresión</h3><p>{form.progressionStrategy || "Sin completar"}</p><h3>Recuperación</h3><p>{form.recoveryStrategy || "Sin completar"}</p></PrintSection>
     <PrintSection title="5. Reflexión final"><h3>Conclusiones</h3><p>{form.finalConclusions || "Pendiente al finalizar el plan"}</p><h3>Qué quiero seguir trabajando</h3><p>{form.futureWork || "Pendiente al finalizar el plan"}</p></PrintSection>
     <footer>Documento generado desde la plataforma de Educación Física · Los datos corresponden al plan visible en pantalla.</footer>
   </article>;

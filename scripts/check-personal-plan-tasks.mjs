@@ -23,4 +23,13 @@ assert.equal(cleanPlanItems([task], false)[0].goal, "1");
 assert.equal(normalizeItems([null, [], 3]).length, 0);
 assert.equal(emptyExercise().id === emptyExercise().id, false);
 assert.equal(normalizeItems([{ ...task, exercises: [] }])[0].exercises.length, 0);
-console.log("Personal plans: legacy exercises preserved, multiple exercises and same-date tasks survive save/reload.");
+const planUi = fs.readFileSync("components/second-year-personal-plan.tsx", "utf8");
+const taskUi = fs.readFileSync("components/personal-plan-task-editor.tsx", "utf8");
+assert.match(planUi, /¿Cómo comprobaré mi objetivo principal\?/);
+assert.match(planUi, /courseYear === 2 \? 3/);
+assert.match(planUi, /courseYear === 2 \? 4/);
+assert.match(taskUi, /Series de la tarea completa/);
+assert.match(taskUi, /Descanso entre series \(minutos\)/);
+assert.doesNotMatch(taskUi, /Vueltas de la tarea completa|Descanso entre vueltas/);
+console.log("Personal plans: legacy data survives save/reload and the SA1 form uses the fixed schedule and series terminology.");
+
