@@ -9,10 +9,10 @@ export function SecondYearLoadRecoveryGuide() {
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Usa los tiempos como referencias para planificar y escucha la respuesta real de tu cuerpo. El mismo entrenamiento no exige la misma recuperación a todas las personas.</p>
       </div>
       <div className="bg-slate-50 p-3 sm:p-6">
-        <a href="/theory/sa2-recuperacion-cargas.webp" target="_blank" rel="noopener noreferrer" className="mx-auto block w-full max-w-[760px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm focus:outline-none focus:ring-4 focus:ring-emerald-200" aria-label="Abrir la infografía de tiempos de recuperación en tamaño completo">
+        <div className="mx-auto block w-full max-w-[760px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <Image src="/theory/sa2-recuperacion-cargas.webp" alt="Infografía: tiempos orientativos de recuperación según capacidad física e intensidad, señales para repetir o reducir la carga y ejemplo de semana equilibrada" width={1055} height={1491} sizes="(max-width: 768px) 100vw, 760px" className="h-auto w-full"/>
-        </a>
-        <p className="mx-auto mt-3 max-w-[760px] text-xs leading-5 text-slate-500">Toca o selecciona la infografía para verla ampliada. Sus tiempos son orientativos para alumnado sano: adapta la siguiente sesión a la carga, la capacidad trabajada, el descanso y las sensaciones.</p>
+        </div>
+        <div className="mx-auto mt-3 flex max-w-[760px] flex-wrap items-center justify-between gap-3"><p className="text-xs leading-5 text-slate-500">Sus tiempos son orientativos para alumnado sano: adapta la siguiente sesión a la carga, la capacidad trabajada, el descanso y las sensaciones.</p><button type="button" onClick={() => window.open("/theory/sa2-recuperacion-cargas.webp", "_blank", "noopener,noreferrer")} className="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-emerald-200">Ampliar infografía</button></div>
       </div>
     </div>
 
