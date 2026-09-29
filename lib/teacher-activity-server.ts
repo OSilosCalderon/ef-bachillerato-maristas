@@ -93,7 +93,7 @@ export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityD
     if (definition) add({ ...row, challenge_prompt: definition.prompt }, "challenges", str(definition.title), str(definition.sa_code));
   }
   const seenReads = new Set<string>();
-  for (const row of [...table.content_reads, ...table.theoretical_content_reads]) {
+  for (const row of table.content_reads) {
     const key = `${row.student_id}:${row.content_id}`;
     if (seenReads.has(key)) continue;
     seenReads.add(key);
