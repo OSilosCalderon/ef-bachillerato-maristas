@@ -8,20 +8,29 @@ import { secondYearTheoryTopics } from "@/lib/second-year-theory-topics";
 import type { ActivityCategory, TeacherActivity, TeacherActivityData } from "@/lib/teacher-activity";
 
 type Row = Record<string, unknown>;
+type QueryError = { code?: string | null; message?: string | null };
+function isMissingRelation(error: QueryError) {
+  const code = error.code ?? "";
+  const message = error.message ?? "";
+  return code === "42P01" || code === "PGRST205" || /relation .* does not exist|could not find the table .* in the schema cache/i.test(message);
+}
 const str = (value: unknown) => typeof value === "string" ? value : "";
 const num = (value: unknown) => value !== null && value !== undefined && Number.isFinite(Number(value)) ? Number(value) : null;
 
 export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityData> {
   await requireRole("teacher");
   const supabase = await createClient();
-  async function rows(table: string, filter?: { key: string; values: string[] }): Promise<Row[]> {
+  async function rows(table: string, filter?: { key: string; values: string[] }, optional = false): Promise<Row[]> {
     if (filter && !filter.values.length) return [];
     const result: Row[] = [];
     for (let start = 0; ; start += 1000) {
       let query = supabase.from(table).select("*").order(table === "theory_challenge_topics" ? "slug" : "id").range(start, start + 999);
       if (filter) query = query.in(filter.key, filter.values);
       const { data, error } = await query;
-      if (error) throw new Error(`No se han podido cargar los datos de ${table}.`);
+      if (error) {
+        if (optional && isMissingRelation(error)) return result;
+        throw new Error(`No se han podido cargar los datos de ${table}.`);
+      }
       result.push(...(data ?? []) as Row[]);
       if ((data?.length ?? 0) < 1000) return result;
     }
@@ -40,8 +49,9 @@ export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityD
     return { id: str(row.id), name: str(profile?.display_name) || "Alumno/a", group: firstYearCalendarGroup(str(profile?.class_group)) ?? (str(profile?.class_group) || `${year}º Bachillerato`) };
   }).sort((a, b) => a.name.localeCompare(b.name, "es"));
   const ids = students.map((student) => student.id);
-  const tableNames = ["personal_training_plans", "session_journals", "sports_journals", "training_session_logs", "physical_test_results", "technical_test_results", "questionnaire_attempts", "procedural_attempts", "theory_topic_progress", "theory_challenge_responses", "content_reads", "theoretical_content_reads", "healthy_habit_plans", "healthy_habit_weekly_logs", "sports_event_projects"];
-  const loaded = await Promise.all(tableNames.map((table) => rows(table, { key: "student_id", values: ids })));
+  const optionalTables = new Set(["personal_training_plans", "training_session_logs", "theory_topic_progress", "healthy_habit_plans", "healthy_habit_weekly_logs", "sports_event_projects"]);
+  const tableNames = ["personal_training_plans", "session_journals", "sports_journals", "training_session_logs", "physical_test_results", "technical_test_results", "questionnaire_attempts", "procedural_attempts", "theory_topic_progress", "theory_challenge_responses", "content_reads", "healthy_habit_plans", "healthy_habit_weekly_logs", "sports_event_projects"];
+  const loaded = await Promise.all(tableNames.map((table) => rows(table, { key: "student_id", values: ids }, optionalTables.has(table))));
   const table = Object.fromEntries(tableNames.map((name, index) => [name, loaded[index]]));
   const saFor = (id: unknown) => str(situations.find((sa) => sa.id === id)?.code);
   const activities: TeacherActivity[] = [];
@@ -83,7 +93,7 @@ export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityD
     if (definition) add({ ...row, challenge_prompt: definition.prompt }, "challenges", str(definition.title), str(definition.sa_code));
   }
   const seenReads = new Set<string>();
-  for (const row of [...table.content_reads, ...table.theoretical_content_reads]) {
+  for (const row of table.content_reads) {
     const key = `${row.student_id}:${row.content_id}`;
     if (seenReads.has(key)) continue;
     seenReads.add(key);
