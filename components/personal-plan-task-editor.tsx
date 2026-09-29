@@ -2,7 +2,7 @@
 
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { secondYearExercises } from "@/lib/second-year-exercises";
-import { emptyExercise, methodologyLabels, type PlanExercise, type PlanItem } from "@/lib/personal-plan-tasks";
+import { emptyExercise, methodologyLabels, PLAN_MATERIALS, type PlanExercise, type PlanItem } from "@/lib/personal-plan-tasks";
 
 const capacities = [["condicion-fisica-general", "General y coordinación"], ["fuerza", "Fuerza"], ["resistencia", "Resistencia"], ["velocidad", "Velocidad"], ["flexibilidad-movilidad", "Flexibilidad y movilidad"]];
 const field = "mt-2 w-full min-w-0 rounded-xl border border-slate-200 bg-white p-3 text-sm font-normal";
@@ -28,6 +28,17 @@ export function PersonalPlanTaskEditor({ item, onChange }: { item: PlanItem; onC
       <label className="text-sm font-bold">Series de la tarea completa<input value={item.rounds} onChange={(event) => onChange({ ...item, rounds: event.target.value })} placeholder="Ej.: 2 series" className={field}/></label>
       <label className="text-sm font-bold">Descanso entre series (minutos)<input type="number" min="0" step="0.5" inputMode="decimal" value={item.roundRecovery} onChange={(event) => onChange({ ...item, roundRecovery: event.target.value })} placeholder="Ej.: 2" className={field}/></label>
     </div>
+    <fieldset className="rounded-xl border border-slate-200 p-4">
+      <legend className="px-2 text-sm font-bold">Materiales para esta tarea</legend>
+      <p className="mb-3 text-xs leading-5 text-slate-500">Selecciona todo el material básico que necesitarás. También puedes indicar otros materiales debajo.</p>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {PLAN_MATERIALS.map((material) => <label key={material} className="flex min-h-11 items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm font-medium">
+          <input type="checkbox" checked={item.materials.includes(material)} onChange={(event) => onChange({ ...item, materials: event.target.checked ? [...item.materials, material] : item.materials.filter((entry) => entry !== material) })} className="size-4 accent-[#1e6b4f]"/>
+          {material}
+        </label>)}
+      </div>
+      <label className="mt-3 block text-sm font-bold">Otros materiales (texto libre)<textarea value={item.customMaterials} onChange={(event) => onChange({ ...item, customMaterials: event.target.value })} maxLength={500} rows={2} placeholder="Añade aquí cualquier material que no aparezca en la lista" className={field}/></label>
+    </fieldset>
     <div className="rounded-xl bg-emerald-50 p-4 text-sm leading-6">
       {item.methodology === "circuit" ? "Organiza estaciones en el orden de la lista. Indica el trabajo y la pausa de cada estación y las series del circuito. Ejemplo escolar: 30 s de trabajo y 30 s de pausa, con movimientos controlados. Adapta la dosis del catálogo a cada estación." : item.methodology === "total" ? "Combina bloques de carrera, fuerza, coordinación y movilidad en el orden de la lista. Aquí total training se utiliza como una propuesta escolar de trabajo global: cada bloque conserva su propia carga y recuperación." : "Combina los ejercicios necesarios para tu objetivo, indicando el orden, el trabajo y la recuperación de cada uno."}
       <p className="mt-2">La dosis de cada ejercicio se realiza en cada serie. Cuenta también los descansos al organizar los 55 minutos, dejando tiempo para calentamiento y vuelta a la calma. Sitúa la velocidad tras el calentamiento, antes de acumular fatiga; no la conviertas en una estación de resistencia.</p>

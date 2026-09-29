@@ -7,9 +7,11 @@ export type PlanItem = {
   id: string; activity: string; sessionDate: string; day: string; goal: string;
   methodology: "circuit" | "total" | "custom";
   rounds: string; roundRecovery: string; exercises: PlanExercise[];
+  materials: string[]; customMaterials: string;
 };
 
 export const methodologyLabels = { circuit: "Circuit training", total: "Total training", custom: "Trabajo específico" };
+export const PLAN_MATERIALS = ["Colchoneta", "Conos", "Balones", "Balón medicinal", "Gomas elásticas", "Cuerda para saltar", "Aros", "Picas", "Vallas bajas", "Banco sueco", "Mancuernas ligeras", "Cronómetro", "Espacio marcado", "Sin material"] as const;
 const text = (value: unknown) => typeof value === "string" ? value : "";
 const record = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value);
 
@@ -24,6 +26,8 @@ export function normalizeItems(value: unknown): PlanItem[] {
     sessionDate: text(item.sessionDate), day: text(item.day), goal: text(item.goal) || "1",
     methodology: item.methodology === "circuit" || item.methodology === "total" ? item.methodology : "custom",
     rounds: text(item.rounds) || "1", roundRecovery: text(item.roundRecovery),
+    materials: Array.isArray(item.materials) ? item.materials.filter((material): material is string => typeof material === "string" && PLAN_MATERIALS.includes(material as (typeof PLAN_MATERIALS)[number])) : [],
+    customMaterials: text(item.customMaterials),
     // Older plans stored a single exercise at task level. Keep every field and dose.
     exercises: (Array.isArray(item.exercises) ? item.exercises : [item]).filter(record).map((exercise) => ({
       id: text(exercise.id) || crypto.randomUUID(), exerciseId: text(exercise.exerciseId),
@@ -37,6 +41,8 @@ export function normalizeItems(value: unknown): PlanItem[] {
 export function cleanPlanItems(items: PlanItem[], hasSecondGoal: boolean): PlanItem[] {
   return items.map((item) => ({
     ...item, activity: item.activity.trim(), goal: hasSecondGoal ? item.goal : "1",
+    materials: item.materials.filter((material) => PLAN_MATERIALS.includes(material as (typeof PLAN_MATERIALS)[number])),
+    customMaterials: item.customMaterials.trim().slice(0, 500),
     exercises: item.exercises.map((exercise) => ({ ...exercise, activity: exercise.activity.trim(), dose: exercise.dose.trim(), recovery: exercise.recovery.trim() })),
   }));
 }
