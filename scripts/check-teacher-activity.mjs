@@ -25,4 +25,8 @@ assert.equal(summary.participants, 2);
 assert.equal(summary.perStudent, 1);
 assert.ok(Math.abs(summary.coverage - 200 / 3) < 0.0001);
 assert.equal(categorySummary(rows, [], "physical").coverage, 0);
+const loader = fs.readFileSync("lib/teacher-activity-server.ts", "utf8");
+assert.match(loader, /code === "42P01" \|\| code === "PGRST205"/);
+assert.match(loader, /optionalTables\.has\(table\)/);
+assert.doesNotMatch(loader, /theoretical_content_reads/);
 console.log("Teacher activity: group isolation, absent data, genuine zero scores and paired physical comparisons passed.");
