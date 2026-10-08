@@ -1,4 +1,9 @@
 export type PlanPdfSection = { title: string; lines: string[] };
+export type StudentResultsReport = {
+  situations: { code: string; title: string }[];
+  instruments: { sa: string; title: string; completed: boolean }[];
+  radar: { capacity: string; initial: number | null; final: number | null; reference: number }[];
+};
 export type PlanPdfData = {
   studentName: string;
   courseLabel: string;
@@ -10,6 +15,7 @@ export type PlanPdfData = {
   footerText?: string;
   metaItems?: { label: string; value: string }[];
   sections: PlanPdfSection[];
+  resultsReport?: StudentResultsReport;
 };
 
 type PdfItem = { kind: "section" | "text" | "session" | "exercise" | "spacer"; lines: string[]; height: number; section: number };
@@ -67,8 +73,110 @@ function paginate(data: PlanPdfData) {
   return pages;
 }
 
+function compactResultsCommands(report: StudentResultsReport) {
+  const commands: string[] = [];
+  const text = (font: string, size: number, x: number, y: number, value: string, color = "0.14 0.19 0.22") =>
+    color + " rg BT /" + font + " " + size + " Tf " + x + " " + y + " Td <" + winAnsiHex(value) + "> Tj ET";
+  commands.push("0.95 0.97 0.98 rg 34 352 253 280 re f", "0.95 0.97 0.98 rg 299 352 256 280 re f");
+  commands.push(text("F2", 10, 45, 614, "Evolución de condición física", "0.04 0.30 0.28"));
+  commands.push(text("F1", 6, 45, 601, "Índice respecto a la media del grupo (100 %)"));
+  commands.push(text("F2", 10, 310, 614, "Instrumentos por situación", "0.04 0.30 0.28"));
+
+  const axes = report.radar.slice(0, 5);
+  const cx = 160, cy = 489, radius = 76;
+  const angle = (i: number) => Math.PI / 2 - i * Math.PI * 2 / Math.max(axes.length, 1);
+  const point = (i: number, value: number) => {
+    const r = radius * Math.max(0, Math.min(150, value)) / 150;
+    return [cx + Math.cos(angle(i)) * r, cy + Math.sin(angle(i)) * r] as const;
+  };
+  for (const ring of [50, 100, 150]) {
+    const pts = axes.map((_, i) => point(i, ring));
+    if (pts.length) {
+      commands.push("0.76 0.81 0.84 RG 0.6 w", pts[0][0].toFixed(1) + " " + pts[0][1].toFixed(1) + " m");
+      for (const p of pts.slice(1)) commands.push(p[0].toFixed(1) + " " + p[1].toFixed(1) + " l");
+      commands.push("h S", text("F1", 5, cx + 3, cy + radius * ring / 150 - 2, String(ring), "0.38 0.44 0.47"));
+    }
+  }
+  axes.forEach((axis, i) => {
+    const outer = point(i, 150);
+    commands.push("0.76 0.81 0.84 RG 0.6 w", cx + " " + cy + " m " + outer[0].toFixed(1) + " " + outer[1].toFixed(1) + " l S");
+    const labelPoint = point(i, 181);
+    const label = axis.capacity.length > 19 ? axis.capacity.slice(0, 18) + "." : axis.capacity;
+    commands.push(text("F2", 6, labelPoint[0] - 16, labelPoint[1], label));
+  });
+  const series = (key: "initial" | "final", color: string, dash: string) => {
+    const points = axes.map((axis, i) => point(i, axis[key] ?? 0));
+    if (points.length < 3 || axes.filter((axis) => axis[key] !== null).length < 3) return;
+    commands.push(color + " RG 1.7 w " + dash + " 0 d", points[0][0].toFixed(1) + " " + points[0][1].toFixed(1) + " m");
+    for (const p of points.slice(1)) commands.push(p[0].toFixed(1) + " " + p[1].toFixed(1) + " l");
+    commands.push("h S", "[] 0 d");
+  };
+  series("initial", "0.04 0.45 0.42", "[3 2]");
+  series("final", "0.42 0.25 0.68", "[]");
+  commands.push(
+    "0.04 0.45 0.42 RG 1.6 w [3 2] 0 d 47 372 m 62 372 l S [] 0 d",
+    text("F1", 6, 66, 370, "Inicial"),
+    "0.42 0.25 0.68 RG 1.8 w 115 372 m 130 372 l S",
+    text("F1", 6, 134, 370, "Final"),
+    "0.48 0.54 0.57 RG 1 w [3 2] 0 d 174 372 m 189 372 l S [] 0 d",
+    text("F1", 6, 193, 370, "Media del grupo"),
+  );
+
+  const bySa = new Map<string, { title: string; completed: boolean }[]>();
+  for (const sa of report.situations) bySa.set(sa.code, []);
+  for (const instrument of report.instruments) {
+    const entries = bySa.get(instrument.sa) ?? [];
+    if (!bySa.has(instrument.sa)) bySa.set(instrument.sa, entries);
+    const old = entries.find((entry) => entry.title === instrument.title);
+    if (old) old.completed = old.completed || instrument.completed;
+    else entries.push({ title: instrument.title, completed: instrument.completed });
+  }
+  let y = 598;
+  for (const sa of report.situations) {
+    if (y < 359) break;
+    const entries = bySa.get(sa.code) ?? [];
+    const done = entries.filter((entry) => entry.completed).length;
+    const pending = entries.filter((entry) => !entry.completed).map((entry) => entry.title);
+    const title = sa.title.length > 36 ? sa.title.slice(0, 33) + "..." : sa.title;
+    commands.push(text("F2", 7, 310, y, sa.code + " · " + title, "0.04 0.30 0.28"));
+    y -= 8;
+    const statusLine = entries.length === 0
+      ? "Sin instrumentos registrados"
+      : done === entries.length
+        ? "Todos realizados: " + done + "/" + entries.length
+        : done + "/" + entries.length + " · Pendientes: " + pending.join(", ").slice(0, 52);
+    commands.push(text("F1", 5.8, 316, y, statusLine, done === entries.length && entries.length ? "0.04 0.45 0.30" : "0.52 0.30 0.20"));
+    y -= 14;
+  }
+
+  commands.push(text("F2", 10, 35, 326, "Resumen final por situación de aprendizaje", "0.04 0.30 0.28"));
+  commands.push("0.04 0.30 0.28 rg 34 277 521 16 re f");
+  const columns = [[42, "SA"], [76, "Situación"], [301, "Hechos"], [355, "Total"], [401, "%"], [452, "Resultado"]] as const;
+  for (const [x, label] of columns) commands.push(text("F2", 6, x, 283, label, "1 1 1"));
+  const totals = report.situations.map((sa) => {
+    const entries = bySa.get(sa.code) ?? [];
+    const done = entries.filter((entry) => entry.completed).length;
+    return { sa, done, count: entries.length, percent: entries.length ? Math.round(done / entries.length * 100) : null };
+  });
+  totals.forEach((row, i) => {
+    const y = 260 - i * 15;
+    commands.push((i % 2 ? "0.96 0.97 0.98" : "0.91 0.95 0.94") + " rg 34 " + (y - 7) + " 521 18 re f");
+    const title = row.sa.title.length > 34 ? row.sa.title.slice(0, 31) + "..." : row.sa.title;
+    const result = row.count === 0 ? "Sin registros" : row.done === row.count ? "Completo" : "Pendiente";
+    const values = [row.sa.code, title, String(row.done), row.count ? String(row.count) : "—", row.percent === null ? "—" : row.percent + "%", result];
+    columns.forEach(([x], j) => commands.push(text(j === 5 && row.count > 0 && row.done < row.count ? "F2" : "F1", 6, x, y, values[j], j === 5 && row.count > 0 && row.done < row.count ? "0.72 0.22 0.29" : "0.13 0.19 0.22")));
+  });
+  const done = totals.reduce((sum, row) => sum + row.done, 0);
+  const count = totals.reduce((sum, row) => sum + row.count, 0);
+  const percent = count ? Math.round(done / count * 100) + "%" : "sin datos";
+  const complete = count > 0 && done === count;
+  commands.push("0.92 0.95 0.96 rg 34 98 521 26 re f");
+  commands.push(text("F2", 8, 45, 109, "TOTAL DEL CURSO: " + done + "/" + count + " instrumentos · " + percent + " · " + (complete ? "Todo completado" : "Hay instrumentos pendientes"), "0.04 0.30 0.28"));
+  return commands;
+}
+
 export function buildPersonalPlanPdf(data: PlanPdfData) {
-  const pages = paginate(data);
+  const pages = data.resultsReport ? [[]] : paginate(data);
   const metaItems = (data.metaItems ?? [
     { label: "ESTADO", value: data.status },
     { label: "CAPACIDAD PRIORITARIA", value: data.capacity },
@@ -118,7 +226,9 @@ export function buildPersonalPlanPdf(data: PlanPdfData) {
         }),
       );
     }
-    for (const item of items) {
+    if (data.resultsReport) {
+      commands.push(...compactResultsCommands(data.resultsReport));
+    } else for (const item of items) {
       if (item.kind === "spacer") { y -= item.height; continue; }
       if (item.kind === "section") {
         const colors = ["0.04 0.45 0.42", "0.16 0.36 0.62", "0.91 0.31 0.49", "0.91 0.55 0.18", "0.33 0.27 0.58"];
@@ -160,7 +270,7 @@ export function downloadPersonalPlanPdf(data: PlanPdfData) {
   const link = document.createElement("a");
   const safeName = normalize(data.studentName).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
   link.href = url;
-  link.download = `plan-personal-sa1-${safeName || "alumno"}.pdf`;
+  link.download = `${data.resultsReport ? "informe-resultados" : "plan-personal-sa1"}-${safeName || "alumno"}.pdf`;
   document.body.appendChild(link);
   link.click();
   link.remove();

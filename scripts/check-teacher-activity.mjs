@@ -38,10 +38,11 @@ assert.match(loader, /optionalTables\.has\(table\)/);
 assert.doesNotMatch(loader, /theoretical_content_reads/);
 const dashboard = fs.readFileSync("components/teacher-activity-dashboard.tsx", "utf8");
 assert.match(dashboard, /Descargar plan en PDF/);
-assert.match(dashboard, /Descargar informe PDF de esta SA/);
-assert.match(dashboard, /row\.sa === sa && row\.category !== "plans"/);
-assert.match(dashboard, /Fecha de realización o registro/);
-assert.match(dashboard, /Informe individual de resultados/);
+assert.match(dashboard, /Descargar informe PDF/);
+assert.match(dashboard, /resultsReport/);
+assert.match(dashboard, /Informe en una hoja A4/);
+assert.match(dashboard, /expectedInstruments/);
+assert.match(dashboard, /selectedCohortRows/);
 assert.match(dashboard, /Resumen de cada alumno\/a/);
 assert.match(dashboard, /instrument\.sa/);
 const pdfModule = { exports: {} };
@@ -58,4 +59,43 @@ const pageCount = pdfText.split("/Type /Page ").length - 1;
 assert.ok(pageCount > 1, "long reports paginate");
 assert.equal(pdfText.split("/Logo Do").length - 1, pageCount, "the Maristas logo appears on every page");
 assert.ok(pdfText.includes(`<${Buffer.from("INFORME DE RESULTADOS").toString("hex")}>`), "the shared PDF template uses the report title");
-console.log("Teacher activity: group isolation, evaluation progress, individual SA report export and branded PDF pagination passed.");
+const compactPdf = pdfModule.exports.buildPersonalPlanPdf({
+  studentName: "Alumno de prueba",
+  courseLabel: "2º Bachillerato",
+  group: "2º",
+  status: "Seguimiento del curso",
+  capacity: "Resultados por SA",
+  documentTitle: "INFORME INDIVIDUAL",
+  documentSubtitle: "Resultados de evaluación",
+  footerText: "Resumen individual del curso",
+  metaItems: [{ label: "CURSO", value: "2º Bachillerato" }, { label: "GRUPO", value: "2º" }, { label: "INFORME", value: "Resultados" }],
+  sections: [{ title: "No debe aparecer", lines: ["Estado: completado", "Repeticiones: 12"] }],
+  resultsReport: {
+    situations: [
+      { code: "SA1", title: "Condición física" },
+      { code: "SA2", title: "Cargas de trabajo" },
+      { code: "SA3", title: "Situación final" },
+    ],
+    instruments: [
+      { sa: "SA1", title: "Pruebas físicas", completed: true },
+      { sa: "SA1", title: "Cuestionario inicial", completed: false },
+      { sa: "SA2", title: "Autoevaluación teórica", completed: true },
+    ],
+    radar: [
+      { capacity: "Fuerza", initial: 96, final: 112, reference: 100 },
+      { capacity: "Resistencia", initial: 101, final: 109, reference: 100 },
+      { capacity: "Velocidad", initial: 94, final: 105, reference: 100 },
+      { capacity: "Flexibilidad", initial: 88, final: 99, reference: 100 },
+      { capacity: "Otras pruebas", initial: null, final: null, reference: 100 },
+    ],
+  },
+});
+const compactText = Buffer.from(compactPdf).toString("latin1");
+assert.equal(compactText.split("/Type /Page ").length - 1, 1, "the compact results report fits one A4 page");
+assert.equal(compactText.split("/Logo Do").length - 1, 1, "the one-page report keeps the Maristas logo");
+assert.ok(compactText.includes(Buffer.from("TOTAL DEL CURSO").toString("hex")));
+assert.ok(compactText.includes(`<${Buffer.from("Media del grupo").toString("hex")}>`));
+assert.ok(compactText.includes(Buffer.from("Pendientes:").toString("hex")));
+assert.ok(!compactText.includes(Buffer.from("Estado:").toString("hex")), "the report omits per-test state details");
+assert.ok(!compactText.includes(Buffer.from("Repeticiones:").toString("hex")), "the report omits repetitions");
+console.log("Teacher activity: group isolation, all-unit instrument tracking, compact one-page PDF, radar chart, no per-test details and branded header passed.");
