@@ -2,11 +2,14 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { FileDown } from "lucide-react";
 import { refreshTeacherActivity } from "@/app/profesor/actions";
-import { activityCategories, categorySummary, mean, physicalComparison, type ActivityCategory, type TeacherActivityData } from "@/lib/teacher-activity";
+import { activityCategories, categorySummary, evaluationInstrumentKey, isEvaluationInstrumentAchieved, mean, physicalComparison, type ActivityCategory, type TeacherActivity, type TeacherActivityData } from "@/lib/teacher-activity";
 import { physicalCapacity } from "@/lib/second-year-progress";
 import { TeacherPsychologicalReports } from "@/components/teacher-psychological-reports";
 import { PhysicalRadarChart } from "@/components/physical-radar-chart";
+import { downloadPersonalPlanPdf } from "@/lib/personal-plan-pdf";
+import { methodologyLabels, normalizeItems } from "@/lib/personal-plan-tasks";
 
 const fmt = (value: number | null) => value === null ? "Sin datos" : new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1 }).format(value);
 const statuses: Record<string, string> = { draft: "Borrador", active: "En marcha", completed: "Finalizado", submitted: "Enviado", in_progress: "En curso", planned: "Planificado" };
@@ -17,6 +20,46 @@ const labels: Record<string, string> = {
 labels.success_indicator = "Cómo comprobaré mi objetivo principal";
 labels.rounds = "Series";
 labels.roundRecovery = "Descanso entre series (minutos)";
+
+function planText(value: unknown, fallback = "Sin completar") {
+  return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+
+function formatPlanSessionDate(value: string) {
+  if (!value) return "fecha pendiente";
+  const date = new Date(`${value}T12:00:00`);
+  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long" }).format(date);
+}
+
+function exportStudentPlan(row: TeacherActivity, student: TeacherActivityData["students"][number], year: 1 | 2) {
+  const plan = row.details;
+  const items = normalizeItems(plan.plan_items);
+  const dates = [...new Set(items.map((item) => item.sessionDate || ""))];
+  const taskLines = dates.length ? dates.flatMap((date, index) => items.filter((item) => (item.sessionDate || "") === date).flatMap((item) => [
+    `• Sesión ${index + 1} - ${formatPlanSessionDate(date)} - ${item.activity || "Tarea"} - ${methodologyLabels[item.methodology]} - ${item.rounds} serie(s)${item.roundRecovery ? ` - descanso entre series: ${item.roundRecovery} min` : ""}`,
+    ...(item.materials.length || item.customMaterials.trim() ? [`  Materiales: ${[...item.materials, item.customMaterials.trim()].filter(Boolean).join(", ")}`] : []),
+    ...item.exercises.map((exercise, exerciseIndex) => `  ${exerciseIndex + 1}. ${exercise.activity || "Ejercicio por concretar"}${exercise.dose ? ` - ${exercise.dose}` : ""}${exercise.recovery ? ` - descanso ${exercise.recovery}` : ""}`),
+  ])) : ["• Sin sesiones planificadas"];
+  const status = plan.status === "completed" ? "Finalizado" : plan.status === "active" ? "En marcha" : "Borrador";
+  const capacity = planText(plan.priority_capacity, "condicion-fisica-general").replaceAll("-", " ");
+  const duration = plan.duration_weeks ?? (year === 2 ? 3 : 4);
+  const frequency = plan.weekly_frequency ?? (year === 2 ? 4 : 2);
+  downloadPersonalPlanPdf({
+    studentName: student.name,
+    courseLabel: `${year}º Bachillerato`,
+    group: student.group,
+    status,
+    capacity,
+    sections: [
+      { title: "1. Punto de partida", lines: [planText(plan.initial_analysis)] },
+      { title: "2. Objetivos y temporalización", lines: [`Objetivo principal: ${planText(plan.objective)}`, `Cómo comprobaré mi objetivo principal: ${planText(plan.success_indicator)}`, ...(planText(plan.secondary_objective, "") ? [`Segundo objetivo: ${planText(plan.secondary_objective)}`, `Indicador del segundo objetivo: ${planText(plan.secondary_success_indicator)}`] : []), `${duration} semanas - ${frequency} sesiones/semana - ${plan.session_duration_minutes ?? 55} min por sesión`] },
+      { title: "3. Calendario, tareas y cargas", lines: taskLines },
+      { title: "4. Progresión y recuperación", lines: [`Progresión: ${planText(plan.progression_strategy)}`, `Recuperación: ${planText(plan.recovery_strategy)}`] },
+      { title: "5. Reflexión final", lines: [`Conclusiones: ${planText(plan.final_conclusions, "Pendiente al finalizar el plan")}`, `Qué quiero seguir trabajando: ${planText(plan.future_work, "Pendiente al finalizar el plan")}`] },
+    ],
+  });
+}
+
 
 function DetailValue({ value }: { value: unknown }) {
   if (value === null || value === undefined || value === "") return <span className="text-slate-400">Sin completar</span>;
@@ -69,6 +112,8 @@ export function TeacherActivityDashboard({ data: initialData, year, initialSitua
   const individualScores = scoreRows(selected?.id ?? "").map((row) => row.score!);
   const groupScores = students.map((student) => mean(scoreRows(student.id).map((row) => row.score!))).filter((value): value is number => value !== null);
   const details = view === "individual" ? personal : activities;
+  const evaluationCategories = new Set<ActivityCategory>(["physical", "technical", "questionnaires", "procedural", "quizzes"]);
+  const instruments = [...new Map(activities.filter((row) => evaluationCategories.has(row.category)).map((row) => [evaluationInstrumentKey(row), { key: evaluationInstrumentKey(row), sa: row.sa, title: row.title, category: row.category }])).values()].sort((a, b) => `${a.sa}-${a.title}`.localeCompare(`${b.sa}-${b.title}`, "es"));
   const physicalRadar = ["Fuerza", "Resistencia", "Velocidad", "Flexibilidad / movilidad", "Otras pruebas"].flatMap((capacity) => {
     const tests = data.physicalTests.filter((test) => physicalCapacity(test.name) === capacity);
     const indexes = (period: "september" | "december") => tests.flatMap((test) => {
@@ -124,10 +169,10 @@ export function TeacherActivityDashboard({ data: initialData, year, initialSitua
           return <article key={test.id} className="space-y-3 rounded-xl border p-4"><h4 className="font-bold">{test.name} · {test.unit}</h4>{view === "individual" && <div className="grid grid-cols-2 gap-3"><Value label="Septiembre · alumno/a" value={values.first} suffix={test.unit}/><Value label="Diciembre · alumno/a" value={values.last} suffix={test.unit}/><p className="col-span-2 text-xs">Mejora entre tomas: {fmt(values.improvement)}{values.improvement !== null ? "%" : ""}</p></div>}<div className="grid grid-cols-2 gap-3"><Value label={`Media septiembre · n=${values.initialN}`} value={values.initialMean} suffix={test.unit}/><Value label={`Media diciembre · n=${values.finalN}`} value={values.finalMean} suffix={test.unit}/></div><p className="text-xs text-slate-500">Mismos {values.pairedN} alumnos en ambas tomas: {fmt(values.pairedInitial)} → {fmt(values.pairedFinal)} {test.unit}. {test.direction === "lower_better" ? "Menor marca indica mejor resultado." : "Mayor marca indica mejor resultado."}</p></article>;
         })}</div></div> : null;
       })}{!activities.some((row) => row.category === "physical") && <p>Sin marcas físicas registradas en este filtro.</p>}</section>}
-      <section className="card overflow-hidden p-5 sm:p-7"><h2 className="text-xl font-extrabold">Resumen de cada alumno/a</h2><p className="mt-2 text-sm text-slate-500">Número de registros por apartado. Pulsa un nombre para consultar el trabajo completo.</p><div className="mt-4 overflow-x-auto"><table className="w-full text-left text-xs"><thead><tr><th className="p-3">Alumno/a</th>{categories.map(([key, label]) => <th key={key} className="p-3">{label}</th>)}</tr></thead><tbody>{students.map((student) => <tr key={student.id} className="border-t"><td className="p-3"><button className="font-bold text-[#1e6b4f] underline" onClick={() => { setStudentId(student.id); setView("individual"); }}>{student.name}</button></td>{categories.map(([key]) => <td key={key} className="p-3">{activities.filter((row) => row.studentId === student.id && row.category === key).length}</td>)}</tr>)}</tbody></table></div></section>
+      <section className="card overflow-hidden p-5 sm:p-7"><h2 className="text-xl font-extrabold">Resumen de cada alumno/a</h2><p className="mt-2 text-sm text-slate-500">Cada celda identifica el instrumento y la situación de aprendizaje donde se utiliza. El porcentaje indica los instrumentos conseguidos sobre el total de instrumentos con resultados en el filtro actual.</p><div className="mt-4 overflow-x-auto"><table className="w-full text-left text-xs"><thead><tr><th className="sticky left-0 min-w-48 bg-white p-3">Alumno/a</th><th className="min-w-36 p-3">Conseguidos</th>{instruments.map((instrument) => <th key={instrument.key} className="min-w-44 p-3"><span className="block font-extrabold">{instrument.sa} · {instrument.title}</span><span className="mt-1 block font-normal text-slate-500">{activityCategories[instrument.category]}</span></th>)}</tr></thead><tbody>{students.map((student) => { const achieved = instruments.filter((instrument) => activities.some((row) => row.studentId === student.id && evaluationInstrumentKey(row) === instrument.key && isEvaluationInstrumentAchieved(row))).length; const percent = instruments.length ? achieved / instruments.length * 100 : null; return <tr key={student.id} className="border-t"><td className="sticky left-0 bg-white p-3"><button className="font-bold text-[#1e6b4f] underline" onClick={() => { setStudentId(student.id); setView("individual"); }}>{student.name}</button></td><td className="whitespace-nowrap p-3"><strong>{achieved}/{instruments.length || "—"}</strong>{percent !== null && <span className="ml-1 font-bold text-[#1e6b4f]">{fmt(percent)}%</span>}</td>{instruments.map((instrument) => { const rows = activities.filter((row) => row.studentId === student.id && evaluationInstrumentKey(row) === instrument.key); const done = rows.some(isEvaluationInstrumentAchieved); return <td key={instrument.key} className="p-3"><span className={done ? "rounded-full bg-emerald-100 px-2 py-1 font-bold text-emerald-800" : rows.length ? "rounded-full bg-amber-100 px-2 py-1 font-bold text-amber-800" : "text-slate-400"}>{done ? "Conseguido" : rows.length ? "En curso" : "Sin registro"}</span>{rows.length > 0 && <span className="mt-1 block text-slate-500">{rows.length} registro(s)</span>}</td>)}</tr>; })}</tbody></table></div>{!instruments.length && <p className="mt-4 text-sm text-slate-500">Todavía no hay instrumentos de evaluación con resultados en este filtro.</p>}</section>
       <section className="card space-y-4 p-5 sm:p-7"><h2 className="text-xl font-extrabold">{view === "individual" ? `Trabajo de ${selected!.name}` : "Detalle de los registros del grupo"}</h2><p className="text-sm text-slate-500">Los planes reflejan lo previsto y su estado declarado; los diarios reflejan lo registrado tras la práctica. Abre cada apartado para leer objetivos, ejercicios, cargas, reflexiones y resultados.</p>{categories.map(([category, label]) => {
         const rows = details.filter((row) => row.category === category).sort((a, b) => b.date.localeCompare(a.date));
-        return <details key={category} className="rounded-xl border p-4"><summary className="cursor-pointer font-bold">{label} · {rows.length} registros</summary><div className="mt-4 space-y-3">{!rows.length && <p className="text-sm text-slate-500">Sin registros guardados.</p>}{rows.map((row) => <details key={row.id} className="rounded-lg bg-slate-50 p-4"><summary className="cursor-pointer text-sm font-semibold">{view === "group" ? `${students.find((student) => student.id === row.studentId)?.name} · ` : ""}{row.sa} · {row.title} {row.status ? `· ${statuses[row.status] ?? row.status}` : ""}{row.score !== null ? ` · ${fmt(row.score)} ${row.scoreLabel ?? ""}` : ""}</summary><div className="mt-4 text-sm"><p className="mb-3 text-xs text-slate-500">Último registro: {row.date ? new Date(row.date).toLocaleDateString("es-ES") : "Sin fecha"}</p><DetailValue value={row.details}/></div></details>)}</div></details>;
+        return <details key={category} className="rounded-xl border p-4"><summary className="cursor-pointer font-bold">{label} · {rows.length} registros</summary><div className="mt-4 space-y-3">{!rows.length && <p className="text-sm text-slate-500">Sin registros guardados.</p>}{rows.map((row) => <details key={row.id} className="rounded-lg bg-slate-50 p-4"><summary className="cursor-pointer text-sm font-semibold">{view === "group" ? `${students.find((student) => student.id === row.studentId)?.name} · ` : ""}{row.sa} · {row.title} {row.status ? `· ${statuses[row.status] ?? row.status}` : ""}{row.score !== null ? ` · ${fmt(row.score)} ${row.scoreLabel ?? ""}` : ""}</summary><div className="mt-4 text-sm"><p className="mb-3 text-xs text-slate-500">Último registro: {row.date ? new Date(row.date).toLocaleDateString("es-ES") : "Sin fecha"}</p>{row.category === "plans" && <button type="button" onClick={() => { const student = students.find((entry) => entry.id === row.studentId); if (student) exportStudentPlan(row, student, year); }} className="mb-4 inline-flex items-center gap-2 rounded-xl bg-[#1e6b4f] px-4 py-2.5 text-sm font-bold text-white"><FileDown size={16}/>Descargar plan en PDF</button>}<DetailValue value={row.details}/></div></details>)}</div></details>;
       })}</section>
       {(!sa || sa === "SA1") && <section className="space-y-4"><h2 className="text-xl font-extrabold">Informes psicológicos · inicial y final</h2><TeacherPsychologicalReports key={`${year}-${group}-${selected?.id}-${data.loadedAt}`} initialYear={year} initialStudentId={selected?.id} initialGroup={selected?.group}/></section>}
     </>}

@@ -22,6 +22,15 @@ export function categorySummary(activities: TeacherActivity[], students: Teacher
   const participants = new Set(rows.map((row) => row.studentId)).size;
   return { count: rows.length, participants, coverage: students.length ? participants / students.length * 100 : 0, perStudent: students.length ? rows.length / students.length : 0 };
 }
+export function evaluationInstrumentKey(row: Pick<TeacherActivity, "sa" | "category" | "title">) {
+  return `${row.sa}:${row.category}:${row.title}`;
+}
+export function isEvaluationInstrumentAchieved(row: TeacherActivity) {
+  if (row.category === "physical" || row.category === "technical") return row.score !== null;
+  if (row.category === "quizzes") return row.score !== null && row.score >= 67;
+  if (row.category === "questionnaires" || row.category === "procedural") return row.status === "completed" || row.status === "submitted" || Boolean(row.details.submitted_at || row.details.completed_at);
+  return row.status === "completed" || row.status === "submitted";
+}
 export function physicalComparison(activities: TeacherActivity[], studentId: string, test: PhysicalDefinition, groupIds: Set<string>) {
   const get = (period: string, ids: Set<string>) => activities.filter((row) => row.category === "physical" && row.details.physical_test_id === test.id && row.details.period === period && ids.has(row.studentId) && row.score !== null);
   const first = get("september", new Set([studentId]))[0]?.score ?? null;
