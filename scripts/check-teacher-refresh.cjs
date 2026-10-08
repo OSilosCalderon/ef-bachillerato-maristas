@@ -17,6 +17,9 @@ Module._load = function(request, parent, ...args) {
     useState(initial) { const i = cursor++; if (!(i in state)) state[i] = initial; return [state[i], value => { state[i] = value; }]; },
     useTransition() { return [false, fn => { tasks.push(Promise.resolve(fn())); }]; },
   };
+  if (request === 'lucide-react') return { FileDown: () => null };
+  if (request === '@/lib/personal-plan-pdf') return { downloadPersonalPlanPdf: () => {} };
+  if (request === '@/lib/personal-plan-tasks') return { methodologyLabels: {}, normalizeItems: () => [] };
   if (request === 'next/navigation') return { useRouter: () => ({ push: value => { destination = value; } }) };
   if (request === '@/app/profesor/actions') return { refreshTeacherActivity: async year => { calls.push(year); if (fail) throw Error('Offline'); return fresh; } };
   if (request === '@/components/teacher-psychological-reports') return { TeacherPsychologicalReports: () => null };
