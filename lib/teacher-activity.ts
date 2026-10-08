@@ -13,6 +13,7 @@ export type PhysicalDefinition = { id: string; name: string; unit: string; direc
 export type TeacherActivityData = {
   students: TeacherStudent[]; activities: TeacherActivity[];
   situations: { id: string; code: string; title: string }[]; physicalTests: PhysicalDefinition[];
+  expectedInstruments?: { sa: string; category: ActivityCategory; title: string }[];
   courseName: string; loadedAt: string;
 };
 export const mean = (values: number[]) => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
