@@ -86,11 +86,18 @@ function exportStudentResultsPdf(
   cohortRows: TeacherActivity[],
   cohortIds: Set<string>,
   tests: TeacherActivityData["physicalTests"],
+  expectedCatalog: TeacherActivityData["expectedInstruments"],
 ) {
   const evaluationCategories = new Set<ActivityCategory>(["physical", "technical", "questionnaires", "procedural", "quizzes"]);
-  const expected = new Map<string, TeacherActivity>();
-  for (const row of cohortRows) {
-    if (evaluationCategories.has(row.category)) expected.set(evaluationInstrumentKey(row), row);
+  const expected = new Map<string, Pick<TeacherActivity, "sa" | "category" | "title">>();
+  if (expectedCatalog?.length) {
+    for (const item of expectedCatalog) {
+      if (evaluationCategories.has(item.category)) expected.set(evaluationInstrumentKey(item), item);
+    }
+  } else {
+    for (const row of cohortRows) {
+      if (evaluationCategories.has(row.category)) expected.set(evaluationInstrumentKey(row), row);
+    }
   }
   const personalRows = cohortRows.filter((row) => row.studentId === student.id);
   const instruments = [...expected.values()].map((instrument) => ({
@@ -226,7 +233,7 @@ export function TeacherActivityDashboard({ data: initialData, year, initialSitua
         <label className="text-sm font-bold">Vista<select value={view} onChange={(event) => setView(event.target.value as typeof view)} className="mt-2 w-full rounded-xl border p-3"><option value="group">Grupal</option><option value="individual">Individual</option></select></label>
         <label className="text-sm font-bold">Alumno/a<select value={selected?.id ?? ""} onChange={(event) => { setStudentId(event.target.value); setView("individual"); }} className="mt-2 w-full rounded-xl border p-3">{students.map((student) => <option key={student.id} value={student.id}>{student.name}</option>)}</select></label>
       </div>
-      {view === "individual" && selected && <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-emerald-50 p-4"><button type="button" onClick={() => exportStudentResultsPdf(selected, year, data.situations, selectedCohortRows, selectedCohortIds, data.physicalTests)} className="inline-flex items-center gap-2 rounded-xl bg-[#1e6b4f] px-4 py-2.5 text-sm font-bold text-white"><FileDown size={16}/>Descargar informe PDF</button><span className="text-xs text-slate-600">Informe en una hoja A4: red física comparada con la media del grupo e instrumentos realizados y pendientes en cada SA.</span></div>}
+      {view === "individual" && selected && <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-emerald-50 p-4"><button type="button" onClick={() => exportStudentResultsPdf(selected, year, data.situations, selectedCohortRows, selectedCohortIds, data.physicalTests, data.expectedInstruments)} className="inline-flex items-center gap-2 rounded-xl bg-[#1e6b4f] px-4 py-2.5 text-sm font-bold text-white"><FileDown size={16}/>Descargar informe PDF</button><span className="text-xs text-slate-600">Informe en una hoja A4: red física comparada con la media del grupo e instrumentos realizados y pendientes en cada SA.</span></div>}
       <p className="mt-3 text-xs text-slate-500">Última consulta: {new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", dateStyle: "short", timeStyle: "medium" }).format(new Date(data.loadedAt))}</p>
       {refreshMessage && <p role={refreshError ? "alert" : "status"} className={refreshError ? "mt-2 text-sm text-red-700" : "mt-2 text-sm text-emerald-700"}>{refreshMessage}</p>}
       {changingCourse && <p role="status" className="mt-3 font-semibold text-[#1e6b4f]">Cargando los resultados del curso seleccionado…</p>}
