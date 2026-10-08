@@ -79,36 +79,68 @@ function reportDetailLines(value: unknown, prefix = "", depth = 0): string[] {
   return [prefix ? `${prefix}: ${printable}` : printable];
 }
 
-function exportStudentResultsPdf(student: TeacherActivityData["students"][number], year: 1 | 2, sa: string, situationTitle: string, rows: TeacherActivity[]) {
-  const reportRows = rows.filter((row) => row.sa === sa && row.category !== "plans").sort((a, b) => a.date.localeCompare(b.date, "es"));
-  const sections = [
-    { title: "Datos del informe", lines: [`Curso: ${year}º Bachillerato · ${student.group}`, `Situación de aprendizaje: ${sa} · ${situationTitle}`, `Fecha de emisión: ${reportDate(new Date().toISOString())}`] },
-    ...(reportRows.length ? reportRows.map((row) => ({
-      title: `${activityCategories[row.category]} · ${row.title}`,
-      lines: [
-        `Situación: ${row.sa} · ${situationTitle}`,
-        `Fecha de realización o registro: ${reportDate(row.date)}`,
-        `Estado: ${statuses[row.status] ?? row.status ?? "Sin estado"}`,
-        ...(row.score !== null ? [`${row.scoreLabel || "Resultado"}: ${fmt(row.score)}`] : []),
-        ...reportDetailLines(row.details),
-      ],
-    })) : [{ title: "Resultados registrados", lines: ["No hay resultados de pruebas o instrumentos guardados para esta situación de aprendizaje."] }]),
-  ];
+function exportStudentResultsPdf(
+  student: TeacherActivityData["students"][number],
+  year: 1 | 2,
+  situations: TeacherActivityData["situations"],
+  cohortRows: TeacherActivity[],
+  cohortIds: Set<string>,
+  tests: TeacherActivityData["physicalTests"],
+) {
+  const evaluationCategories = new Set<ActivityCategory>(["physical", "technical", "questionnaires", "procedural", "quizzes"]);
+  const expected = new Map<string, TeacherActivity>();
+  for (const row of cohortRows) {
+    if (evaluationCategories.has(row.category)) expected.set(evaluationInstrumentKey(row), row);
+  }
+  const personalRows = cohortRows.filter((row) => row.studentId === student.id);
+  const instruments = [...expected.values()].map((instrument) => ({
+    sa: instrument.sa,
+    title: instrument.title,
+    completed: personalRows.some((row) =>
+      evaluationInstrumentKey(row) === evaluationInstrumentKey(instrument) &&
+      isEvaluationInstrumentAchieved(row),
+    ),
+  }));
+  const radar = ["Fuerza", "Resistencia", "Velocidad", "Flexibilidad / movilidad", "Otras pruebas"].flatMap((capacity) => {
+    const capacityTests = tests.filter((test) => physicalCapacity(test.name) === capacity);
+    const periodIndex = (period: "september" | "december") => capacityTests.flatMap((test) => {
+      const comparison = physicalComparison(cohortRows, student.id, test, cohortIds);
+      const own = period === "september" ? comparison.first : comparison.last;
+      const average = period === "september" ? comparison.initialMean : comparison.finalMean;
+      if (own === null || average === null || own === 0 || average === 0) return [];
+      return [test.direction === "lower_better" ? average / own * 100 : own / average * 100];
+    });
+    const initialValues = periodIndex("september");
+    const finalValues = periodIndex("december");
+    if (!initialValues.length && !finalValues.length) return [];
+    return [{
+      capacity: capacity.replace("Flexibilidad / movilidad", "Flexibilidad"),
+      initial: mean(initialValues),
+      final: mean(finalValues),
+      reference: 100,
+    }];
+  });
+
   downloadPersonalPlanPdf({
     studentName: student.name,
-    courseLabel: `${year}º Bachillerato`,
+    courseLabel: year + "º Bachillerato",
     group: student.group,
-    status: "Resultados registrados",
-    capacity: sa,
-    documentTitle: "INFORME DE RESULTADOS",
-    documentSubtitle: `${sa} · ${situationTitle}`,
-    footerText: "Educación Física · Maristas Badajoz · Informe individual de resultados",
+    status: "Seguimiento del curso",
+    capacity: "Resultados por SA",
+    documentTitle: "INFORME INDIVIDUAL",
+    documentSubtitle: "Resultados de evaluación · " + year + "º Bachillerato",
+    footerText: "Educación Física · Maristas Badajoz · Resumen individual del curso",
     metaItems: [
-      { label: "SITUACIÓN", value: sa },
+      { label: "CURSO", value: year + "º Bachillerato" },
       { label: "GRUPO", value: student.group },
-      { label: "DOCUMENTO", value: "Informe individual" },
+      { label: "INFORME", value: "Resultados y seguimiento" },
     ],
-    sections,
+    sections: [],
+    resultsReport: {
+      situations: situations.map((situation) => ({ code: situation.code, title: situation.title })),
+      instruments,
+      radar,
+    },
   });
 }
 
@@ -163,6 +195,8 @@ export function TeacherActivityDashboard({ data: initialData, year, initialSitua
   const individualScores = scoreRows(selected?.id ?? "").map((row) => row.score!);
   const groupScores = students.map((student) => mean(scoreRows(student.id).map((row) => row.score!))).filter((value): value is number => value !== null);
   const details = view === "individual" ? personal : activities;
+  const selectedCohortIds = new Set(data.students.filter((student) => student.group === selected?.group).map((student) => student.id));
+  const selectedCohortRows = data.activities.filter((row) => selectedCohortIds.has(row.studentId));
   const evaluationCategories = new Set<ActivityCategory>(["physical", "technical", "questionnaires", "procedural", "quizzes"]);
   const instruments = [...new Map(activities.filter((row) => evaluationCategories.has(row.category)).map((row) => [evaluationInstrumentKey(row), { key: evaluationInstrumentKey(row), sa: row.sa, title: row.title, category: row.category }])).values()].sort((a, b) => `${a.sa}-${a.title}`.localeCompare(`${b.sa}-${b.title}`, "es"));
   const physicalRadar = ["Fuerza", "Resistencia", "Velocidad", "Flexibilidad / movilidad", "Otras pruebas"].flatMap((capacity) => {
@@ -192,7 +226,7 @@ export function TeacherActivityDashboard({ data: initialData, year, initialSitua
         <label className="text-sm font-bold">Vista<select value={view} onChange={(event) => setView(event.target.value as typeof view)} className="mt-2 w-full rounded-xl border p-3"><option value="group">Grupal</option><option value="individual">Individual</option></select></label>
         <label className="text-sm font-bold">Alumno/a<select value={selected?.id ?? ""} onChange={(event) => { setStudentId(event.target.value); setView("individual"); }} className="mt-2 w-full rounded-xl border p-3">{students.map((student) => <option key={student.id} value={student.id}>{student.name}</option>)}</select></label>
       </div>
-      {view === "individual" && selected && <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-emerald-50 p-4"><button type="button" disabled={!sa} onClick={() => { const situation = data.situations.find((entry) => entry.code === sa); if (situation) exportStudentResultsPdf(selected, year, sa, situation.title, personal); }} className="inline-flex items-center gap-2 rounded-xl bg-[#1e6b4f] px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"><FileDown size={16}/>Descargar informe PDF de esta SA</button>{!sa && <span className="text-sm text-slate-600">Selecciona una situación de aprendizaje para preparar el informe individual.</span>}<span className="text-xs text-slate-600">Incluye solo los registros del alumno/a y la SA seleccionados, sin promedios del grupo.</span></div>}
+      {view === "individual" && selected && <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-emerald-50 p-4"><button type="button" onClick={() => exportStudentResultsPdf(selected, year, data.situations, selectedCohortRows, selectedCohortIds, data.physicalTests)} className="inline-flex items-center gap-2 rounded-xl bg-[#1e6b4f] px-4 py-2.5 text-sm font-bold text-white"><FileDown size={16}/>Descargar informe PDF</button><span className="text-xs text-slate-600">Informe en una hoja A4: red física comparada con la media del grupo e instrumentos realizados y pendientes en cada SA.</span></div>}
       <p className="mt-3 text-xs text-slate-500">Última consulta: {new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", dateStyle: "short", timeStyle: "medium" }).format(new Date(data.loadedAt))}</p>
       {refreshMessage && <p role={refreshError ? "alert" : "status"} className={refreshError ? "mt-2 text-sm text-red-700" : "mt-2 text-sm text-emerald-700"}>{refreshMessage}</p>}
       {changingCourse && <p role="status" className="mt-3 font-semibold text-[#1e6b4f]">Cargando los resultados del curso seleccionado…</p>}
