@@ -295,43 +295,107 @@ export function SecondYearSa2Tracker() {
 
       <section className="card p-6 sm:p-8">
         <div className="flex items-start gap-3"><Save className="mt-1 text-[#1e6b4f]"/><div><h2 className="text-xl font-extrabold">Registrar o editar una sesión</h2><p className="mt-1 text-sm leading-6 text-slate-500">Guarda lo que realmente has hecho. Si cambias el plan, explica por qué.</p></div></div>
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Sesión
-            <select value={form.sessionNumber} onChange={(event) => { const number = Number(event.target.value); setForm((current) => ({ ...current, sessionNumber: number, weekNumber: Math.min(5, Math.max(1, Math.ceil(number / 4))) })); }} className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-semibold">
-              {Array.from({ length: 20 }, (_, index) => index + 1).map((number) => <option key={number} value={number}>Sesión {number}</option>)}
-            </select>
-          </label>
-          <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Semana
-            <select value={form.weekNumber} onChange={(event) => update("weekNumber", Number(event.target.value))} className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-semibold">{[1,2,3,4,5].map((number) => <option key={number} value={number}>Semana {number}</option>)}</select>
-          </label>
-          <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Fecha
-            <input type="date" value={form.sessionDate} onChange={(event) => update("sessionDate", event.target.value)} className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-semibold"/>
-          </label>
-          <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Estado
-            <select value={form.status} onChange={(event) => update("status", event.target.value as SessionForm["status"])} className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-semibold"><option value="draft">Borrador</option><option value="completed">Completada</option></select>
-          </label>
-        </div>
+        {(() => {
+          const selectedPlanSession = getPlanSession(form.sessionNumber);
+          const occupied = new Set(logs.map((item) => item.session_number));
+          const allRecorded = SECOND_YEAR_PLAN_SESSIONS.every((_, index) =>
+            occupied.has(index + 1),
+          );
+          const formatPlanDate = (value: string) =>
+            new Intl.DateTimeFormat("es-ES", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            }).format(new Date(`${value}T12:00:00`));
 
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Objetivo de la sesión
-            <textarea value={form.objective} onChange={(event) => update("objective", event.target.value)} rows={3} className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm normal-case tracking-normal text-slate-800" placeholder="¿Qué pretendías trabajar?"/>
-          </label>
-          <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Trabajo realizado
-            <textarea value={form.activities} onChange={(event) => update("activities", event.target.value)} rows={3} className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm normal-case tracking-normal text-slate-800" placeholder="Ejercicios, series, repeticiones, tiempos o distancias…"/>
-          </label>
-        </div>
+          return (
+            <>
+              <div className="mt-6 grid gap-4 md:grid-cols-[1.5fr_1fr]">
+                <label className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                  Sesión del plan personal
+                  <select
+                    value={form.sessionNumber}
+                    onChange={(event) => update("sessionNumber", Number(event.target.value))}
+                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-semibold"
+                  >
+                    <option value={0} disabled>Selecciona una sesión disponible</option>
+                    {SECOND_YEAR_PLAN_SESSIONS.map((session, index) => {
+                      const number = index + 1;
+                      const currentSession = number === form.sessionNumber;
+                      const alreadyRecorded = occupied.has(number);
+                      const label = `Sesión ${number} · ${session.day} ${formatPlanDate(session.date).replace(/^\\S+\\s/, "")} · ${session.start}–${session.end}`;
+                      return (
+                        <option key={number} value={number} disabled={alreadyRecorded && !currentSession}>
+                          {label}{alreadyRecorded ? " · Registrada" : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Fecha y horario del plan</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-800">
+                    {selectedPlanSession
+                      ? `${selectedPlanSession.day} ${formatPlanDate(selectedPlanSession.date).replace(/^\\S+\\s/, "")} · ${selectedPlanSession.start}–${selectedPlanSession.end}`
+                      : "Se completa al elegir una sesión"}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">La fecha viene del calendario de tu plan personal.</p>
+                </div>
+              </div>
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-3">
-          <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Duración (min)
-            <input type="number" min="1" max="240" value={form.durationMinutes} onChange={(event) => update("durationMinutes", event.target.value)} className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-semibold"/>
-          </label>
-          <label className="text-xs font-bold uppercase tracking-wide text-slate-500">RPE · esfuerzo 1–10
-            <input type="number" min="1" max="10" value={form.rpe} onChange={(event) => update("rpe", event.target.value)} className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-semibold"/>
-          </label>
-          <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Cumplimiento · {form.completionPercent}%
-            <input type="range" min="0" max="100" step="5" value={form.completionPercent} onChange={(event) => update("completionPercent", Number(event.target.value))} className="mt-4 w-full"/>
-          </label>
-        </div>
+              <div className="mt-4 grid gap-4 md:grid-cols-3">
+                <label className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                  Duración estimada (minutos)
+                  <input
+                    type="number"
+                    min="1"
+                    max="240"
+                    value={form.durationMinutes}
+                    onChange={(event) => update("durationMinutes", event.target.value)}
+                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-semibold"
+                    placeholder="Por ejemplo, 45"
+                  />
+                </label>
+                <fieldset className="rounded-xl border border-slate-200 p-3">
+                  <legend className="px-1 text-xs font-bold uppercase tracking-wide text-slate-500">Esfuerzo percibido · 1–10</legend>
+                  <div className="mt-1 flex flex-wrap items-center gap-1" role="group" aria-label="Valora el esfuerzo de 1 a 10">
+                    {Array.from({ length: 10 }, (_, index) => index + 1).map((rating) => (
+                      <button
+                        key={rating}
+                        type="button"
+                        onClick={() => update("rpe", String(rating))}
+                        aria-label={`Esfuerzo ${rating} de 10`}
+                        aria-pressed={Number(form.rpe) === rating}
+                        className="rounded-lg p-1 text-amber-500 transition hover:bg-amber-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500"
+                      >
+                        <Star size={20} fill={Number(form.rpe) >= rating ? "currentColor" : "none"} />
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">{form.rpe ? `${form.rpe} de 10` : "Selecciona las estrellas"}</p>
+                </fieldset>
+                <label className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                  Cumplimiento de la sesión · {form.completionPercent}%
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="5"
+                    value={form.completionPercent}
+                    onChange={(event) => update("completionPercent", Number(event.target.value))}
+                    className="mt-4 w-full"
+                  />
+                </label>
+              </div>
+              {allRecorded && form.sessionNumber === 0 && (
+                <p className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">
+                  Ya están registradas las diez sesiones del plan. Puedes editar cualquiera desde el historial.
+                </p>
+              )}
+            </>
+          );
+        })()}
 
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Modificaciones respecto al plan
@@ -342,7 +406,7 @@ export function SecondYearSa2Tracker() {
           </label>
         </div>
 
-        <button type="button" onClick={() => void save()} disabled={saving} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#1e6b4f] px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{saving ? <Loader2 className="animate-spin" size={17}/> : <Save size={17}/>}Guardar sesión</button>
+        <button type="button" onClick={() => void save()} disabled={saving || form.sessionNumber === 0} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#1e6b4f] px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{saving ? <Loader2 className="animate-spin" size={17}/> : <Save size={17}/>}Guardar sesión</button>
       </section>
 
       <section className="card p-6 sm:p-8">
@@ -364,7 +428,7 @@ export function SecondYearSa2Tracker() {
           {logs.length === 0 ? <p className="p-6 text-sm text-slate-500">Todavía no hay sesiones registradas.</p> : logs.map((log) => {
             const load = (log.duration_minutes ?? 0) * (log.rpe ?? 0);
             return <article key={log.id} className="grid gap-4 p-5 md:grid-cols-[.7fr_1.4fr_1fr_auto] md:items-center">
-              <div><p className="font-extrabold">Sesión {log.session_number}</p><p className="mt-1 text-xs text-slate-500">Semana {log.week_number ?? "—"} · {formatDate(log.session_date)}</p></div>
+              <div><p className="font-extrabold">Sesión {log.session_number}{getPlanSession(log.session_number) ? " del plan" : " · anterior"}</p><p className="mt-1 text-xs text-slate-500">{formatDate(log.session_date)}</p></div>
               <div><p className="text-sm font-semibold text-slate-800">{log.objective || "Sin objetivo escrito"}</p><p className="mt-1 line-clamp-2 text-xs text-slate-500">{log.activities || "Sin actividades registradas"}</p></div>
               <div className="text-xs text-slate-500"><p>RPE: <strong>{log.rpe ?? "—"}</strong> · {log.duration_minutes ?? "—"} min</p><p className="mt-1">Carga: <strong>{load || "—"}</strong> · Cumplimiento: <strong>{log.completion_percent}%</strong></p></div>
               <div className="flex gap-2"><button type="button" onClick={() => startEdit(log)} className="rounded-xl border border-slate-200 p-2 text-slate-600" aria-label={`Editar sesión ${log.session_number}`}><Pencil size={16}/></button><button type="button" onClick={() => void remove(log)} className="rounded-xl border border-red-100 p-2 text-red-600" aria-label={`Eliminar sesión ${log.session_number}`}><Trash2 size={16}/></button></div>
