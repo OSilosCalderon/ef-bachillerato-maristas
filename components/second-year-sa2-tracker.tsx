@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { BarChart3, CheckCircle2, Loader2, Pencil, Save, Trash2 } from "lucide-react";
+import { BarChart3, CheckCircle2, Loader2, Pencil, Save, Star, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { SECOND_YEAR_PLAN_SESSIONS } from "@/lib/second-year-personal-plan-calendar";
 
 type PlanSummary = {
   objective: string;
@@ -32,30 +33,20 @@ type SessionLog = {
 
 type SessionForm = {
   sessionNumber: number;
-  weekNumber: number;
-  sessionDate: string;
-  objective: string;
-  activities: string;
   durationMinutes: string;
   rpe: string;
   completionPercent: number;
   modifications: string;
   reflection: string;
-  status: "draft" | "completed";
 };
 
-const emptyForm = (sessionNumber = 1): SessionForm => ({
+const emptyForm = (sessionNumber = 0): SessionForm => ({
   sessionNumber,
-  weekNumber: Math.min(5, Math.max(1, Math.ceil(sessionNumber / 4))),
-  sessionDate: "",
-  objective: "",
-  activities: "",
   durationMinutes: "",
   rpe: "",
   completionPercent: 100,
   modifications: "",
   reflection: "",
-  status: "draft",
 });
 
 const capacityLabel: Record<string, string> = {
@@ -68,8 +59,10 @@ const capacityLabel: Record<string, string> = {
 
 const formatDate = (value: string | null) => {
   if (!value) return "Sin fecha";
-  return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short" }).format(new Date(`${value}T12:00:00`));
+  return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${value}T12:00:00`));
 };
+
+const getPlanSession = (number: number) => number >= 1 && number <= SECOND_YEAR_PLAN_SESSIONS.length ? SECOND_YEAR_PLAN_SESSIONS[number - 1] : null;
 
 export function SecondYearSa2Tracker() {
   const [studentId, setStudentId] = useState<string | null>(null);
@@ -131,7 +124,7 @@ export function SecondYearSa2Tracker() {
       const nextLogs = (logsResult.data ?? []) as SessionLog[];
       setLogs(nextLogs);
       const used = new Set(nextLogs.map((item) => item.session_number));
-      const nextNumber = Array.from({ length: 20 }, (_, index) => index + 1).find((number) => !used.has(number)) ?? 20;
+      const nextNumber = SECOND_YEAR_PLAN_SESSIONS.map((_, index) => index + 1).find((number) => !used.has(number)) ?? 0;
       setForm(emptyForm(nextNumber));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se ha podido cargar el seguimiento.");
@@ -155,7 +148,7 @@ export function SecondYearSa2Tracker() {
   }, [logs]);
 
   const weekly = useMemo(() => {
-    return Array.from({ length: 5 }, (_, index) => {
+    return Array.from({ length: 3 }, (_, index) => {
       const week = index + 1;
       const rows = logs.filter((item) => item.week_number === week && item.status === "completed");
       const load = rows.reduce((sum, item) => sum + ((item.duration_minutes ?? 0) * (item.rpe ?? 0)), 0);
@@ -174,18 +167,17 @@ export function SecondYearSa2Tracker() {
   }
 
   function startEdit(log: SessionLog) {
+    if (!getPlanSession(log.session_number)) {
+      setError("Este registro pertenece al formato anterior y se conserva en el historial.");
+      return;
+    }
     setForm({
       sessionNumber: log.session_number,
-      weekNumber: log.week_number ?? Math.min(5, Math.max(1, Math.ceil(log.session_number / 4))),
-      sessionDate: log.session_date ?? "",
-      objective: log.objective ?? "",
-      activities: log.activities ?? "",
       durationMinutes: log.duration_minutes == null ? "" : String(log.duration_minutes),
       rpe: log.rpe == null ? "" : String(log.rpe),
       completionPercent: log.completion_percent ?? 100,
       modifications: log.modifications ?? "",
       reflection: log.reflection ?? "",
-      status: log.status,
     });
     setMessage(`Editando la sesión ${log.session_number}.`);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -193,6 +185,11 @@ export function SecondYearSa2Tracker() {
 
   async function save() {
     if (!studentId || !courseId) return;
+    const selectedSession = getPlanSession(form.sessionNumber);
+    if (!selectedSession) {
+      setError("Selecciona una de las diez sesiones del plan personal.");
+      return;
+    }
     const duration = form.durationMinutes === "" ? null : Number(form.durationMinutes);
     const rpe = form.rpe === "" ? null : Number(form.rpe);
     if (duration != null && (!Number.isFinite(duration) || duration < 1 || duration > 240)) {
@@ -209,6 +206,7 @@ export function SecondYearSa2Tracker() {
     setMessage("");
     try {
       const supabase = createClient();
+      const previousLog = logs.find((item) => item.session_number === form.sessionNumber);
       const { data, error: saveError } = await supabase
         .from("training_session_logs")
         .upsert(
@@ -217,16 +215,16 @@ export function SecondYearSa2Tracker() {
             course_id: courseId,
             sa_code: "SA2",
             session_number: form.sessionNumber,
-            week_number: form.weekNumber,
-            session_date: form.sessionDate || null,
-            objective: form.objective.trim(),
-            activities: form.activities.trim(),
+            week_number: Math.floor((form.sessionNumber - 1) / 4) + 1,
+            session_date: selectedSession.date,
+            objective: previousLog?.objective ?? "",
+            activities: previousLog?.activities ?? "",
             duration_minutes: duration,
             rpe,
             completion_percent: form.completionPercent,
             modifications: form.modifications.trim(),
             reflection: form.reflection.trim(),
-            status: form.status,
+            status: "completed",
             updated_at: new Date().toISOString(),
           },
           { onConflict: "student_id,course_id,sa_code,session_number" },
@@ -287,7 +285,7 @@ export function SecondYearSa2Tracker() {
       )}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <article className="card p-5"><p className="text-sm text-slate-500">Sesiones completadas</p><p className="mt-2 text-3xl font-extrabold">{metrics.completed}/20</p></article>
+        <article className="card p-5"><p className="text-sm text-slate-500">Sesiones completadas</p><p className="mt-2 text-3xl font-extrabold">{metrics.completed}/10</p></article>
         <article className="card p-5"><p className="text-sm text-slate-500">RPE medio</p><p className="mt-2 text-3xl font-extrabold">{metrics.averageRpe == null ? "—" : metrics.averageRpe.toFixed(1)}</p><p className="mt-1 text-xs text-slate-400">Escala 1–10</p></article>
         <article className="card p-5"><p className="text-sm text-slate-500">Cumplimiento medio</p><p className="mt-2 text-3xl font-extrabold">{metrics.averageCompletion == null ? "—" : `${metrics.averageCompletion.toFixed(0)}%`}</p></article>
         <article className="card p-5"><p className="text-sm text-slate-500">Carga acumulada</p><p className="mt-2 text-3xl font-extrabold">{metrics.totalLoad || "—"}</p><p className="mt-1 text-xs text-slate-400">Índice educativo: minutos × RPE</p></article>
