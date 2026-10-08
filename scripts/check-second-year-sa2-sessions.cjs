@@ -18,7 +18,7 @@ const tracker = fs.readFileSync("components/second-year-sa2-tracker.tsx", "utf8"
 assert.match(tracker, /SECOND_YEAR_PLAN_SESSIONS\.map\(\(session, index\)/, "La selección debe venir del calendario compartido.");
 assert.match(tracker, /session_date: selectedSession\.date/, "La fecha se debe guardar desde la sesión del plan.");
 assert.match(tracker, /Esfuerzo percibido · 1–10/, "El esfuerzo debe usar la escala solicitada.");
-assert.match(tracker, /aria-label={`Esfuerzo ${rating} de 10`}/, "Cada estrella debe ser accesible.");
+assert.ok(tracker.includes("aria-label={`Esfuerzo ${rating} de 10`}"), "Cada estrella debe ser accesible.");
 assert.match(tracker, /update\("rpe", String\(rating\)\)/, "Las estrellas deben guardar el esfuerzo seleccionado.");
 assert.match(tracker, /durationMinutes: string/);
 assert.match(tracker, /completionPercent: number/);
