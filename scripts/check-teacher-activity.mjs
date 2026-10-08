@@ -54,8 +54,8 @@ const reportPdf = pdfModule.exports.buildPersonalPlanPdf({
   sections: Array.from({ length: 14 }, (_, index) => ({ title: `Instrumento ${index + 1}`, lines: Array.from({ length: 8 }, (__, line) => `Registro ${line + 1}: resultado de la prueba y estado`) })),
 });
 const pdfText = Buffer.from(reportPdf).toString("latin1");
-const pageCount = (pdfText.match(/\\/Type \\/Page /g) ?? []).length;
+const pageCount = pdfText.split("/Type /Page ").length - 1;
 assert.ok(pageCount > 1, "long reports paginate");
-assert.equal((pdfText.match(/\\/Logo Do/g) ?? []).length, pageCount, "the Maristas logo appears on every page");
+assert.equal(pdfText.split("/Logo Do").length - 1, pageCount, "the Maristas logo appears on every page");
 assert.ok(pdfText.includes(`<${Buffer.from("INFORME DE RESULTADOS").toString("hex")}>`), "the shared PDF template uses the report title");
 console.log("Teacher activity: group isolation, evaluation progress, individual SA report export and branded PDF pagination passed.");
