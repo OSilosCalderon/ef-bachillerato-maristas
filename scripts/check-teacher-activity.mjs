@@ -95,7 +95,7 @@ assert.equal(compactText.split("/Type /Page ").length - 1, 1, "the compact resul
 assert.equal(compactText.split("/Logo Do").length - 1, 1, "the one-page report keeps the Maristas logo");
 assert.ok(compactText.includes(Buffer.from("TOTAL DEL CURSO").toString("hex")));
 assert.ok(compactText.includes(`<${Buffer.from("Media del grupo").toString("hex")}>`));
-assert.ok(compactText.includes(`<${Buffer.from("PEND.").toString("hex")}>`));
+assert.ok(compactText.includes(Buffer.from("Pendientes:").toString("hex")));
 assert.ok(!compactText.includes(Buffer.from("Estado:").toString("hex")), "the report omits per-test state details");
 assert.ok(!compactText.includes(Buffer.from("Repeticiones:").toString("hex")), "the report omits repetitions");
 console.log("Teacher activity: group isolation, all-unit instrument tracking, compact one-page PDF, radar chart, no per-test details and branded header passed.");
