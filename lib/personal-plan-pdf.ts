@@ -5,6 +5,10 @@ export type PlanPdfData = {
   group: string;
   status: string;
   capacity: string;
+  documentTitle?: string;
+  documentSubtitle?: string;
+  footerText?: string;
+  metaItems?: { label: string; value: string }[];
   sections: PlanPdfSection[];
 };
 
@@ -65,6 +69,16 @@ function paginate(data: PlanPdfData) {
 
 export function buildPersonalPlanPdf(data: PlanPdfData) {
   const pages = paginate(data);
+  const metaItems = (data.metaItems ?? [
+    { label: "ESTADO", value: data.status },
+    { label: "CAPACIDAD PRIORITARIA", value: data.capacity },
+    { label: "DOCUMENTO", value: "Hoja de ruta personal" },
+  ]).slice(0, 3);
+  const metaCards = [
+    { x: 49, width: 150, color: "0.90 0.95 0.94 rg", text: "0.04 0.34 0.31 rg" },
+    { x: 211, width: 150, color: "0.99 0.92 0.95 rg", text: "0.60 0.12 0.30 rg" },
+    { x: 373, width: 167, color: "0.92 0.95 0.99 rg", text: "0.12 0.28 0.48 rg" },
+  ];
   const logo = atob(MARISTAS_LOGO_JPEG);
   const logoHex = Array.from(logo, (character) => character.charCodeAt(0).toString(16).padStart(2, "0")).join("");
   const pageIds = pages.map((_, index) => 7 + index * 3);
@@ -84,8 +98,8 @@ export function buildPersonalPlanPdf(data: PlanPdfData) {
       "0.96 0.35 0.53 rg 0 756 12 86 re f",
       "q 142 0 0 47 405 779 cm /Logo Do Q",
       "0.04 0.16 0.20 rg",
-      `BT /F2 ${index === 0 ? 24 : 16} Tf 34 ${index === 0 ? 797 : 792} Td <${winAnsiHex(index === 0 ? "PLAN PERSONAL" : "PLAN PERSONAL - CONTINUACIÓN")}> Tj ET`,
-      `BT /F1 10 Tf 35 ${index === 0 ? 777 : 773} Td <${winAnsiHex(index === 0 ? "SA1 · Entrena con propósito" : `${data.studentName} · ${data.courseLabel}`)}> Tj ET`,
+      `BT /F2 ${index === 0 ? 24 : 16} Tf 34 ${index === 0 ? 797 : 792} Td <${winAnsiHex(index === 0 ? (data.documentTitle ?? "PLAN PERSONAL") : `${data.documentTitle ?? "PLAN PERSONAL"} - CONTINUACIÓN`)}> Tj ET`,
+      `BT /F1 10 Tf 35 ${index === 0 ? 777 : 773} Td <${winAnsiHex(data.documentSubtitle ?? (index === 0 ? "SA1 · Entrena con propósito" : `${data.studentName} · ${data.courseLabel}`))}> Tj ET`,
     ];
     if (index === 0) {
       commands.push(
@@ -93,18 +107,15 @@ export function buildPersonalPlanPdf(data: PlanPdfData) {
         "0.08 0.18 0.24 rg",
         `BT /F2 17 Tf 49 705 Td <${winAnsiHex(data.studentName)}> Tj ET`,
         `BT /F1 10 Tf 49 686 Td <${winAnsiHex(`${data.courseLabel} · ${data.group}`)}> Tj ET`,
-        "0.90 0.95 0.94 rg 49 648 150 32 re f",
-        "0.99 0.92 0.95 rg 211 648 150 32 re f",
-        "0.92 0.95 0.99 rg 373 648 167 32 re f",
-        "0.04 0.34 0.31 rg",
-        `BT /F2 7 Tf 59 669 Td <${winAnsiHex("ESTADO")}> Tj ET`,
-        `BT /F2 9 Tf 59 655 Td <${winAnsiHex(data.status)}> Tj ET`,
-        "0.60 0.12 0.30 rg",
-        `BT /F2 7 Tf 221 669 Td <${winAnsiHex("CAPACIDAD PRIORITARIA")}> Tj ET`,
-        `BT /F2 9 Tf 221 655 Td <${winAnsiHex(data.capacity)}> Tj ET`,
-        "0.12 0.28 0.48 rg",
-        `BT /F2 7 Tf 383 669 Td <${winAnsiHex("DOCUMENTO")}> Tj ET`,
-        `BT /F2 9 Tf 383 655 Td <${winAnsiHex("Hoja de ruta personal")}> Tj ET`,
+        ...metaCards.flatMap((card, cardIndex) => {
+          const item = metaItems[cardIndex] ?? { label: "", value: "" };
+          return [
+            `${card.color} ${card.x} 648 ${card.width} 32 re f`,
+            `${card.text} rg`,
+            `BT /F2 7 Tf ${card.x + 10} 669 Td <${winAnsiHex(item.label)}> Tj ET`,
+            `BT /F2 8 Tf ${card.x + 10} 655 Td <${winAnsiHex(item.value)}> Tj ET`,
+          ];
+        }),
       );
     }
     for (const item of items) {
@@ -126,7 +137,7 @@ export function buildPersonalPlanPdf(data: PlanPdfData) {
       item.lines.forEach((line, lineIndex) => commands.push(`BT /${font} ${size} Tf ${x} ${y - 17 - lineIndex * 13} Td <${winAnsiHex(line)}> Tj ET`));
       y -= item.height;
     }
-    commands.push("0.82 0.86 0.88 RG 0.8 w 34 45 m 555 45 l S", "0.36 0.42 0.45 rg", `BT /F1 8 Tf 34 28 Td <${winAnsiHex("Educación Física · Maristas Badajoz · Documento personal de trabajo")}> Tj ET`, `BT /F2 8 Tf 515 28 Td <${winAnsiHex(`${index + 1} / ${pages.length}`)}> Tj ET`);
+    commands.push("0.82 0.86 0.88 RG 0.8 w 34 45 m 555 45 l S", "0.36 0.42 0.45 rg", `BT /F1 8 Tf 34 28 Td <${winAnsiHex(data.footerText ?? "Educación Física · Maristas Badajoz · Documento personal de trabajo")}> Tj ET`, `BT /F2 8 Tf 515 28 Td <${winAnsiHex(`${index + 1} / ${pages.length}`)}> Tj ET`);
     const stream = commands.join("\n");
     objects.set(contentId, `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);
     objects.set(pageId, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> /XObject << /Logo ${imageId} 0 R >> >> /Contents ${contentId} 0 R >>`);
