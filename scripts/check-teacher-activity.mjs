@@ -38,6 +38,24 @@ assert.match(loader, /optionalTables\.has\(table\)/);
 assert.doesNotMatch(loader, /theoretical_content_reads/);
 const dashboard = fs.readFileSync("components/teacher-activity-dashboard.tsx", "utf8");
 assert.match(dashboard, /Descargar plan en PDF/);
+assert.match(dashboard, /Descargar informe PDF de esta SA/);
+assert.match(dashboard, /row\.sa === sa && row\.category !== "plans"/);
+assert.match(dashboard, /Fecha de realización o registro/);
+assert.match(dashboard, /Informe individual de resultados/);
 assert.match(dashboard, /Resumen de cada alumno\/a/);
 assert.match(dashboard, /instrument\.sa/);
-console.log("Teacher activity: group isolation, evaluation instrument progress and plan PDF export passed.");
+const pdfModule = { exports: {} };
+vm.runInNewContext(ts.transpileModule(fs.readFileSync("lib/personal-plan-pdf.ts", "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText, { module: pdfModule, exports: pdfModule.exports, atob, Uint8Array, Map });
+const reportPdf = pdfModule.exports.buildPersonalPlanPdf({
+  studentName: "Alumna de prueba", courseLabel: "1º Bachillerato", group: "1ºA", status: "Resultados registrados", capacity: "SA2",
+  documentTitle: "INFORME DE RESULTADOS", documentSubtitle: "SA2 · Condición física",
+  footerText: "Informe individual de resultados",
+  metaItems: [{ label: "SITUACIÓN", value: "SA2" }, { label: "GRUPO", value: "1ºA" }, { label: "DOCUMENTO", value: "Informe individual" }],
+  sections: Array.from({ length: 14 }, (_, index) => ({ title: `Instrumento ${index + 1}`, lines: Array.from({ length: 8 }, (__, line) => `Registro ${line + 1}: resultado de la prueba y estado`) })),
+});
+const pdfText = Buffer.from(reportPdf).toString("latin1");
+const pageCount = pdfText.split("/Type /Page ").length - 1;
+assert.ok(pageCount > 1, "long reports paginate");
+assert.equal(pdfText.split("/Logo Do").length - 1, pageCount, "the Maristas logo appears on every page");
+assert.ok(pdfText.includes(`<${Buffer.from("INFORME DE RESULTADOS").toString("hex")}>`), "the shared PDF template uses the report title");
+console.log("Teacher activity: group isolation, evaluation progress, individual SA report export and branded PDF pagination passed.");

@@ -61,6 +61,57 @@ function exportStudentPlan(row: TeacherActivity, student: TeacherActivityData["s
 }
 
 
+function reportDate(value: string) {
+  if (!value) return "Sin fecha";
+  const date = new Date(`${value.slice(0, 10)}T12:00:00`);
+  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long", year: "numeric" }).format(date);
+}
+
+function reportDetailLines(value: unknown, prefix = "", depth = 0): string[] {
+  if (value === null || value === undefined || value === "" || depth > 4) return [];
+  if (Array.isArray(value)) return value.flatMap((entry, index) => reportDetailLines(entry, prefix ? `${prefix} · ${index + 1}` : `Elemento ${index + 1}`, depth + 1));
+  if (typeof value === "object") {
+    return Object.entries(value)
+      .filter(([key]) => key !== "id" && !key.endsWith("_id") && !["created_at", "updated_at", "recorded_at", "started_at", "submitted_at", "read_at", "topic_slug"].includes(key))
+      .flatMap(([key, entry]) => reportDetailLines(entry, prefix ? `${prefix} · ${labels[key] ?? key.replaceAll("_", " ")}` : labels[key] ?? key.replaceAll("_", " "), depth + 1));
+  }
+  const printable = typeof value === "boolean" ? (value ? "Sí" : "No") : String(value);
+  return [prefix ? `${prefix}: ${printable}` : printable];
+}
+
+function exportStudentResultsPdf(student: TeacherActivityData["students"][number], year: 1 | 2, sa: string, situationTitle: string, rows: TeacherActivity[]) {
+  const reportRows = rows.filter((row) => row.sa === sa && row.category !== "plans").sort((a, b) => a.date.localeCompare(b.date, "es"));
+  const sections = [
+    { title: "Datos del informe", lines: [`Curso: ${year}º Bachillerato · ${student.group}`, `Situación de aprendizaje: ${sa} · ${situationTitle}`, `Fecha de emisión: ${reportDate(new Date().toISOString())}`] },
+    ...(reportRows.length ? reportRows.map((row) => ({
+      title: `${activityCategories[row.category]} · ${row.title}`,
+      lines: [
+        `Situación: ${row.sa} · ${situationTitle}`,
+        `Fecha de realización o registro: ${reportDate(row.date)}`,
+        `Estado: ${statuses[row.status] ?? row.status ?? "Sin estado"}`,
+        ...(row.score !== null ? [`${row.scoreLabel || "Resultado"}: ${fmt(row.score)}`] : []),
+        ...reportDetailLines(row.details),
+      ],
+    })) : [{ title: "Resultados registrados", lines: ["No hay resultados de pruebas o instrumentos guardados para esta situación de aprendizaje."] }]),
+  ];
+  downloadPersonalPlanPdf({
+    studentName: student.name,
+    courseLabel: `${year}º Bachillerato`,
+    group: student.group,
+    status: "Resultados registrados",
+    capacity: sa,
+    documentTitle: "INFORME DE RESULTADOS",
+    documentSubtitle: `${sa} · ${situationTitle}`,
+    footerText: "Educación Física · Maristas Badajoz · Informe individual de resultados",
+    metaItems: [
+      { label: "SITUACIÓN", value: sa },
+      { label: "GRUPO", value: student.group },
+      { label: "DOCUMENTO", value: "Informe individual" },
+    ],
+    sections,
+  });
+}
+
 function DetailValue({ value }: { value: unknown }) {
   if (value === null || value === undefined || value === "") return <span className="text-slate-400">Sin completar</span>;
   if (Array.isArray(value)) return <ol className="list-inside list-decimal space-y-3">{value.map((entry, index) => <li key={index} className="rounded-lg bg-white p-3"><DetailValue value={entry}/></li>)}</ol>;
@@ -141,6 +192,7 @@ export function TeacherActivityDashboard({ data: initialData, year, initialSitua
         <label className="text-sm font-bold">Vista<select value={view} onChange={(event) => setView(event.target.value as typeof view)} className="mt-2 w-full rounded-xl border p-3"><option value="group">Grupal</option><option value="individual">Individual</option></select></label>
         <label className="text-sm font-bold">Alumno/a<select value={selected?.id ?? ""} onChange={(event) => { setStudentId(event.target.value); setView("individual"); }} className="mt-2 w-full rounded-xl border p-3">{students.map((student) => <option key={student.id} value={student.id}>{student.name}</option>)}</select></label>
       </div>
+      {view === "individual" && selected && <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-emerald-50 p-4"><button type="button" disabled={!sa} onClick={() => { const situation = data.situations.find((entry) => entry.code === sa); if (situation) exportStudentResultsPdf(selected, year, sa, situation.title, personal); }} className="inline-flex items-center gap-2 rounded-xl bg-[#1e6b4f] px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"><FileDown size={16}/>Descargar informe PDF de esta SA</button>{!sa && <span className="text-sm text-slate-600">Selecciona una situación de aprendizaje para preparar el informe individual.</span>}<span className="text-xs text-slate-600">Incluye solo los registros del alumno/a y la SA seleccionados, sin promedios del grupo.</span></div>}
       <p className="mt-3 text-xs text-slate-500">Última consulta: {new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", dateStyle: "short", timeStyle: "medium" }).format(new Date(data.loadedAt))}</p>
       {refreshMessage && <p role={refreshError ? "alert" : "status"} className={refreshError ? "mt-2 text-sm text-red-700" : "mt-2 text-sm text-emerald-700"}>{refreshMessage}</p>}
       {changingCourse && <p role="status" className="mt-3 font-semibold text-[#1e6b4f]">Cargando los resultados del curso seleccionado…</p>}
