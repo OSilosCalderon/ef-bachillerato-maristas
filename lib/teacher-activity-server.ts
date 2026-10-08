@@ -81,6 +81,22 @@ export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityD
     if (definition) add(row, "procedural", str(definition.title), saFor(definition.learning_situation_id), row.status === "submitted" ? num(row.total_score) : null, "Puntos");
   }
   const topics = year === 2 ? secondYearTheoryTopics : [...trainingTheoryTopics, flexibilityTheoryTopic].map((topic) => ({ ...topic, sa: "SA1" }));
+  const expectedInstruments: { sa: string; category: ActivityCategory; title: string }[] = [];
+  for (const test of physicalTests) expectedInstruments.push({ sa: "SA1", category: "physical", title: str(test.name) });
+  for (const test of technicalTests) {
+    const sport = sports.find((entry) => entry.id === test.sport_id);
+    const sa = saFor(sport?.learning_situation_id);
+    if (sa) expectedInstruments.push({ sa, category: "technical", title: str(test.name) });
+  }
+  for (const questionnaire of questionnaires) {
+    const sa = saFor(questionnaire.learning_situation_id);
+    if (sa) expectedInstruments.push({ sa, category: "questionnaires", title: str(questionnaire.title) });
+  }
+  for (const activity of procedural) {
+    const sa = saFor(activity.learning_situation_id);
+    if (sa) expectedInstruments.push({ sa, category: "procedural", title: str(activity.title) });
+  }
+  for (const topic of topics) expectedInstruments.push({ sa: topic.sa, category: "quizzes", title: topic.title });
   for (const row of table.theory_topic_progress) {
     const topic = topics.find((entry) => entry.slug === row.topic_slug);
     if (!topic) continue;
@@ -103,5 +119,5 @@ export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityD
   for (const row of table.healthy_habit_plans) add(row, "habits", str(row.focus_habit) || "Plan de hábitos", str(row.sa_code));
   for (const row of table.healthy_habit_weekly_logs) add(row, "habits", `Seguimiento de hábitos · semana ${row.week_number}`, str(row.sa_code));
   for (const row of table.sports_event_projects) add(row, "projects", str(row.event_name) || "Proyecto deportivo", str(row.sa_code));
-  return { students, activities, situations: situations.map((sa) => ({ id: str(sa.id), code: str(sa.code), title: str(sa.title) })), physicalTests: physicalTests.map((test) => ({ id: str(test.id), name: str(test.name), unit: str(test.unit), direction: str(test.direction) })), courseName: courses.map((course) => course.name).join(" · "), loadedAt: new Date().toISOString() };
+  return { students, activities, situations: situations.map((sa) => ({ id: str(sa.id), code: str(sa.code), title: str(sa.title) })), physicalTests: physicalTests.map((test) => ({ id: str(test.id), name: str(test.name), unit: str(test.unit), direction: str(test.direction) })), expectedInstruments, courseName: courses.map((course) => course.name).join(" · "), loadedAt: new Date().toISOString() };
 }
