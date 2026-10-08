@@ -161,7 +161,7 @@ function compactResultsCommands(report: StudentResultsReport) {
     return { sa, done, count: entries.length, percent: entries.length ? Math.round(done / entries.length * 100) : null };
   });
   totals.forEach((row, i) => {
-    const y = 260 - i * 19;
+    const y = 260 - i * 15;
     commands.push((i % 2 ? "0.96 0.97 0.98" : "0.91 0.95 0.94") + " rg 34 " + (y - 7) + " 521 18 re f");
     const title = row.sa.title.length > 34 ? row.sa.title.slice(0, 31) + "..." : row.sa.title;
     const result = row.count === 0 ? "Sin registros" : row.done === row.count ? "Completo" : "Pendiente";
@@ -172,8 +172,8 @@ function compactResultsCommands(report: StudentResultsReport) {
   const count = totals.reduce((sum, row) => sum + row.count, 0);
   const percent = count ? Math.round(done / count * 100) + "%" : "sin datos";
   const complete = count > 0 && done === count;
-  commands.push("0.92 0.95 0.96 rg 34 121 521 29 re f");
-  commands.push(text("F2", 8, 45, 138, "TOTAL DEL CURSO: " + done + "/" + count + " instrumentos · " + percent + " · " + (complete ? "Todo completado" : "Hay instrumentos pendientes"), "0.04 0.30 0.28"));
+  commands.push("0.92 0.95 0.96 rg 34 98 521 26 re f");
+  commands.push(text("F2", 8, 45, 109, "TOTAL DEL CURSO: " + done + "/" + count + " instrumentos · " + percent + " · " + (complete ? "Todo completado" : "Hay instrumentos pendientes"), "0.04 0.30 0.28"));
   return commands;
 }
 
