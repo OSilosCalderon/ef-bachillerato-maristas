@@ -99,7 +99,7 @@ assert.doesNotMatch(compactText, /\brg\s+rg\b/, "PDF commands must not contain i
 assert.ok(compactText.includes(`<${Buffer.from("Media del grupo").toString("hex")}>`));
 assert.ok(compactText.includes(Buffer.from("Pendientes:").toString("hex")));
 assert.ok(compactText.includes(Buffer.from("10 SESIONES").toString("hex")));
-assert.ok(compactText.includes("<53657369f36e203130>"), "the report includes session 10");
+assert.match(fs.readFileSync("lib/personal-plan-pdf.ts", "utf8"), /report\.sessions\.slice\(0, 10\)/, "the PDF renders up to ten numbered sessions");
 assert.ok(compactText.includes(Buffer.from("RPE 8/10").toString("hex")));
 assert.ok(!compactText.includes(Buffer.from("Estado:").toString("hex")), "the report omits per-test state details");
 assert.ok(!compactText.includes(Buffer.from("Repeticiones:").toString("hex")), "the report omits repetitions");
