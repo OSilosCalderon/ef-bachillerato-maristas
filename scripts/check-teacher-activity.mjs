@@ -76,6 +76,7 @@ const compactPdf = pdfModule.exports.buildPersonalPlanPdf({
       { code: "SA2", title: "Cargas de trabajo" },
       { code: "SA3", title: "Situación final" },
     ],
+    sessions: Array.from({ length: 10 }, (_, index) => ({ sessionNumber: index + 1, date: index === 0 ? "2026-10-12" : "", durationMinutes: index === 0 ? 55 : null, rpe: index === 0 ? 8 : null, completionPercent: index === 0 ? 90 : null, recorded: index === 0 })),
     instruments: [
       { sa: "SA1", title: "Pruebas físicas", completed: true },
       { sa: "SA1", title: "Cuestionario inicial", completed: false },
@@ -97,6 +98,9 @@ assert.ok(compactText.includes(Buffer.from("TOTAL DEL CURSO").toString("hex")));
 assert.doesNotMatch(compactText, /\brg\s+rg\b/, "PDF commands must not contain invalid duplicate fill-color operators");
 assert.ok(compactText.includes(`<${Buffer.from("Media del grupo").toString("hex")}>`));
 assert.ok(compactText.includes(Buffer.from("Pendientes:").toString("hex")));
+assert.ok(compactText.includes(Buffer.from("SA2 · VALORACIÓN DE LAS 10 SESIONES").toString("hex")));
+assert.ok(compactText.includes(Buffer.from("Sesión 10").toString("hex")));
+assert.ok(compactText.includes(Buffer.from("RPE 8/10").toString("hex")));
 assert.ok(!compactText.includes(Buffer.from("Estado:").toString("hex")), "the report omits per-test state details");
 assert.ok(!compactText.includes(Buffer.from("Repeticiones:").toString("hex")), "the report omits repetitions");
 console.log("Teacher activity: group isolation, all-unit instrument tracking, compact one-page PDF, radar chart, no per-test details and branded header passed.");
