@@ -219,7 +219,7 @@ export function buildPersonalPlanPdf(data: PlanPdfData) {
           const item = metaItems[cardIndex] ?? { label: "", value: "" };
           return [
             `${card.color} ${card.x} 648 ${card.width} 32 re f`,
-            `${card.text} rg`,
+            card.text,
             `BT /F2 7 Tf ${card.x + 10} 669 Td <${winAnsiHex(item.label)}> Tj ET`,
             `BT /F2 8 Tf ${card.x + 10} 655 Td <${winAnsiHex(item.value)}> Tj ET`,
           ];

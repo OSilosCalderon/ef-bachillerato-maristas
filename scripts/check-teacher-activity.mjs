@@ -94,6 +94,7 @@ const compactText = Buffer.from(compactPdf).toString("latin1");
 assert.equal(compactText.split("/Type /Page ").length - 1, 1, "the compact results report fits one A4 page");
 assert.equal(compactText.split("/Logo Do").length - 1, 1, "the one-page report keeps the Maristas logo");
 assert.ok(compactText.includes(Buffer.from("TOTAL DEL CURSO").toString("hex")));
+assert.doesNotMatch(compactText, /\brg\s+rg\b/, "PDF commands must not contain invalid duplicate fill-color operators");
 assert.ok(compactText.includes(`<${Buffer.from("Media del grupo").toString("hex")}>`));
 assert.ok(compactText.includes(Buffer.from("Pendientes:").toString("hex")));
 assert.ok(!compactText.includes(Buffer.from("Estado:").toString("hex")), "the report omits per-test state details");
