@@ -2,6 +2,7 @@ export type PlanPdfSection = { title: string; lines: string[] };
 export type StudentResultsReport = {
   situations: { code: string; title: string }[];
   instruments: { sa: string; title: string; completed: boolean }[];
+  sessions?: { sessionNumber: number; date: string; durationMinutes: number | null; rpe: number | null; completionPercent: number | null; recorded: boolean }[];
   radar: { capacity: string; initial: number | null; final: number | null; reference: number }[];
 };
 export type PlanPdfData = {
@@ -147,6 +148,19 @@ function compactResultsCommands(report: StudentResultsReport) {
         : done + "/" + entries.length + " · Pendientes: " + pending.join(", ").slice(0, 52);
     commands.push(text("F1", 5.8, 316, y, statusLine, done === entries.length && entries.length ? "0.04 0.45 0.30" : "0.52 0.30 0.20"));
     y -= 14;
+  }
+
+  if (report.sessions?.length) {
+    commands.push(text("F2", 6.4, 310, y, "SA2 · VALORACIÓN DE LAS 10 SESIONES", "0.04 0.30 0.28"));
+    y -= 10;
+    for (const session of report.sessions.slice(0, 10)) {
+      if (y < 359) break;
+      const date = session.date ? session.date.slice(5, 10).replace("-", "/") : "sin fecha";
+      const value = (number: number | null, suffix: string) => number === null ? "—" : String(number) + suffix;
+      const line = "Sesión " + session.sessionNumber + " · " + date + " · " + value(session.durationMinutes, " min") + " · RPE " + value(session.rpe, "/10") + " · " + value(session.completionPercent, "%") + " · " + (session.recorded ? "Registrada" : "Sin registro");
+      commands.push(text("F1", 5.2, 316, y, line, session.recorded ? "0.04 0.40 0.30" : "0.52 0.38 0.20"));
+      y -= 8;
+    }
   }
 
   commands.push(text("F2", 10, 35, 326, "Resumen final por situación de aprendizaje", "0.04 0.30 0.28"));
