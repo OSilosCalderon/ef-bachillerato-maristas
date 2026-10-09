@@ -108,6 +108,24 @@ function exportStudentResultsPdf(
       isEvaluationInstrumentAchieved(row),
     ),
   }));
+  const sessionLogs = year === 2
+    ? personalRows.filter((row) => row.category === "journals" && row.sa === "SA2" && Number.isInteger(Number(row.details.session_number)) && Number(row.details.session_number) >= 1 && Number(row.details.session_number) <= 10)
+    : [];
+  const sessionsByNumber = new Map(sessionLogs.map((row) => [Number(row.details.session_number), row]));
+  const sessions = year === 2 ? Array.from({ length: 10 }, (_, index) => {
+    const sessionNumber = index + 1;
+    const row = sessionsByNumber.get(sessionNumber);
+    const numeric = (value: unknown) => value === null || value === undefined || value === "" || !Number.isFinite(Number(value)) ? null : Number(value);
+    return {
+      sessionNumber,
+      date: typeof row?.details.session_date === "string" ? row.details.session_date : "",
+      durationMinutes: numeric(row?.details.duration_minutes),
+      rpe: numeric(row?.details.rpe),
+      completionPercent: numeric(row?.details.completion_percent),
+      recorded: Boolean(row && (row.status === "completed" || row.status === "submitted")),
+    };
+  }) : [];
+  for (const session of sessions) instruments.push({ sa: "SA2", title: "Sesión " + session.sessionNumber + " · valoración", completed: session.recorded });
   const radar = ["Fuerza", "Resistencia", "Velocidad", "Flexibilidad / movilidad", "Otras pruebas"].flatMap((capacity) => {
     const capacityTests = tests.filter((test) => physicalCapacity(test.name) === capacity);
     const periodIndex = (period: "september" | "december") => capacityTests.flatMap((test) => {
@@ -146,6 +164,7 @@ function exportStudentResultsPdf(
     resultsReport: {
       situations: situations.map((situation) => ({ code: situation.code, title: situation.title })),
       instruments,
+      sessions,
       radar,
     },
   });
