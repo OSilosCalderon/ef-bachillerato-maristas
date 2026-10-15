@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { FileDown } from "lucide-react";
-import { refreshTeacherActivity } from "@/app/profesor/actions";
+import { refreshTeacherActivity, saveSecondYearSessionEvaluation } from "@/app/profesor/actions";
 import { activityCategories, categorySummary, evaluationInstrumentKey, isEvaluationInstrumentAchieved, mean, physicalComparison, type ActivityCategory, type TeacherActivity, type TeacherActivityData } from "@/lib/teacher-activity";
 import { physicalCapacity } from "@/lib/second-year-progress";
 import { TeacherPsychologicalReports } from "@/components/teacher-psychological-reports";
@@ -20,6 +20,50 @@ const labels: Record<string, string> = {
 labels.success_indicator = "Cómo comprobaré mi objetivo principal";
 labels.rounds = "Series";
 labels.roundRecovery = "Descanso entre series (minutos)";
+
+function TeacherSessionEvaluationForm({ sessionLogId, sessionNumber, initialScore, initialComment }: { sessionLogId: string; sessionNumber: number; initialScore: number | null; initialComment: string }) {
+  const [score, setScore] = useState(initialScore === null ? "" : String(initialScore));
+  const [comment, setComment] = useState(initialComment);
+  const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const [error, setError] = useState("");
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setFeedback("");
+    const parsedScore = Number(score);
+    if (score === "" || !Number.isFinite(parsedScore) || parsedScore < 0 || parsedScore > 10 || Math.round(parsedScore * 10) !== parsedScore * 10) {
+      setError("Introduce una nota entre 0 y 10; puedes usar una décima.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await saveSecondYearSessionEvaluation({ sessionLogId, score: parsedScore, comment });
+      setFeedback("Valoración guardada. El alumno ya puede verla en su seguimiento.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No se ha podido guardar la valoración.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return <form onSubmit={(event) => void submit(event)} className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/70 p-4">
+    <h3 className="font-bold text-[#164c3a]">Valorar sesión {sessionNumber}</h3>
+    <div className="mt-3 grid gap-3 md:grid-cols-[10rem_1fr_auto] md:items-end">
+      <label className="text-xs font-bold text-slate-600">Nota · 0–10
+        <input type="number" min="0" max="10" step="0.1" inputMode="decimal" value={score} onChange={(event) => setScore(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm" placeholder="Pendiente"/>
+      </label>
+      <label className="text-xs font-bold text-slate-600">Comentario breve · opcional
+        <textarea maxLength={500} rows={2} value={comment} onChange={(event) => setComment(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm font-normal" placeholder="Una indicación para la siguiente sesión"/>
+        <span className="mt-1 block text-right font-normal">{comment.length}/500</span>
+      </label>
+      <button type="submit" disabled={saving} className="rounded-lg bg-[#1e6b4f] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">{saving ? "Guardando…" : "Guardar valoración"}</button>
+    </div>
+    {error && <p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
+    {feedback && <p role="status" className="mt-2 text-sm text-emerald-800">{feedback}</p>}
+  </form>;
+}
 
 function planText(value: unknown, fallback = "Sin completar") {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
@@ -284,7 +328,7 @@ export function TeacherActivityDashboard({ data: initialData, year, initialSitua
       <section className="card overflow-hidden p-5 sm:p-7"><h2 className="text-xl font-extrabold">Resumen de cada alumno/a</h2><p className="mt-2 text-sm text-slate-500">Cada celda identifica el instrumento y la situación de aprendizaje donde se utiliza. El porcentaje indica los instrumentos conseguidos sobre el total de instrumentos con resultados en el filtro actual.</p><div className="mt-4 overflow-x-auto"><table className="w-full text-left text-xs"><thead><tr><th className="sticky left-0 min-w-48 bg-white p-3">Alumno/a</th><th className="min-w-36 p-3">Conseguidos</th>{instruments.map((instrument) => <th key={instrument.key} className="min-w-44 p-3"><span className="block font-extrabold">{instrument.sa} · {instrument.title}</span><span className="mt-1 block font-normal text-slate-500">{activityCategories[instrument.category]}</span></th>)}</tr></thead><tbody>{students.map((student) => { const achieved = instruments.filter((instrument) => activities.some((row) => row.studentId === student.id && evaluationInstrumentKey(row) === instrument.key && isEvaluationInstrumentAchieved(row))).length; const percent = instruments.length ? achieved / instruments.length * 100 : null; return <tr key={student.id} className="border-t"><td className="sticky left-0 bg-white p-3"><button className="font-bold text-[#1e6b4f] underline" onClick={() => { setStudentId(student.id); setView("individual"); }}>{student.name}</button></td><td className="whitespace-nowrap p-3"><strong>{achieved}/{instruments.length || "—"}</strong>{percent !== null && <span className="ml-1 font-bold text-[#1e6b4f]">{fmt(percent)}%</span>}</td>{instruments.map((instrument) => { const rows = activities.filter((row) => row.studentId === student.id && evaluationInstrumentKey(row) === instrument.key); const done = rows.some(isEvaluationInstrumentAchieved); return <td key={instrument.key} className="p-3"><span className={done ? "rounded-full bg-emerald-100 px-2 py-1 font-bold text-emerald-800" : rows.length ? "rounded-full bg-amber-100 px-2 py-1 font-bold text-amber-800" : "text-slate-400"}>{done ? "Conseguido" : rows.length ? "En curso" : "Sin registro"}</span>{rows.length > 0 && <span className="mt-1 block text-slate-500">{rows.length} registro(s)</span>}</td>; })}</tr>; })}</tbody></table></div>{!instruments.length && <p className="mt-4 text-sm text-slate-500">Todavía no hay instrumentos de evaluación con resultados en este filtro.</p>}</section>
       <section className="card space-y-4 p-5 sm:p-7"><h2 className="text-xl font-extrabold">{view === "individual" ? `Trabajo de ${selected!.name}` : "Detalle de los registros del grupo"}</h2><p className="text-sm text-slate-500">Los planes reflejan lo previsto y su estado declarado; los diarios reflejan lo registrado tras la práctica. Abre cada apartado para leer objetivos, ejercicios, cargas, reflexiones y resultados.</p>{categories.map(([category, label]) => {
         const rows = details.filter((row) => row.category === category).sort((a, b) => b.date.localeCompare(a.date));
-        return <details key={category} className="rounded-xl border p-4"><summary className="cursor-pointer font-bold">{label} · {rows.length} registros</summary><div className="mt-4 space-y-3">{!rows.length && <p className="text-sm text-slate-500">Sin registros guardados.</p>}{rows.map((row) => <details key={row.id} className="rounded-lg bg-slate-50 p-4"><summary className="cursor-pointer text-sm font-semibold">{view === "group" ? `${students.find((student) => student.id === row.studentId)?.name} · ` : ""}{row.sa} · {row.title} {row.status ? `· ${statuses[row.status] ?? row.status}` : ""}{row.score !== null ? ` · ${fmt(row.score)} ${row.scoreLabel ?? ""}` : ""}</summary><div className="mt-4 text-sm"><p className="mb-3 text-xs text-slate-500">Último registro: {row.date ? new Date(row.date).toLocaleDateString("es-ES") : "Sin fecha"}</p>{row.category === "plans" && <button type="button" onClick={() => { const student = students.find((entry) => entry.id === row.studentId); if (student) exportStudentPlan(row, student, year); }} className="mb-4 inline-flex items-center gap-2 rounded-xl bg-[#1e6b4f] px-4 py-2.5 text-sm font-bold text-white"><FileDown size={16}/>Descargar plan en PDF</button>}<DetailValue value={row.details}/></div></details>)}</div></details>;
+        return <details key={category} className="rounded-xl border p-4"><summary className="cursor-pointer font-bold">{label} · {rows.length} registros</summary><div className="mt-4 space-y-3">{!rows.length && <p className="text-sm text-slate-500">Sin registros guardados.</p>}{rows.map((row) => <details key={row.id} className="rounded-lg bg-slate-50 p-4"><summary className="cursor-pointer text-sm font-semibold">{view === "group" ? `${students.find((student) => student.id === row.studentId)?.name} · ` : ""}{row.sa} · {row.title} {row.status ? `· ${statuses[row.status] ?? row.status}` : ""}{row.score !== null ? ` · ${fmt(row.score)} ${row.scoreLabel ?? ""}` : ""}</summary><div className="mt-4 text-sm"><p className="mb-3 text-xs text-slate-500">Último registro: {row.date ? new Date(row.date).toLocaleDateString("es-ES") : "Sin fecha"}</p>{row.category === "plans" && <button type="button" onClick={() => { const student = students.find((entry) => entry.id === row.studentId); if (student) exportStudentPlan(row, student, year); }} className="mb-4 inline-flex items-center gap-2 rounded-xl bg-[#1e6b4f] px-4 py-2.5 text-sm font-bold text-white"><FileDown size={16}/>Descargar plan en PDF</button>}<DetailValue value={row.details}/>{year === 2 && row.category === "journals" && row.sa === "SA2" && Number(row.details.session_number) >= 1 && Number(row.details.session_number) <= 10 && <TeacherSessionEvaluationForm key={row.id} sessionLogId={String(row.details.id)} sessionNumber={Number(row.details.session_number)} initialScore={row.details.teacher_score == null ? null : Number(row.details.teacher_score)} initialComment={String(row.details.teacher_comment ?? "")}/>}</div></details>)}</div></details>;
       })}</section>
       {(!sa || sa === "SA1") && <section className="space-y-4"><h2 className="text-xl font-extrabold">Informes psicológicos · inicial y final</h2><TeacherPsychologicalReports key={`${year}-${group}-${selected?.id}-${data.loadedAt}`} initialYear={year} initialStudentId={selected?.id} initialGroup={selected?.group}/></section>}
     </>}
