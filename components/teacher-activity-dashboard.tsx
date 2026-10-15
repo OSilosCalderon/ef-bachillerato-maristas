@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { FileDown } from "lucide-react";
 import { refreshTeacherActivity, saveSecondYearSessionEvaluation } from "@/app/profesor/actions";
@@ -28,7 +28,7 @@ function TeacherSessionEvaluationForm({ sessionLogId, sessionNumber, initialScor
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setFeedback("");
