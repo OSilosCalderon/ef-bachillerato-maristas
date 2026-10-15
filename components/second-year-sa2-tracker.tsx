@@ -29,6 +29,8 @@ type SessionLog = {
   modifications: string;
   reflection: string;
   status: "draft" | "completed";
+  teacher_score?: number | null;
+  teacher_comment?: string;
 };
 
 type SessionForm = {
@@ -122,7 +124,24 @@ export function SecondYearSa2Tracker() {
 
       setPlan((planResult.data as PlanSummary | null) ?? null);
       const nextLogs = (logsResult.data ?? []) as SessionLog[];
-      setLogs(nextLogs);
+      let evaluationBySession = new Map<string, { teacher_score: number; teacher_comment: string }>();
+      if (nextLogs.length) {
+        const { data: evaluations, error: evaluationError } = await supabase
+          .from("training_session_evaluations")
+          .select("session_log_id,teacher_score,teacher_comment")
+          .in("session_log_id", nextLogs.map((item) => item.id));
+        if (evaluationError) throw evaluationError;
+        evaluationBySession = new Map((evaluations ?? []).map((item) => [
+          item.session_log_id as string,
+          { teacher_score: Number(item.teacher_score), teacher_comment: String(item.teacher_comment ?? "") },
+        ]));
+      }
+      const logsWithEvaluations = nextLogs.map((item) => ({
+        ...item,
+        teacher_score: evaluationBySession.get(item.id)?.teacher_score ?? null,
+        teacher_comment: evaluationBySession.get(item.id)?.teacher_comment ?? "",
+      }));
+      setLogs(logsWithEvaluations);
       const used = new Set(nextLogs.map((item) => item.session_number));
       const nextNumber = SECOND_YEAR_PLAN_SESSIONS.map((_, index) => index + 1).find((number) => !used.has(number)) ?? 0;
       setForm(emptyForm(nextNumber));
@@ -432,6 +451,15 @@ export function SecondYearSa2Tracker() {
               <div><p className="text-sm font-semibold text-slate-800">{log.objective || "Sin objetivo escrito"}</p><p className="mt-1 line-clamp-2 text-xs text-slate-500">{log.activities || "Sin actividades registradas"}</p></div>
               <div className="text-xs text-slate-500"><p>RPE: <strong>{log.rpe ?? "—"}</strong> · {log.duration_minutes ?? "—"} min</p><p className="mt-1">Carga: <strong>{load || "—"}</strong> · Cumplimiento: <strong>{log.completion_percent}%</strong></p></div>
               <div className="flex gap-2"><button type="button" onClick={() => startEdit(log)} className="rounded-xl border border-slate-200 p-2 text-slate-600" aria-label={`Editar sesión ${log.session_number}`}><Pencil size={16}/></button><button type="button" onClick={() => void remove(log)} className="rounded-xl border border-red-100 p-2 text-red-600" aria-label={`Eliminar sesión ${log.session_number}`}><Trash2 size={16}/></button></div>
+              <div className="md:col-span-full rounded-xl border border-[#c6e1d6] bg-[#f2faf6] p-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-[#1e6b4f]">Valoración del profesor</p>
+                {log.teacher_score == null
+                  ? <p className="mt-2 text-sm text-slate-600">Pendiente de valoración.</p>
+                  : <div className="mt-2 flex flex-wrap items-start gap-x-4 gap-y-1 text-sm">
+                      <p className="font-extrabold text-[#164c3a]">Nota: {new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1 }).format(log.teacher_score)}/10</p>
+                      {log.teacher_comment?.trim() && <p className="min-w-0 flex-1 whitespace-pre-wrap text-slate-700">{log.teacher_comment}</p>}
+                    </div>}
+              </div>
             </article>;
           })}
         </div>
