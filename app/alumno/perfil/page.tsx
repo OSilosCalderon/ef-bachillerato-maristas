@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PasswordChangeForm } from "@/components/password-change-form";
 import { requireRole } from "@/lib/auth/guards";
@@ -10,7 +11,9 @@ export default async function Page() {
     <DashboardHeader eyebrow="Mi perfil" title="Tu cuenta de alumno/a" description="Consulta tu usuario y cambia tu contraseña cuando lo necesites."/>
     <div className="mx-auto max-w-3xl space-y-6 p-5 sm:p-8">
       <section className="card p-6 sm:p-8"><h2 className="text-xl font-extrabold">Datos de acceso</h2><p className="mt-3 text-sm text-slate-600">{data.user?.user_metadata?.username ? `Usuario: ${String(data.user.user_metadata.username)}` : `Correo: ${data.user?.email ?? ""}`}</p><p className="mt-2 text-sm text-slate-600">Nombre: {"display_name" in profile ? String(profile.display_name) : "Alumno/a"}</p></section>
+      <Link href="/alumno/calificaciones" className="card block p-6 sm:p-8"><h2 className="text-xl font-extrabold text-[#1e6b4f]">Mis calificaciones</h2><p className="mt-2 text-sm text-slate-600">Consulta tus notas y los comentarios publicados por el profesor en cada situación de aprendizaje.</p></Link>
       <PasswordChangeForm passwordPending={data.user?.user_metadata?.initial_password === true}/>
     </div>
   </>;
 }
+
