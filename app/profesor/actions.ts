@@ -48,7 +48,7 @@ export async function saveSecondYearSessionEvaluation(input: {
   }
 
   const updatedAt = new Date().toISOString();
-  const { error: saveError } = await supabase
+  const { data: saved, error: saveError } = await supabase
     .from("training_session_evaluations")
     .upsert({
       session_log_id: session.id,
@@ -57,8 +57,11 @@ export async function saveSecondYearSessionEvaluation(input: {
       teacher_score: score,
       teacher_comment: comment,
       updated_at: updatedAt,
-    }, { onConflict: "session_log_id" });
-  if (saveError) throw new Error("No se ha podido guardar la valoración de la sesión.");
+    }, { onConflict: "session_log_id" })
+    .select("session_log_id,teacher_score,teacher_comment,updated_at")
+    .single();
+  if (saveError || !saved || saved.session_log_id !== session.id) throw new Error("No se ha podido confirmar el guardado de la calificación. Vuelve a intentarlo.");
 
-  return { score, comment, updatedAt };
+  return { score: Number(saved.teacher_score), comment: String(saved.teacher_comment), updatedAt: String(saved.updated_at) };
 }
+

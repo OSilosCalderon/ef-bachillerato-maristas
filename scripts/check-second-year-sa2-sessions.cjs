@@ -28,6 +28,7 @@ assert.doesNotMatch(tracker, /Array\.from\(\{ length: 20 \}/, "No deben aparecer
 assert.doesNotMatch(tracker, /name="weekNumber"|name="sessionDate"|Objetivo de la sesión|Trabajo realizado|>Estado</, "El alumno no debe editar la planificación desde el registro.");
 const teacherActions = fs.readFileSync("app/profesor/actions.ts", "utf8");
 const teacherDashboard = fs.readFileSync("components/teacher-activity-dashboard.tsx", "utf8");
+const teacherGrading = fs.readFileSync("components/teacher-session-grading.tsx", "utf8");
 const activityLoader = fs.readFileSync("lib/teacher-activity-server.ts", "utf8");
 const evaluationMigration = fs.readFileSync("supabase/migrations/20261015151315_add_teacher_session_evaluations.sql", "utf8");
 assert.ok(evaluationMigration.toLowerCase().includes("enable row level security"), "Las valoraciones deben tener RLS.");
@@ -36,9 +37,48 @@ assert.ok(evaluationMigration.includes("training_session_evaluations_insert_teac
 assert.ok(evaluationMigration.includes("training_session_evaluations_select_own_or_teacher") && evaluationMigration.includes("public.current_student_id()"), "El alumno solo debe leer sus valoraciones propias.");
 assert.ok(teacherActions.includes('requireRole("teacher")'), "Guardar la valoración requiere rol docente.");
 assert.ok(teacherActions.includes("session.session_number > 10"), "La acción limita la valoración al conjunto de diez sesiones.");
-assert.ok(teacherDashboard.includes("saveSecondYearSessionEvaluation"), "La vista docente debe enviar la valoración.");
+assert.ok(teacherGrading.includes("saveSecondYearSessionEvaluation"), "La vista docente debe enviar la valoración.");
 assert.ok(teacherDashboard.includes("teacher_score"));
 assert.ok(activityLoader.includes("training_session_evaluations"), "La vista docente carga las valoraciones guardadas.");
 assert.ok(tracker.includes("Valoración del profesor"), "El alumno debe ver la valoración junto a su registro.");
 assert.ok(tracker.includes("training_session_evaluations"), "El seguimiento del alumno consulta sus valoraciones con RLS.");
 console.log("SA2 session grading: teacher-only writes, own-student reads, ten-session scope and paired views passed.");
+
+const gradingSource = fs.readFileSync("lib/teacher-session-grading.ts", "utf8");
+const gradingModule = { exports: {} };
+vm.runInNewContext(
+  ts.transpileModule(gradingSource, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText,
+  { module: gradingModule, exports: gradingModule.exports, require: (name) => {
+    assert.equal(name, "./second-year-personal-plan-calendar");
+    return calendarModule.exports;
+  } },
+);
+const { teacherSessionSlots, parseTeacherSessionScore, teacherSessionScore } = gradingModule.exports;
+const log = (id, studentId, number, date, overrides = {}) => ({ id: `journals-${id}`, studentId, category: "journals", sa: "SA2", title: "Sesión", date, status: "completed", score: 100, details: { id, session_number: number }, ...overrides });
+const input = [
+  log("older", "a", 1, "2026-10-13"),
+  log("other-student", "b", 2, "2026-10-14"),
+  log("latest", "a", 1, "2026-10-15", { details: { id: "latest", session_number: 1, teacher_score: 0 } }),
+  log("third", "a", 3, "2026-10-15"),
+  log("legacy", "a", 11, "2026-10-15"),
+  log("fractional", "a", 1.5, "2026-10-15"),
+  log("other-sa", "a", 2, "2026-10-14", { sa: "SA1" }),
+  log("other-category", "a", 2, "2026-10-14", { category: "plans" }),
+];
+const slots = teacherSessionSlots(input, "a");
+assert.equal(slots.length, 10);
+assert.equal(slots.map((slot) => slot.number).join(","), "1,2,3,4,5,6,7,8,9,10");
+assert.equal(slots[0].record.details.id, "latest", "Ante duplicados se muestra el registro más reciente.");
+assert.equal(slots[1].record, null, "No se deben mezclar alumnos, situaciones o instrumentos.");
+assert.equal(slots[2].record.details.id, "third");
+assert.equal(slots.filter((slot) => slot.record).length, 2, "Los registros antiguos fuera de las diez sesiones se conservan sin incorporarlos a la calificación.");
+assert.equal(input[0].details.id, "older", "Preparar la vista no debe modificar los registros de entrada.");
+assert.equal(teacherSessionScore(slots[0].record.details.teacher_score), 0, "Una nota cero se conserva y no equivale a pendiente.");
+assert.equal(teacherSessionScore(null), null);
+assert.equal(parseTeacherSessionScore("8,5"), 8.5, "Se deben aceptar décimas con coma.");
+assert.equal(parseTeacherSessionScore("8.5"), 8.5);
+assert.equal(parseTeacherSessionScore("0"), 0);
+assert.equal(parseTeacherSessionScore("10"), 10);
+for (const invalid of ["", " ", "-1", "10,1", "8.55", "Infinity", "nota"]) assert.equal(parseTeacherSessionScore(invalid), null);
+console.log("SA2 grading view: ten slots, student and instrument isolation, legacy preservation, zero grades and Spanish decimals passed.");
+

@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useTransition, type FormEvent } from "react";
+import { useState, useTransition } from "react";
+import Link from "next/link";
+import { TeacherSessionEvaluationForm } from "@/components/teacher-session-grading";
 import { useRouter } from "next/navigation";
 import { FileDown } from "lucide-react";
-import { refreshTeacherActivity, saveSecondYearSessionEvaluation } from "@/app/profesor/actions";
+import { refreshTeacherActivity } from "@/app/profesor/actions";
 import { activityCategories, categorySummary, evaluationInstrumentKey, isEvaluationInstrumentAchieved, mean, physicalComparison, type ActivityCategory, type TeacherActivity, type TeacherActivityData } from "@/lib/teacher-activity";
 import { physicalCapacity } from "@/lib/second-year-progress";
 import { TeacherPsychologicalReports } from "@/components/teacher-psychological-reports";
@@ -17,53 +19,13 @@ const labels: Record<string, string> = {
   answer: "Respuesta del alumno/a", challenge_prompt: "Enunciado del reto", initial_analysis: "Análisis inicial", objective: "Objetivo", secondary_objective: "Segundo objetivo", priority_capacity: "Capacidad prioritaria", duration_weeks: "Semanas", weekly_frequency: "Frecuencia semanal", session_duration_minutes: "Minutos por sesión", progression_strategy: "Progresión", recovery_strategy: "Recuperación", success_indicator: "Indicador de logro", secondary_success_indicator: "Indicador del segundo objetivo", final_conclusions: "Conclusiones", future_work: "Trabajo futuro", plan_items: "Tareas del plan", activity: "Actividad", exercises: "Ejercicios", methodology: "Metodología", rounds: "Vueltas", roundRecovery: "Pausa entre vueltas", dose: "Carga", recovery: "Descanso", sessionDate: "Fecha de la sesión", day: "Día", goal: "Objetivo", capacity: "Capacidad", description: "Descripción", title: "Título", activities: "Actividades", session_date: "Fecha de la sesión", feeling: "Sensaciones", learning: "Aprendizajes", reflection: "Reflexión", perceived_difficulty: "Dificultad percibida", perceived_effort: "Esfuerzo percibido", training_plan: "Trabajo de la sesión", content_worked: "Contenido trabajado", exercises_performed: "Ejercicios realizados", participation: "Participación", performance_perception: "Percepción del rendimiento", needs_improvement: "Aspectos a mejorar", session_number: "Sesión", week_number: "Semana", duration_minutes: "Duración (min)", rpe: "Esfuerzo percibido (RPE)", completion_percent: "Realización declarada (%)", modifications: "Adaptaciones", period: "Toma", value: "Marca", quiz_score: "Mejor resultado (%)", completed: "Lectura completada", focus_habit: "Hábito", initial_reflection: "Reflexión inicial", action_plan: "Acciones", barrier_strategy: "Dificultades y respuesta", final_reflection: "Reflexión final", sleep_routine: "Rutina de sueño", daily_movement: "Movimiento diario", sedentary_breaks: "Pausas activas", hydration: "Hidratación", balanced_eating: "Alimentación", goal_completion: "Cumplimiento del objetivo", next_adjustment: "Próximo ajuste", event_name: "Evento", purpose: "Propósito", target_audience: "Destinatarios", activity_type: "Actividad", event_format: "Formato", venue: "Lugar", event_date: "Fecha", participants_estimate: "Participantes previstos", team_name: "Equipo", personal_role: "Rol personal", team_roles: "Roles", rules: "Normas", inclusion_measures: "Inclusión", safety_measures: "Seguridad", materials: "Materiales", budget_items: "Presupuesto", timeline: "Calendario", communication_plan: "Comunicación", sustainability_measures: "Sostenibilidad", evaluation_plan: "Evaluación", instrument_code: "Cuestionario", assessment_phase: "Momento", total_score: "Puntuación", attempt_number: "Intento", status: "Estado",
 };
 
+labels.teacher_score = "Calificación del profesor (0–10)";
+labels.teacher_comment = "Comentario del profesor";
+labels.teacher_evaluated_at = "Fecha de calificación";
+
 labels.success_indicator = "Cómo comprobaré mi objetivo principal";
 labels.rounds = "Series";
 labels.roundRecovery = "Descanso entre series (minutos)";
-
-function TeacherSessionEvaluationForm({ sessionLogId, sessionNumber, initialScore, initialComment }: { sessionLogId: string; sessionNumber: number; initialScore: number | null; initialComment: string }) {
-  const [score, setScore] = useState(initialScore === null ? "" : String(initialScore));
-  const [comment, setComment] = useState(initialComment);
-  const [saving, setSaving] = useState(false);
-  const [feedback, setFeedback] = useState("");
-  const [error, setError] = useState("");
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError("");
-    setFeedback("");
-    const parsedScore = Number(score);
-    if (score === "" || !Number.isFinite(parsedScore) || parsedScore < 0 || parsedScore > 10 || Math.round(parsedScore * 10) !== parsedScore * 10) {
-      setError("Introduce una nota entre 0 y 10; puedes usar una décima.");
-      return;
-    }
-    setSaving(true);
-    try {
-      await saveSecondYearSessionEvaluation({ sessionLogId, score: parsedScore, comment });
-      setFeedback("Valoración guardada. El alumno ya puede verla en su seguimiento.");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "No se ha podido guardar la valoración.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return <form onSubmit={(event) => void submit(event)} className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/70 p-4">
-    <h3 className="font-bold text-[#164c3a]">Valorar sesión {sessionNumber}</h3>
-    <div className="mt-3 grid gap-3 md:grid-cols-[10rem_1fr_auto] md:items-end">
-      <label className="text-xs font-bold text-slate-600">Nota · 0–10
-        <input type="number" min="0" max="10" step="0.1" inputMode="decimal" value={score} onChange={(event) => setScore(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm" placeholder="Pendiente"/>
-      </label>
-      <label className="text-xs font-bold text-slate-600">Comentario breve · opcional
-        <textarea maxLength={500} rows={2} value={comment} onChange={(event) => setComment(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm font-normal" placeholder="Una indicación para la siguiente sesión"/>
-        <span className="mt-1 block text-right font-normal">{comment.length}/500</span>
-      </label>
-      <button type="submit" disabled={saving} className="rounded-lg bg-[#1e6b4f] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">{saving ? "Guardando…" : "Guardar valoración"}</button>
-    </div>
-    {error && <p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
-    {feedback && <p role="status" className="mt-2 text-sm text-emerald-800">{feedback}</p>}
-  </form>;
-}
 
 function planText(value: unknown, fallback = "Sin completar") {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
@@ -302,6 +264,7 @@ export function TeacherActivityDashboard({ data: initialData, year, initialSitua
       {changingCourse && <p role="status" className="mt-3 font-semibold text-[#1e6b4f]">Cargando los resultados del curso seleccionado…</p>}
       <p className="mt-4 text-xs text-slate-500">{students.length} alumnos en el filtro · {activities.length} registros. No se calcula una nota global mezclando actividades de naturaleza distinta.</p>
     </section>
+    {year === 2 && (!sa || sa === "SA2") && <section className="card flex flex-wrap items-center justify-between gap-4 border-emerald-300 bg-emerald-50 p-5 sm:p-7"><div><h2 className="text-xl font-extrabold text-[#164c3a]">Calificar las sesiones del plan · SA2</h2><p className="mt-2 text-sm text-slate-600">Consulta las diez sesiones de cada alumno y guarda una nota de 0 a 10 y un comentario opcional junto a su seguimiento.</p></div><Link href={`/profesor/calificar-sesiones${view === "individual" && selected ? `?alumno=${selected.id}` : ""}`} className="rounded-xl bg-[#1e6b4f] px-5 py-3 text-sm font-bold text-white">Abrir calificaciones de las sesiones</Link></section>}
     {!students.length ? <p className="card p-6">No hay alumnado activo en este grupo.</p> : <>
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{categories.map(([category, label]) => {
         const groupSummary = categorySummary(activities, students, category);
@@ -334,4 +297,5 @@ export function TeacherActivityDashboard({ data: initialData, year, initialSitua
     </>}
   </div>;
 }
+
 
