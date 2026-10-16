@@ -250,7 +250,7 @@ export function TeacherActivityDashboard({ data: initialData, year, initialSitua
 
   return <div className="space-y-6">
     <section className="card p-5 sm:p-7">
-      <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-[#1e6b4f]">Seguimiento docente · {year}º Bachillerato</p><h1 className="mt-2 text-2xl font-extrabold">Actividad y resultados del alumnado</h1><p className="mt-2 text-sm text-slate-500">{data.courseName} · Datos guardados en la plataforma. Solo el profesorado puede consultar esta vista.</p></div><button onClick={refresh} disabled={refreshing || changingCourse} aria-busy={refreshing} className="rounded-xl border px-4 py-2 text-sm font-bold disabled:opacity-50">{refreshing ? "Actualizando…" : "Actualizar datos"}</button></div>
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-[#1e6b4f]">Seguimiento docente · {year}º Bachillerato</p><h1 className="mt-2 text-2xl font-extrabold">Actividad y resultados del alumnado</h1><p className="mt-2 text-sm text-slate-500">{data.courseName} · Datos guardados en la plataforma. Solo el profesorado puede consultar esta vista.</p></div><Link href={`/profesor/calificaciones?curso=${year}${sa ? `&sa=${sa}` : ""}${view === "individual" && selected ? `&alumno=${selected.id}` : ""}`} className="rounded-xl bg-[#1e6b4f] px-4 py-2 text-sm font-bold text-white">Publicar calificaciones</Link><button onClick={refresh} disabled={refreshing || changingCourse} aria-busy={refreshing} className="rounded-xl border px-4 py-2 text-sm font-bold disabled:opacity-50">{refreshing ? "Actualizando…" : "Actualizar datos"}</button></div>
       <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <label className="text-sm font-bold">Curso de los resultados<select aria-label="Curso de los resultados" value={year} disabled={changingCourse || refreshing} onChange={(event) => { const value = event.target.value; startCourseChange(() => router.push(`/profesor?curso=${value}`)); }} className="mt-2 w-full rounded-xl border border-emerald-600 bg-emerald-50 p-3"><option value="1">1º Bachillerato</option><option value="2">2º Bachillerato</option></select></label>
         <label className="text-sm font-bold">Grupo<select value={group} onChange={(event) => { setGroup(event.target.value); setStudentId(""); }} className="mt-2 w-full rounded-xl border p-3"><option value="">Todos los grupos del curso</option>{groups.map((value) => <option key={value}>{value}</option>)}</select></label>
@@ -297,5 +297,6 @@ export function TeacherActivityDashboard({ data: initialData, year, initialSitua
     </>}
   </div>;
 }
+
 
 

@@ -19,6 +19,7 @@ const firstYearItems: NavItem[] = [
   { label: "SA2 Deportes", mobileLabel: "SA2", href: "/alumno/sa2", icon: Dumbbell },
   { label: "SA3 Ocio activo", mobileLabel: "SA3", href: "/alumno/sa3", icon: Sparkles },
   { label: "Autoevaluación", mobileLabel: "Autoeval.", href: "/alumno/autoevaluacion", icon: ClipboardCheck },
+  { label: "Mis calificaciones", mobileLabel: "Mis notas", href: "/alumno/calificaciones", icon: GraduationCap },
   { label: "Mi perfil", mobileLabel: "Perfil", href: "/alumno/perfil", icon: User },
 ];
 
@@ -33,6 +34,7 @@ const secondYearItems: NavItem[] = [
   { label: "SA4 Evento deportivo", mobileLabel: "SA4", href: "/alumno/2bach/sa4", icon: ClipboardCheck },
   { label: "SA5 Cultura y expresión", mobileLabel: "SA5", href: "/alumno/2bach/sa5", icon: Sparkles },
   { label: "SA6 Comunidad activa", mobileLabel: "SA6", href: "/alumno/2bach/sa6", icon: Users },
+  { label: "Mis calificaciones", mobileLabel: "Mis notas", href: "/alumno/calificaciones", icon: GraduationCap },
   { label: "Mi perfil", mobileLabel: "Perfil", href: "/alumno/perfil", icon: User },
 ];
 
@@ -40,6 +42,7 @@ const teacherItems: NavItem[] = [
   { label: "Ver como alumno", mobileLabel: "Vista alumno", href: "/profesor/vista-alumno", icon: Eye },
   { label: "Activar situaciones", mobileLabel: "Activar SA", href: "/profesor/situaciones", icon: BookOpen },
   { label: "Agenda de clases", mobileLabel: "Agenda", href: "/profesor/agenda", icon: CalendarDays },
+  { label: "Publicar calificaciones", mobileLabel: "Publicar notas", href: "/profesor/calificaciones", icon: GraduationCap },
   { label: "Calificar sesiones · 2º SA2", mobileLabel: "Calificar", href: "/profesor/calificar-sesiones", icon: ClipboardCheck },
   { label: "Resultados del alumnado", mobileLabel: "Resultados", href: "/profesor", icon: Gauge },
   { label: "Alumnado", href: "/profesor/alumnado", icon: Users },
@@ -110,5 +113,6 @@ export function SideNav({ role, courseYear = 1, visibleSituations }: { role: "st
     </>
   );
 }
+
 
 
