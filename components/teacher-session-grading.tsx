@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import { saveSecondYearSessionEvaluation } from "@/app/profesor/actions";
 import { isPlanSessionLog, parseTeacherSessionScore, teacherSessionScore, teacherSessionSlots } from "@/lib/teacher-session-grading";
 import type { TeacherActivityData } from "@/lib/teacher-activity";
@@ -64,7 +63,6 @@ const scoreLabel = (value: number) => new Intl.NumberFormat("es-ES", { maximumFr
 export function TeacherSessionGrading({ data, initialStudentId }: {
   data: Pick<TeacherActivityData, "students" | "activities">; initialStudentId?: string;
 }) {
-  const router = useRouter();
   const logs = data.activities.filter(isPlanSessionLog);
   const [studentId, setStudentId] = useState(() => data.students.find((student) => student.id === initialStudentId)?.id ?? data.students.find((student) => logs.some((row) => row.studentId === student.id))?.id ?? data.students[0]?.id ?? "");
   const [saved, setSaved] = useState<Record<string, SavedEvaluation>>({});
@@ -76,7 +74,7 @@ export function TeacherSessionGrading({ data, initialStudentId }: {
 
   return <section id="calificaciones-sa2" aria-label="Calificaciones de las diez sesiones" className="space-y-5">
     <div className="card p-5 sm:p-7">
-      <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-extrabold">Calificar seguimiento · SA2 de 2º Bachillerato</h2><p className="mt-2 text-sm text-slate-600">Selecciona un alumno y escribe su nota y, si lo necesitas, un comentario en cada sesión registrada.</p></div><button type="button" onClick={() => router.refresh()} className="rounded-xl border px-4 py-2 text-sm font-bold">Actualizar sesiones</button></div>
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-extrabold">Calificar seguimiento · SA2 de 2º Bachillerato</h2><p className="mt-2 text-sm text-slate-600">Selecciona un alumno y escribe su nota y, si lo necesitas, un comentario en cada sesión registrada.</p></div><button type="button" onClick={() => window.location.assign(`/profesor/calificar-sesiones?alumno=${encodeURIComponent(studentId)}`)} className="rounded-xl border px-4 py-2 text-sm font-bold">Actualizar sesiones</button></div>
       <label className="mt-5 block max-w-xl text-sm font-bold">Alumno para calificar
         <select value={studentId} onChange={(event) => setStudentId(event.target.value)} className="mt-2 w-full rounded-xl border border-emerald-600 bg-emerald-50 p-3">
           {data.students.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
@@ -101,3 +99,4 @@ export function TeacherSessionGrading({ data, initialStudentId }: {
     })}</div>}
   </section>;
 }
+
