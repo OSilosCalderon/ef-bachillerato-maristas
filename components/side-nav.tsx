@@ -14,12 +14,12 @@ const firstYearItems: NavItem[] = [
   { label: "Mi agenda", mobileLabel: "Agenda", href: "/alumno/agenda", icon: CalendarDays },
   { label: "Inicio", href: "/alumno", icon: Home },
   { label: "Mi progreso", mobileLabel: "Progreso", href: "/alumno/progreso", icon: BarChart3 },
+  { label: "Mis calificaciones", mobileLabel: "Mis notas", href: "/alumno/calificaciones", icon: GraduationCap },
   { label: "Contenidos teóricos SA1", mobileLabel: "Teoría SA1", href: "/alumno/sa1/contenidos", icon: GraduationCap },
   { label: "SA1 Salud", mobileLabel: "SA1", href: "/alumno/sa1", icon: HeartPulse },
   { label: "SA2 Deportes", mobileLabel: "SA2", href: "/alumno/sa2", icon: Dumbbell },
   { label: "SA3 Ocio activo", mobileLabel: "SA3", href: "/alumno/sa3", icon: Sparkles },
   { label: "Autoevaluación", mobileLabel: "Autoeval.", href: "/alumno/autoevaluacion", icon: ClipboardCheck },
-  { label: "Mis calificaciones", mobileLabel: "Mis notas", href: "/alumno/calificaciones", icon: GraduationCap },
   { label: "Mi perfil", mobileLabel: "Perfil", href: "/alumno/perfil", icon: User },
 ];
 
@@ -27,6 +27,7 @@ const secondYearItems: NavItem[] = [
   { label: "Mi agenda", mobileLabel: "Agenda", href: "/alumno/2bach/agenda", icon: CalendarDays },
   { label: "Inicio", href: "/alumno", icon: Home },
   { label: "Mi progreso", mobileLabel: "Progreso", href: "/alumno/progreso", icon: BarChart3 },
+  { label: "Mis calificaciones", mobileLabel: "Mis notas", href: "/alumno/calificaciones", icon: GraduationCap },
   { label: "Apuntes entrenamiento", mobileLabel: "Apuntes", href: "/alumno/apuntes-entrenamiento", icon: GraduationCap },
   { label: "SA1 Punto de partida", mobileLabel: "SA1", href: "/alumno/2bach/sa1", icon: Gauge },
   { label: "SA2 Condición física", mobileLabel: "SA2", href: "/alumno/2bach/sa2", icon: Dumbbell },
@@ -34,7 +35,6 @@ const secondYearItems: NavItem[] = [
   { label: "SA4 Evento deportivo", mobileLabel: "SA4", href: "/alumno/2bach/sa4", icon: ClipboardCheck },
   { label: "SA5 Cultura y expresión", mobileLabel: "SA5", href: "/alumno/2bach/sa5", icon: Sparkles },
   { label: "SA6 Comunidad activa", mobileLabel: "SA6", href: "/alumno/2bach/sa6", icon: Users },
-  { label: "Mis calificaciones", mobileLabel: "Mis notas", href: "/alumno/calificaciones", icon: GraduationCap },
   { label: "Mi perfil", mobileLabel: "Perfil", href: "/alumno/perfil", icon: User },
 ];
 
@@ -113,6 +113,7 @@ export function SideNav({ role, courseYear = 1, visibleSituations }: { role: "st
     </>
   );
 }
+
 
 
 
