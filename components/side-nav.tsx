@@ -40,6 +40,7 @@ const teacherItems: NavItem[] = [
   { label: "Ver como alumno", mobileLabel: "Vista alumno", href: "/profesor/vista-alumno", icon: Eye },
   { label: "Activar situaciones", mobileLabel: "Activar SA", href: "/profesor/situaciones", icon: BookOpen },
   { label: "Agenda de clases", mobileLabel: "Agenda", href: "/profesor/agenda", icon: CalendarDays },
+  { label: "Calificar sesiones · 2º SA2", mobileLabel: "Calificar", href: "/profesor/calificar-sesiones", icon: ClipboardCheck },
   { label: "Resultados del alumnado", mobileLabel: "Resultados", href: "/profesor", icon: Gauge },
   { label: "Alumnado", href: "/profesor/alumnado", icon: Users },
   { label: "Cuestionarios", mobileLabel: "Tests", href: "/profesor/cuestionarios", icon: ClipboardCheck },
@@ -109,4 +110,5 @@ export function SideNav({ role, courseYear = 1, visibleSituations }: { role: "st
     </>
   );
 }
+
 

@@ -20,6 +20,7 @@ Module._load = function(request, parent, ...args) {
   if (request === 'lucide-react') return { FileDown: () => null };
   if (request === '@/lib/personal-plan-pdf') return { downloadPersonalPlanPdf: () => {} };
   if (request === '@/lib/personal-plan-tasks') return { methodologyLabels: {}, normalizeItems: () => [] };
+  if (request === 'next/link') return { __esModule: true, default: 'a' };
   if (request === 'next/navigation') return { useRouter: () => ({ push: value => { destination = value; } }) };
   if (request === '@/app/profesor/actions') return { refreshTeacherActivity: async year => { calls.push(year); if (fail) throw Error('Offline'); return fresh; } };
   if (request === '@/components/teacher-psychological-reports') return { TeacherPsychologicalReports: () => null };
@@ -52,6 +53,10 @@ const button = tree => tree.find(node => node.type === 'button' && node.props.ch
   assert.ok(tree.some(node => node.type === 'summary' && JSON.stringify(node.props.children).includes('New saved plan')));
   tree.filter(node => node.type === 'select')[2].props.onChange({ target: { value: 'SA2' } });
   assert.equal(destination, '/profesor/2bach/sa2');
+  state = []; tree = render('SA2');
+  assert.ok(tree.some(node => node.type === 'a' && node.props.href === '/profesor/calificar-sesiones'), 'SA2 debe ofrecer un acceso visible a las calificaciones.');
+  state = []; tree = render('SA1');
+  assert.ok(!tree.some(node => node.type === 'a' && node.props.href === '/profesor/calificar-sesiones'), 'Las calificaciones de 2º SA2 no deben mostrarse en SA1.');
   console.log('Teacher refresh: fresh records, preserved filters, failure recovery and second-year SA navigation passed.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
 
