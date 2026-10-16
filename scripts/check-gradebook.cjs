@@ -27,3 +27,38 @@ assert.throws(()=>validateGradePublication({...valid,studentId:'not-an-id'}));
 assert.throws(()=>validateGradePublication({...valid,itemId:''}));
 assert.throws(()=>validateGradePublication({...valid,comment:'a'.repeat(501)}));
 console.log('Gradebook: student/course isolation, private comments, pending versus zero, stable order, decimal limits and publication input passed.');
+
+// Render the actual pupil page with controlled data, without storing real marks.
+const path=require('node:path');
+const Module=require('node:module');
+const React=require('react');
+const {renderToStaticMarkup}=require('react-dom/server');
+const originalLoad=Module._load;
+const originalTsx=Module._extensions['.tsx'];
+let pupilData={studentId,courseId:'second',year:2,items,grades,situations:[{code:'SA1',title:'Situación inicial'}],sessionGrades:[{number:1,score:7.5,comment:'Sesión comentada',date:'2026-10-16T10:00:00Z'}]};
+Module._load=function(request,parent,...args){
+  if(request==='next/link')return {__esModule:true,default:({href,children,...props})=>React.createElement('a',{href,...props},children)};
+  if(request==='@/components/dashboard-header')return {DashboardHeader:({title,description})=>React.createElement('header',null,React.createElement('h1',null,title),React.createElement('p',null,description))};
+  if(request==='@/lib/gradebook')return moduleObject.exports;
+  if(request==='@/lib/gradebook-server')return {loadStudentGradebook:async()=>pupilData};
+  return originalLoad.call(this,request,parent,...args);
+};
+Module._extensions['.tsx']=(mod,filename)=>mod._compile(ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2020}}).outputText,filename);
+(async()=>{
+  try{
+    const Page=require(path.resolve('app/alumno/calificaciones/page.tsx')).default;
+    const html=renderToStaticMarkup(await Page());
+    assert.ok(html.includes('Mis calificaciones'));
+    assert.ok(html.includes('Comentario propio'));
+    assert.ok(html.includes('Sesión comentada'));
+    assert.ok(html.includes('7,5/10'));
+    assert.ok(html.includes('Pendiente'));
+    assert.ok(!html.includes('Comentario privado de otro alumno'));
+    assert.ok(!html.includes('Otro curso'));
+    pupilData={...pupilData,grades:[],sessionGrades:[]};
+    const empty=renderToStaticMarkup(await Page());
+    assert.ok(empty.includes('Aún no tienes calificaciones publicadas'));
+    assert.ok(!empty.includes('Comentario propio'));
+    console.log('Pupil grade page: published notes, session feedback, pending entries, private-data filtering and empty state rendered correctly.');
+  }finally{Module._load=originalLoad;if(originalTsx)Module._extensions['.tsx']=originalTsx;else delete Module._extensions['.tsx'];}
+})().catch(error=>{console.error(error);process.exitCode=1;});

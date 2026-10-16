@@ -23,7 +23,7 @@ export async function loadTeacherGradebook(year: 1 | 2): Promise<GradebookData> 
   if (ids.length) for (let start=0; ; start+=1000) {
     const result = await supabase.from("student_assessment_grades").select("id,student_id,item_id,score,comment,published_at").in("student_id",ids).order("id").range(start,start+999);
     if (result.error) throw new Error("No se han podido cargar las calificaciones publicadas.");
-    grades.push(...(result.data ?? []).map((row) => ({...row,score:Number(row.score)}) as PublishedAssessmentGrade[]);
+    grades.push(...((result.data ?? []).map((row) => ({...row,score:Number(row.score)})) as PublishedAssessmentGrade[]));
     if ((result.data?.length ?? 0)<1000) break;
   }
   return {
