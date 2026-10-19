@@ -33,6 +33,8 @@ type SessionLog = {
   teacher_comment?: string;
 };
 
+type SessionEvaluation = { session_number: number; teacher_score: number; teacher_comment: string };
+
 type SessionForm = {
   sessionNumber: number;
   durationMinutes: string;
@@ -71,6 +73,7 @@ export function SecondYearSa2Tracker() {
   const [courseId, setCourseId] = useState<string | null>(null);
   const [plan, setPlan] = useState<PlanSummary | null>(null);
   const [logs, setLogs] = useState<SessionLog[]>([]);
+  const [evaluations, setEvaluations] = useState<SessionEvaluation[]>([]);
   const [form, setForm] = useState<SessionForm>(emptyForm());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -124,22 +127,23 @@ export function SecondYearSa2Tracker() {
 
       setPlan((planResult.data as PlanSummary | null) ?? null);
       const nextLogs = (logsResult.data ?? []) as SessionLog[];
-      let evaluationBySession = new Map<string, { teacher_score: number; teacher_comment: string }>();
-      if (nextLogs.length) {
-        const { data: evaluations, error: evaluationError } = await supabase
-          .from("training_session_evaluations")
-          .select("session_log_id,teacher_score,teacher_comment")
-          .in("session_log_id", nextLogs.map((item) => item.id));
-        if (evaluationError) throw evaluationError;
-        evaluationBySession = new Map((evaluations ?? []).map((item) => [
-          item.session_log_id as string,
-          { teacher_score: Number(item.teacher_score), teacher_comment: String(item.teacher_comment ?? "") },
-        ]));
-      }
+      const { data: evaluationRows, error: evaluationError } = await supabase
+        .from("training_session_grade_results")
+        .select("session_number,teacher_score,teacher_comment")
+        .eq("student_id", currentStudentId)
+        .order("session_number");
+      if (evaluationError) throw evaluationError;
+      const nextEvaluations = (evaluationRows ?? []).map((item) => ({
+        session_number: Number(item.session_number),
+        teacher_score: Number(item.teacher_score),
+        teacher_comment: String(item.teacher_comment ?? ""),
+      }));
+      setEvaluations(nextEvaluations);
+      const evaluationBySession = new Map(nextEvaluations.map((item) => [item.session_number, item]));
       const logsWithEvaluations = nextLogs.map((item) => ({
         ...item,
-        teacher_score: evaluationBySession.get(item.id)?.teacher_score ?? null,
-        teacher_comment: evaluationBySession.get(item.id)?.teacher_comment ?? "",
+        teacher_score: evaluationBySession.get(item.session_number)?.teacher_score ?? null,
+        teacher_comment: evaluationBySession.get(item.session_number)?.teacher_comment ?? "",
       }));
       setLogs(logsWithEvaluations);
       const used = new Set(nextLogs.map((item) => item.session_number));
@@ -179,6 +183,7 @@ export function SecondYearSa2Tracker() {
   }, [logs]);
 
   const maxWeeklyLoad = Math.max(1, ...weekly.map((item) => item.load));
+  const evaluationsWithoutLog = evaluations.filter((item) => !logs.some((log) => log.session_number === item.session_number));
 
   function update<K extends keyof SessionForm>(key: K, value: SessionForm[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -440,6 +445,19 @@ export function SecondYearSa2Tracker() {
           ))}
         </div>
       </section>
+
+      {evaluationsWithoutLog.length > 0 && <section className="card p-5 sm:p-6">
+        <h2 className="text-xl font-extrabold">Valoraciones del profesor · seguimientos pendientes</h2>
+        <p className="mt-2 text-sm text-slate-500">Estas sesiones ya tienen calificación, pero todavía no has registrado su seguimiento. La nota se conservará cuando lo completes.</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          {evaluationsWithoutLog.map((item) => <article key={item.session_number} className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+            <h3 className="font-bold">Sesión {item.session_number} · {formatDate(getPlanSession(item.session_number)?.date ?? null)}</h3>
+            <p className="mt-2 font-extrabold text-[#164c3a]">Nota: {new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1 }).format(item.teacher_score)}/10</p>
+            {item.teacher_comment.trim() && <p className="mt-2 whitespace-pre-wrap break-words text-sm text-slate-700">{item.teacher_comment}</p>}
+            <p className="mt-2 text-xs font-semibold text-amber-800">Seguimiento sin registrar</p>
+          </article>)}
+        </div>
+      </section>}
 
       <section className="card overflow-hidden">
         <div className="border-b border-slate-200 p-5 sm:p-6"><h2 className="text-xl font-extrabold">Historial de sesiones</h2><p className="mt-1 text-sm text-slate-500">Edita un registro cuando necesites completar o corregir la información.</p></div>

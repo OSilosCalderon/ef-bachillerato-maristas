@@ -36,12 +36,12 @@ assert.ok(/grant select, insert, update .* authenticated/i.test(evaluationMigrat
 assert.ok(evaluationMigration.includes("training_session_evaluations_insert_teacher") && evaluationMigration.includes("public.is_teacher()"), "Solo profesorado puede insertar valoraciones.");
 assert.ok(evaluationMigration.includes("training_session_evaluations_select_own_or_teacher") && evaluationMigration.includes("public.current_student_id()"), "El alumno solo debe leer sus valoraciones propias.");
 assert.ok(teacherActions.includes('requireRole("teacher")'), "Guardar la valoración requiere rol docente.");
-assert.ok(teacherActions.includes("session.session_number > 10"), "La acción limita la valoración al conjunto de diez sesiones.");
+assert.ok(teacherActions.includes("input.sessionNumber > 10"), "La acción limita la valoración al conjunto de diez sesiones.");
 assert.ok(teacherGrading.includes("saveSecondYearSessionEvaluation"), "La vista docente debe enviar la valoración.");
 assert.ok(teacherDashboard.includes("teacher_score"));
-assert.ok(activityLoader.includes("training_session_evaluations"), "La vista docente carga las valoraciones guardadas.");
+assert.ok(activityLoader.includes("training_session_grade_results"), "La vista docente carga las valoraciones guardadas.");
 assert.ok(tracker.includes("Valoración del profesor"), "El alumno debe ver la valoración junto a su registro.");
-assert.ok(tracker.includes("training_session_evaluations"), "El seguimiento del alumno consulta sus valoraciones con RLS.");
+assert.ok(tracker.includes("training_session_grade_results"), "El seguimiento del alumno consulta sus valoraciones con RLS.");
 console.log("SA2 session grading: teacher-only writes, own-student reads, ten-session scope and paired views passed.");
 
 const gradingSource = fs.readFileSync("lib/teacher-session-grading.ts", "utf8");
@@ -82,3 +82,13 @@ assert.equal(parseTeacherSessionScore("10"), 10);
 for (const invalid of ["", " ", "-1", "10,1", "8.55", "Infinity", "nota"]) assert.equal(parseTeacherSessionScore(invalid), null);
 console.log("SA2 grading view: ten slots, student and instrument isolation, legacy preservation, zero grades and Spanish decimals passed.");
 
+
+const independent = teacherSessionSlots(input, "a", [
+  { studentId: "a", number: 2, score: 0, comment: "Pendiente de seguimiento", updatedAt: "2026-10-19" },
+  { studentId: "b", number: 4, score: 10, comment: "Privado", updatedAt: "2026-10-19" },
+]);
+assert.equal(independent[1].record, null);
+assert.equal(independent[1].evaluation.score, 0, "Se puede calificar con cero una sesión sin seguimiento.");
+assert.equal(independent[3].evaluation, null, "Las notas de otro alumno no deben mezclarse.");
+assert.equal(independent.filter((slot) => slot.record).length, 2, "Una nota no se cuenta como entrega.");
+console.log("Unregistered sessions: independent grades, zero, peer isolation and honest submission counts passed.");

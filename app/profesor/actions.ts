@@ -12,7 +12,8 @@ export async function refreshTeacherActivity(year: 1 | 2) {
 
 
 export async function saveSecondYearSessionEvaluation(input: {
-  sessionLogId: string;
+  studentId: string;
+  sessionNumber: number;
   score: number;
   comment: string;
 }) {
@@ -25,42 +26,37 @@ export async function saveSecondYearSessionEvaluation(input: {
     throw new Error("La nota debe estar entre 0 y 10 y puede incluir una décima.");
   }
   if (comment.length > 500) throw new Error("El comentario no puede superar los 500 caracteres.");
-  if (typeof input.sessionLogId !== "string" || !/^[0-9a-f-]{36}$/i.test(input.sessionLogId)) {
-    throw new Error("Selecciona un registro de sesión válido.");
+  if (typeof input.studentId !== "string" || !/^[0-9a-f-]{36}$/i.test(input.studentId)) {
+    throw new Error("Selecciona un alumno válido.");
   }
-
-  const { data: session, error: sessionError } = await supabase
-    .from("training_session_logs")
-    .select("id,student_id,course_id,sa_code,session_number")
-    .eq("id", input.sessionLogId)
-    .maybeSingle();
-  if (sessionError || !session || session.sa_code !== "SA2" || session.session_number < 1 || session.session_number > 10) {
-    throw new Error("No se ha encontrado una sesión válida de SA2.");
+  if (!Number.isInteger(input.sessionNumber) || input.sessionNumber < 1 || input.sessionNumber > 10) {
+    throw new Error("Selecciona una de las diez sesiones del plan.");
   }
+  const { data: student, error: studentError } = await supabase
+    .from("students").select("id,course_id")
+    .eq("id", input.studentId).eq("active", true).maybeSingle();
+  if (studentError || !student) throw new Error("No se ha encontrado el alumno activo.");
 
   const { data: course, error: courseError } = await supabase
-    .from("courses")
-    .select("bachillerato_year")
-    .eq("id", session.course_id)
-    .maybeSingle();
+    .from("courses").select("bachillerato_year")
+    .eq("id", student.course_id).eq("is_active", true).maybeSingle();
   if (courseError || course?.bachillerato_year !== 2) {
     throw new Error("Estas valoraciones solo están disponibles para SA2 de 2º de Bachillerato.");
   }
-
   const updatedAt = new Date().toISOString();
   const { data: saved, error: saveError } = await supabase
-    .from("training_session_evaluations")
+    .from("training_session_grades")
     .upsert({
-      session_log_id: session.id,
-      student_id: session.student_id,
+      student_id: student.id,
+      session_number: input.sessionNumber,
       teacher_id: teacher.id,
       teacher_score: score,
       teacher_comment: comment,
       updated_at: updatedAt,
-    }, { onConflict: "session_log_id" })
-    .select("session_log_id,teacher_score,teacher_comment,updated_at")
+    }, { onConflict: "student_id,session_number" })
+    .select("student_id,session_number,teacher_score,teacher_comment,updated_at")
     .single();
-  if (saveError || !saved || saved.session_log_id !== session.id) throw new Error("No se ha podido confirmar el guardado de la calificación. Vuelve a intentarlo.");
+  if (saveError || !saved || saved.student_id !== student.id || saved.session_number !== input.sessionNumber) throw new Error("No se ha podido confirmar el guardado de la calificación. Vuelve a intentarlo.");
 
   return { score: Number(saved.teacher_score), comment: String(saved.teacher_comment), updatedAt: String(saved.updated_at) };
 }

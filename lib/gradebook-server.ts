@@ -48,13 +48,9 @@ export async function loadStudentGradebook() {
   if (itemsResult.error || gradesResult.error || courseResult.error || !courseResult.data || situationsResult.error) throw new Error("No se han podido cargar tus calificaciones. Actualiza la página e inténtalo de nuevo.");
   const sessionGrades:{number:number;score:number;comment:string;date:string}[]=[];
   if (courseResult.data.bachillerato_year===2) {
-    const logs=await supabase.from("training_session_logs").select("id,session_number").eq("student_id",student.id).eq("course_id",student.course_id).eq("sa_code","SA2").gte("session_number",1).lte("session_number",10);
-    if (logs.error) throw new Error("No se han podido cargar las calificaciones de tus sesiones.");
-    if (logs.data?.length) {
-      const evaluations=await supabase.from("training_session_evaluations").select("session_log_id,teacher_score,teacher_comment,updated_at").eq("student_id",student.id).in("session_log_id",logs.data.map((log) => log.id));
-      if (evaluations.error) throw new Error("No se han podido cargar las valoraciones de tus sesiones.");
-      for (const evaluation of evaluations.data ?? []) { const log=logs.data.find((entry) => entry.id===evaluation.session_log_id); if(log) sessionGrades.push({number:Number(log.session_number),score:Number(evaluation.teacher_score),comment:String(evaluation.teacher_comment),date:String(evaluation.updated_at)}); }
-    }
+    const evaluations=await supabase.from("training_session_grade_results").select("session_number,teacher_score,teacher_comment,updated_at").eq("student_id",student.id).order("session_number");
+    if (evaluations.error) throw new Error("No se han podido cargar las valoraciones de tus sesiones.");
+    for (const evaluation of evaluations.data ?? []) sessionGrades.push({number:Number(evaluation.session_number),score:Number(evaluation.teacher_score),comment:String(evaluation.teacher_comment),date:String(evaluation.updated_at)});
   }
   return {studentId:String(student.id),courseId:String(student.course_id),year:Number(courseResult.data.bachillerato_year),items:(itemsResult.data ?? []) as AssessmentGradeItem[],grades:(gradesResult.data ?? []).map((row) => ({...row,score:Number(row.score)})) as PublishedAssessmentGrade[],situations:situationsResult.data ?? [],sessionGrades:sessionGrades.sort((a,b) => a.number-b.number)};
 }

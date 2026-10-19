@@ -1,5 +1,5 @@
 import { SECOND_YEAR_PLAN_SESSIONS } from "./second-year-personal-plan-calendar";
-import type { TeacherActivity } from "./teacher-activity";
+import type { TeacherActivity, TeacherSessionEvaluation } from "./teacher-activity";
 
 export function isPlanSessionLog(row: TeacherActivity) {
   const number = Number(row.details.session_number);
@@ -8,12 +8,13 @@ export function isPlanSessionLog(row: TeacherActivity) {
     number >= 1 && number <= SECOND_YEAR_PLAN_SESSIONS.length;
 }
 
-export function teacherSessionSlots(activities: TeacherActivity[], studentId: string) {
+export function teacherSessionSlots(activities: TeacherActivity[], studentId: string, evaluations: TeacherSessionEvaluation[] = []) {
   const records = activities.filter((row) => row.studentId === studentId && isPlanSessionLog(row))
     .sort((a, b) => b.date.localeCompare(a.date));
   return SECOND_YEAR_PLAN_SESSIONS.map((planned, index) => ({
     number: index + 1,
     planned,
+    evaluation: evaluations.find((row) => row.studentId === studentId && row.number === index + 1) ?? null,
     record: records.find((row) => Number(row.details.session_number) === index + 1) ?? null,
   }));
 }
