@@ -5,6 +5,7 @@ export const activityCategories = {
 } as const;
 export type ActivityCategory = keyof typeof activityCategories;
 export type TeacherStudent = { id: string; name: string; group: string };
+export type TeacherSessionEvaluation = { studentId: string; number: number; score: number; comment: string; updatedAt: string };
 export type TeacherActivity = {
   id: string; studentId: string; category: ActivityCategory; sa: string; title: string; date: string;
   status: string; score: number | null; scoreLabel?: string; details: Record<string, unknown>;
@@ -14,6 +15,7 @@ export type TeacherActivityData = {
   students: TeacherStudent[]; activities: TeacherActivity[];
   situations: { id: string; code: string; title: string }[]; physicalTests: PhysicalDefinition[];
   expectedInstruments?: { sa: string; category: ActivityCategory; title: string }[];
+  sessionEvaluations?: TeacherSessionEvaluation[];
   courseName: string; loadedAt: string;
 };
 export const mean = (values: number[]) => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;

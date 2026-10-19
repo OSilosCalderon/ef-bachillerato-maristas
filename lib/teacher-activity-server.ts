@@ -53,17 +53,19 @@ export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityD
   const tableNames = ["personal_training_plans", "session_journals", "sports_journals", "training_session_logs", "physical_test_results", "technical_test_results", "questionnaire_attempts", "procedural_attempts", "theory_topic_progress", "theory_challenge_responses", "content_reads", "healthy_habit_plans", "healthy_habit_weekly_logs", "sports_event_projects"];
   const loaded = await Promise.all(tableNames.map((table) => rows(table, { key: "student_id", values: ids }, optionalTables.has(table))));
   const table = Object.fromEntries(tableNames.map((name, index) => [name, loaded[index]]));
-  const sessionLogIds = table.training_session_logs.map((row) => str(row.id)).filter(Boolean);
   const evaluationRows: Row[] = [];
-  for (let start = 0; start < sessionLogIds.length; start += 1000) {
+  if (year === 2 && ids.length) for (let start = 0; ; start += 1000) {
     const { data, error: evaluationError } = await supabase
-      .from("training_session_evaluations")
-      .select("session_log_id,teacher_score,teacher_comment,updated_at")
-      .in("session_log_id", sessionLogIds.slice(start, start + 1000));
+      .from("training_session_grade_results")
+      .select("student_id,session_number,teacher_score,teacher_comment,updated_at")
+      .in("student_id", ids)
+      .order("student_id").order("session_number").range(start, start + 999);
     if (evaluationError) throw new Error("No se han podido cargar las valoraciones del profesorado.");
     evaluationRows.push(...(data ?? []) as Row[]);
+    if ((data?.length ?? 0) < 1000) break;
   }
-  const evaluationsBySession = new Map(evaluationRows.map((row) => [str(row.session_log_id), row]));
+  const sessionEvaluations = evaluationRows.map((row) => ({ studentId: str(row.student_id), number: Number(row.session_number), score: Number(row.teacher_score), comment: str(row.teacher_comment), updatedAt: str(row.updated_at) }));
+  const evaluationsBySession = new Map(sessionEvaluations.map((row) => [`${row.studentId}:${row.number}`, row]));
   const saFor = (id: unknown) => str(situations.find((sa) => sa.id === id)?.code);
   const activities: TeacherActivity[] = [];
   function add(row: Row, category: ActivityCategory, title: string, sa: string, score: number | null = null, scoreLabel?: string) {
@@ -74,8 +76,8 @@ export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityD
   for (const row of table.session_journals) add(row, "journals", str(row.title) || "Diario de clase", saFor(row.learning_situation_id), num(row.perceived_effort), "Esfuerzo percibido");
   for (const row of table.sports_journals) add(row, "journals", "Diario deportivo", saFor(row.learning_situation_id));
   for (const row of table.training_session_logs) {
-    const evaluation = evaluationsBySession.get(str(row.id));
-    add({ ...row, teacher_score: evaluation?.teacher_score ?? null, teacher_comment: evaluation?.teacher_comment ?? "", teacher_evaluated_at: evaluation?.updated_at ?? null }, "journals", `Sesión de entrenamiento ${row.session_number}`, str(row.sa_code), num(row.completion_percent), "Realización declarada (%)");
+    const evaluation = evaluationsBySession.get(`${row.student_id}:${row.session_number}`);
+    add({ ...row, teacher_score: evaluation?.score ?? null, teacher_comment: evaluation?.comment ?? "", teacher_evaluated_at: evaluation?.updatedAt ?? null }, "journals", `Sesión de entrenamiento ${row.session_number}`, str(row.sa_code), num(row.completion_percent), "Realización declarada (%)");
   }
   for (const row of table.physical_test_results) {
     const test = physicalTests.find((entry) => entry.id === row.physical_test_id);
@@ -133,5 +135,5 @@ export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityD
   for (const row of table.healthy_habit_plans) add(row, "habits", str(row.focus_habit) || "Plan de hábitos", str(row.sa_code));
   for (const row of table.healthy_habit_weekly_logs) add(row, "habits", `Seguimiento de hábitos · semana ${row.week_number}`, str(row.sa_code));
   for (const row of table.sports_event_projects) add(row, "projects", str(row.event_name) || "Proyecto deportivo", str(row.sa_code));
-  return { students, activities, situations: situations.map((sa) => ({ id: str(sa.id), code: str(sa.code), title: str(sa.title) })), physicalTests: physicalTests.map((test) => ({ id: str(test.id), name: str(test.name), unit: str(test.unit), direction: str(test.direction) })), expectedInstruments, courseName: courses.map((course) => course.name).join(" · "), loadedAt: new Date().toISOString() };
+  return { students, activities, sessionEvaluations, situations: situations.map((sa) => ({ id: str(sa.id), code: str(sa.code), title: str(sa.title) })), physicalTests: physicalTests.map((test) => ({ id: str(test.id), name: str(test.name), unit: str(test.unit), direction: str(test.direction) })), expectedInstruments, courseName: courses.map((course) => course.name).join(" · "), loadedAt: new Date().toISOString() };
 }
