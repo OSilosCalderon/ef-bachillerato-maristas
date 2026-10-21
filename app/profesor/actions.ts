@@ -16,6 +16,7 @@ export async function saveSecondYearSessionEvaluation(input: {
   sessionNumber: number;
   score: number;
   comment: string;
+  absent?: boolean;
 }) {
   const teacher = await requireRole("teacher");
   const supabase = await createClient();
@@ -25,6 +26,8 @@ export async function saveSecondYearSessionEvaluation(input: {
   if (!Number.isFinite(score) || score < 0 || score > 10 || Math.round(score * 10) !== score * 10) {
     throw new Error("La nota debe estar entre 0 y 10 y puede incluir una décima.");
   }
+  if (input.absent !== undefined && typeof input.absent !== "boolean") throw new Error("Indica si hubo ausencia en esta sesión.");
+  const absent = input.absent ?? false;
   if (comment.length > 500) throw new Error("El comentario no puede superar los 500 caracteres.");
   if (typeof input.studentId !== "string" || !/^[0-9a-f-]{36}$/i.test(input.studentId)) {
     throw new Error("Selecciona un alumno válido.");
@@ -52,12 +55,13 @@ export async function saveSecondYearSessionEvaluation(input: {
       teacher_id: teacher.id,
       teacher_score: score,
       teacher_comment: comment,
+      absent,
       updated_at: updatedAt,
     }, { onConflict: "student_id,session_number" })
-    .select("student_id,session_number,teacher_score,teacher_comment,updated_at")
+    .select("student_id,session_number,teacher_score,teacher_comment,updated_at,absent")
     .single();
   if (saveError || !saved || saved.student_id !== student.id || saved.session_number !== input.sessionNumber) throw new Error("No se ha podido confirmar el guardado de la calificación. Vuelve a intentarlo.");
 
-  return { score: Number(saved.teacher_score), comment: String(saved.teacher_comment), updatedAt: String(saved.updated_at) };
+  return { absent: saved.absent === true, score: Number(saved.teacher_score), comment: String(saved.teacher_comment), updatedAt: String(saved.updated_at) };
 }
 

@@ -30,10 +30,11 @@ type SessionLog = {
   reflection: string;
   status: "draft" | "completed";
   teacher_score?: number | null;
+  teacher_absent?: boolean;
   teacher_comment?: string;
 };
 
-type SessionEvaluation = { session_number: number; teacher_score: number; teacher_comment: string };
+type SessionEvaluation = { session_number: number; teacher_score: number; teacher_comment: string; absent: boolean };
 
 type SessionForm = {
   sessionNumber: number;
@@ -129,19 +130,21 @@ export function SecondYearSa2Tracker() {
       const nextLogs = (logsResult.data ?? []) as SessionLog[];
       const { data: evaluationRows, error: evaluationError } = await supabase
         .from("training_session_grade_results")
-        .select("session_number,teacher_score,teacher_comment")
+        .select("session_number,teacher_score,teacher_comment,absent")
         .eq("student_id", currentStudentId)
         .order("session_number");
       if (evaluationError) throw evaluationError;
       const nextEvaluations = (evaluationRows ?? []).map((item) => ({
         session_number: Number(item.session_number),
         teacher_score: Number(item.teacher_score),
+        absent: item.absent === true,
         teacher_comment: String(item.teacher_comment ?? ""),
       }));
       setEvaluations(nextEvaluations);
       const evaluationBySession = new Map(nextEvaluations.map((item) => [item.session_number, item]));
       const logsWithEvaluations = nextLogs.map((item) => ({
         ...item,
+        teacher_absent: evaluationBySession.get(item.session_number)?.absent ?? false,
         teacher_score: evaluationBySession.get(item.session_number)?.teacher_score ?? null,
         teacher_comment: evaluationBySession.get(item.session_number)?.teacher_comment ?? "",
       }));
@@ -452,6 +455,7 @@ export function SecondYearSa2Tracker() {
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {evaluationsWithoutLog.map((item) => <article key={item.session_number} className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
             <h3 className="font-bold">Sesión {item.session_number} · {formatDate(getPlanSession(item.session_number)?.date ?? null)}</h3>
+            {item.absent && <span className="mt-2 inline-block rounded-full bg-rose-100 px-3 py-1 text-xs font-extrabold text-rose-800">AUSENCIA</span>}
             <p className="mt-2 font-extrabold text-[#164c3a]">Nota: {new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1 }).format(item.teacher_score)}/10</p>
             {item.teacher_comment.trim() && <p className="mt-2 whitespace-pre-wrap break-words text-sm text-slate-700">{item.teacher_comment}</p>}
             <p className="mt-2 text-xs font-semibold text-amber-800">Seguimiento sin registrar</p>
@@ -471,6 +475,7 @@ export function SecondYearSa2Tracker() {
               <div className="flex gap-2"><button type="button" onClick={() => startEdit(log)} className="rounded-xl border border-slate-200 p-2 text-slate-600" aria-label={`Editar sesión ${log.session_number}`}><Pencil size={16}/></button><button type="button" onClick={() => void remove(log)} className="rounded-xl border border-red-100 p-2 text-red-600" aria-label={`Eliminar sesión ${log.session_number}`}><Trash2 size={16}/></button></div>
               <div className="md:col-span-full rounded-xl border border-[#c6e1d6] bg-[#f2faf6] p-4">
                 <p className="text-xs font-bold uppercase tracking-wide text-[#1e6b4f]">Valoración del profesor</p>
+                {log.teacher_absent && <span className="mt-2 inline-block rounded-full bg-rose-100 px-3 py-1 text-xs font-extrabold text-rose-800">AUSENCIA</span>}
                 {log.teacher_score == null
                   ? <p className="mt-2 text-sm text-slate-600">Pendiente de valoración.</p>
                   : <div className="mt-2 flex flex-wrap items-start gap-x-4 gap-y-1 text-sm">

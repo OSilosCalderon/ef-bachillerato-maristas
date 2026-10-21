@@ -5,7 +5,7 @@ export const activityCategories = {
 } as const;
 export type ActivityCategory = keyof typeof activityCategories;
 export type TeacherStudent = { id: string; name: string; group: string };
-export type TeacherSessionEvaluation = { studentId: string; number: number; score: number; comment: string; updatedAt: string };
+export type TeacherSessionEvaluation = { studentId: string; number: number; score: number; comment: string; updatedAt: string; absent?: boolean };
 export type TeacherActivity = {
   id: string; studentId: string; category: ActivityCategory; sa: string; title: string; date: string;
   status: string; score: number | null; scoreLabel?: string; details: Record<string, unknown>;
