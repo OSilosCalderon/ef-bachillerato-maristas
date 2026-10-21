@@ -5,14 +5,15 @@ import { saveSecondYearSessionEvaluation } from "@/app/profesor/actions";
 import { isPlanSessionLog, parseTeacherSessionScore, teacherSessionScore, teacherSessionSlots } from "@/lib/teacher-session-grading";
 import type { TeacherActivityData } from "@/lib/teacher-activity";
 
-type SavedEvaluation = { score: number; comment: string; updatedAt: string };
+type SavedEvaluation = { absent: boolean; score: number; comment: string; updatedAt: string };
 
-export function TeacherSessionEvaluationForm({ studentId, sessionNumber, initialScore, initialComment, onSaved }: {
-  studentId: string; sessionNumber: number; initialScore: number | null; initialComment: string;
+export function TeacherSessionEvaluationForm({ studentId, sessionNumber, initialScore, initialComment, initialAbsent = false, onSaved }: {
+  studentId: string; sessionNumber: number; initialScore: number | null; initialComment: string; initialAbsent?: boolean;
   onSaved?: (evaluation: SavedEvaluation) => void;
 }) {
   const [score, setScore] = useState(initialScore === null ? "" : String(initialScore).replace(".", ","));
   const [comment, setComment] = useState(initialComment);
+  const [absent, setAbsent] = useState(initialAbsent);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
@@ -28,9 +29,10 @@ export function TeacherSessionEvaluationForm({ studentId, sessionNumber, initial
     }
     setSaving(true);
     try {
-      const saved = await saveSecondYearSessionEvaluation({ studentId, sessionNumber, score: parsedScore, comment });
+      const saved = await saveSecondYearSessionEvaluation({ studentId, sessionNumber, score: parsedScore, comment, absent });
       setScore(String(saved.score).replace(".", ","));
       setComment(saved.comment);
+      setAbsent(saved.absent);
       onSaved?.(saved);
       setFeedback("Calificación guardada y comprobada. El alumno puede verla en su seguimiento.");
     } catch (cause) {
@@ -43,6 +45,10 @@ export function TeacherSessionEvaluationForm({ studentId, sessionNumber, initial
   return <form aria-label={`Calificar sesión ${sessionNumber}`} onSubmit={(event) => void submit(event)} className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/70 p-4">
     <h3 className="font-bold text-[#164c3a]">Calificación del profesor · sesión {sessionNumber}</h3>
     <fieldset disabled={saving} className="mt-3 grid gap-3 sm:grid-cols-[8rem_1fr]">
+      <label className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900 sm:col-span-2">
+        <input type="checkbox" checked={absent} onChange={(event) => { setAbsent(event.target.checked); setFeedback(""); }} className="h-4 w-4 accent-amber-700"/>
+        AUSENCIA · No asistió a esta sesión
+      </label>
       <label className="text-xs font-bold text-slate-600">Nota · 0–10
         <input type="text" inputMode="decimal" required maxLength={4} value={score} onChange={(event) => { setScore(event.target.value); setFeedback(""); }} className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm" placeholder="Ej.: 8,5"/>
       </label>
@@ -69,6 +75,8 @@ export function TeacherSessionGrading({ data, initialStudentId }: {
   const student = data.students.find((entry) => entry.id === studentId);
   const slots = teacherSessionSlots(logs, studentId, data.sessionEvaluations);
   const scoreFor = (slot: (typeof slots)[number]) => saved[`${studentId}:${slot.number}`]?.score ?? slot.evaluation?.score ?? teacherSessionScore(slot.record?.details.teacher_score);
+  const absentFor = (slot: (typeof slots)[number]) => saved[`${studentId}:${slot.number}`]?.absent ?? slot.evaluation?.absent ?? (slot.record?.details.teacher_absent === true);
+  const absences = slots.filter(absentFor).length;
   const registered = slots.filter((slot) => slot.record).length;
   const graded = slots.filter((slot) => scoreFor(slot) !== null).length;
 
@@ -80,7 +88,7 @@ export function TeacherSessionGrading({ data, initialStudentId }: {
           {data.students.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
         </select>
       </label>
-      <div className="mt-4 flex flex-wrap gap-2 text-sm"><span className="rounded-full bg-slate-100 px-3 py-1.5 font-semibold">{registered}/10 sesiones registradas</span><span className="rounded-full bg-emerald-100 px-3 py-1.5 font-semibold text-emerald-800">{graded}/10 calificadas</span><span className="rounded-full bg-amber-100 px-3 py-1.5 font-semibold text-amber-900">{10 - graded} pendientes de calificar</span></div>
+      <div className="mt-4 flex flex-wrap gap-2 text-sm"><span className="rounded-full bg-slate-100 px-3 py-1.5 font-semibold">{registered}/10 sesiones registradas</span><span className="rounded-full bg-emerald-100 px-3 py-1.5 font-semibold text-emerald-800">{graded}/10 calificadas</span><span className="rounded-full bg-amber-100 px-3 py-1.5 font-semibold text-amber-900">{10 - graded} pendientes de calificar</span><span className="rounded-full bg-rose-100 px-3 py-1.5 font-semibold text-rose-800">{absences} ausencias registradas</span></div>
       <p className="mt-3 text-xs text-slate-500">La calificación no cuenta como seguimiento entregado. Cada alumno ve su nota y comentario en SA2 → Seguimiento y en Mis calificaciones.</p>
     </div>
     {!student ? <p className="card p-5">No hay alumnado activo de 2º de Bachillerato.</p> : <div className="grid gap-4 xl:grid-cols-2">{slots.map((slot) => {
@@ -88,14 +96,15 @@ export function TeacherSessionGrading({ data, initialStudentId }: {
       const key = `${student.id}:${number}`;
       const evaluation = saved[key] ?? slot.evaluation;
       const score = scoreFor(slot);
+      const absent = absentFor(slot);
       const comment = evaluation?.comment ?? String(record?.details.teacher_comment ?? "");
       return <article key={key} id={`sesion-${number}`} aria-label={`Sesión ${number} de ${student.name}`} className="card min-w-0 p-5 sm:p-6">
-        <header className="flex flex-wrap items-start justify-between gap-2"><div><h2 className="text-lg font-extrabold">Sesión {number}</h2><p className="mt-1 text-sm text-slate-500">{dateLabel(String(record?.details.session_date || planned.date))} · {student.name}</p></div><span className={`rounded-full px-3 py-1 text-xs font-bold ${score !== null ? "bg-emerald-100 text-emerald-800" : record ? "bg-amber-100 text-amber-900" : "bg-slate-100 text-slate-500"}`}>{score !== null ? `Calificada · ${scoreLabel(score)}/10` : "Pendiente de calificar"}</span></header>
+        <header className="flex flex-wrap items-start justify-between gap-2"><div><h2 className="text-lg font-extrabold">Sesión {number}</h2>{absent && <span className="mt-2 inline-block rounded-full bg-rose-100 px-3 py-1 text-xs font-extrabold text-rose-800">AUSENCIA</span>}<p className="mt-1 text-sm text-slate-500">{dateLabel(String(record?.details.session_date || planned.date))} · {student.name}</p></div><span className={`rounded-full px-3 py-1 text-xs font-bold ${score !== null ? "bg-emerald-100 text-emerald-800" : record ? "bg-amber-100 text-amber-900" : "bg-slate-100 text-slate-500"}`}>{score !== null ? `Calificada · ${scoreLabel(score)}/10` : "Pendiente de calificar"}</span></header>
         {!record ? <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Seguimiento no registrado por el alumno. Puedes guardar una nota y un comentario para esta sesión.</p> : <>
           <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl bg-slate-50 p-3 text-xs text-slate-600"><p>Duración<strong className="mt-1 block text-sm text-slate-900">{String(record.details.duration_minutes ?? "—")} min</strong></p><p>Esfuerzo del alumno<strong className="mt-1 block text-sm text-slate-900">{String(record.details.rpe ?? "—")}/10</strong></p><p>Cumplimiento<strong className="mt-1 block text-sm text-slate-900">{String(record.details.completion_percent ?? "—")}%</strong></p></div>
           <dl className="mt-3 space-y-2 text-sm"><div><dt className="font-bold text-slate-600">Modificaciones respecto al plan</dt><dd className="mt-1 whitespace-pre-wrap break-words text-slate-700">{String(record.details.modifications || "Sin modificaciones indicadas")}</dd></div><div><dt className="font-bold text-slate-600">Reflexión del alumno</dt><dd className="mt-1 whitespace-pre-wrap break-words text-slate-700">{String(record.details.reflection || "Sin reflexión escrita")}</dd></div></dl>
         </>}
-        <TeacherSessionEvaluationForm key={key} studentId={student.id} sessionNumber={number} initialScore={score} initialComment={comment} onSaved={(value) => setSaved((current) => ({ ...current, [key]: value }))}/>
+        <TeacherSessionEvaluationForm key={key} studentId={student.id} sessionNumber={number} initialScore={score} initialComment={comment} initialAbsent={absent} onSaved={(value) => setSaved((current) => ({ ...current, [key]: value }))}/>
       </article>;
     })}</div>}
   </section>;

@@ -57,14 +57,14 @@ export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityD
   if (year === 2 && ids.length) for (let start = 0; ; start += 1000) {
     const { data, error: evaluationError } = await supabase
       .from("training_session_grade_results")
-      .select("student_id,session_number,teacher_score,teacher_comment,updated_at")
+      .select("student_id,session_number,teacher_score,teacher_comment,updated_at,absent")
       .in("student_id", ids)
       .order("student_id").order("session_number").range(start, start + 999);
     if (evaluationError) throw new Error("No se han podido cargar las valoraciones del profesorado.");
     evaluationRows.push(...(data ?? []) as Row[]);
     if ((data?.length ?? 0) < 1000) break;
   }
-  const sessionEvaluations = evaluationRows.map((row) => ({ studentId: str(row.student_id), number: Number(row.session_number), score: Number(row.teacher_score), comment: str(row.teacher_comment), updatedAt: str(row.updated_at) }));
+  const sessionEvaluations = evaluationRows.map((row) => ({ studentId: str(row.student_id), number: Number(row.session_number), score: Number(row.teacher_score), comment: str(row.teacher_comment), absent: row.absent === true, updatedAt: str(row.updated_at) }));
   const evaluationsBySession = new Map(sessionEvaluations.map((row) => [`${row.studentId}:${row.number}`, row]));
   const saFor = (id: unknown) => str(situations.find((sa) => sa.id === id)?.code);
   const activities: TeacherActivity[] = [];
@@ -77,7 +77,7 @@ export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityD
   for (const row of table.sports_journals) add(row, "journals", "Diario deportivo", saFor(row.learning_situation_id));
   for (const row of table.training_session_logs) {
     const evaluation = evaluationsBySession.get(`${row.student_id}:${row.session_number}`);
-    add({ ...row, teacher_score: evaluation?.score ?? null, teacher_comment: evaluation?.comment ?? "", teacher_evaluated_at: evaluation?.updatedAt ?? null }, "journals", `Sesión de entrenamiento ${row.session_number}`, str(row.sa_code), num(row.completion_percent), "Realización declarada (%)");
+    add({ ...row, teacher_score: evaluation?.score ?? null, teacher_absent: evaluation?.absent ?? false, teacher_comment: evaluation?.comment ?? "", teacher_evaluated_at: evaluation?.updatedAt ?? null }, "journals", `Sesión de entrenamiento ${row.session_number}`, str(row.sa_code), num(row.completion_percent), "Realización declarada (%)");
   }
   for (const row of table.physical_test_results) {
     const test = physicalTests.find((entry) => entry.id === row.physical_test_id);

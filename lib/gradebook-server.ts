@@ -46,11 +46,11 @@ export async function loadStudentGradebook() {
     supabase.from("learning_situations").select("code,title").eq("course_id",student.course_id).order("code"),
   ]);
   if (itemsResult.error || gradesResult.error || courseResult.error || !courseResult.data || situationsResult.error) throw new Error("No se han podido cargar tus calificaciones. Actualiza la página e inténtalo de nuevo.");
-  const sessionGrades:{number:number;score:number;comment:string;date:string}[]=[];
+  const sessionGrades:{number:number;score:number;comment:string;date:string;absent:boolean}[]=[];
   if (courseResult.data.bachillerato_year===2) {
-    const evaluations=await supabase.from("training_session_grade_results").select("session_number,teacher_score,teacher_comment,updated_at").eq("student_id",student.id).order("session_number");
+    const evaluations=await supabase.from("training_session_grade_results").select("session_number,teacher_score,teacher_comment,updated_at,absent").eq("student_id",student.id).order("session_number");
     if (evaluations.error) throw new Error("No se han podido cargar las valoraciones de tus sesiones.");
-    for (const evaluation of evaluations.data ?? []) sessionGrades.push({number:Number(evaluation.session_number),score:Number(evaluation.teacher_score),comment:String(evaluation.teacher_comment),date:String(evaluation.updated_at)});
+    for (const evaluation of evaluations.data ?? []) sessionGrades.push({number:Number(evaluation.session_number),score:Number(evaluation.teacher_score),comment:String(evaluation.teacher_comment),date:String(evaluation.updated_at),absent:evaluation.absent===true});
   }
   return {studentId:String(student.id),courseId:String(student.course_id),year:Number(courseResult.data.bachillerato_year),items:(itemsResult.data ?? []) as AssessmentGradeItem[],grades:(gradesResult.data ?? []).map((row) => ({...row,score:Number(row.score)})) as PublishedAssessmentGrade[],situations:situationsResult.data ?? [],sessionGrades:sessionGrades.sort((a,b) => a.number-b.number)};
 }

@@ -37,24 +37,28 @@ const actions = load('app/profesor/actions.ts',{
   '@/lib/supabase/server':{createClient:async()=>supabase},
 });
 const ui=load('components/teacher-session-grading.tsx',{'@/app/profesor/actions':actions,'@/lib/teacher-session-grading':helpers});
-const data={students:[{id:studentId,name:'Alumno de prueba',group:'2º'}],activities:[],sessionEvaluations:[{studentId,number:3,score:0,comment:'Seguimiento pendiente',updatedAt:'2026-10-19'}]};
+const data={students:[{id:studentId,name:'Alumno de prueba',group:'2º'}],activities:[],sessionEvaluations:[{studentId,number:3,score:0,absent:true,comment:'Seguimiento pendiente',updatedAt:'2026-10-19'}]};
 const html=renderToStaticMarkup(React.createElement(ui.TeacherSessionGrading,{data}));
 assert.equal((html.match(/aria-label="Calificar sesión \d+"/g)||[]).length,10,'All ten empty slots must have a grade form.');
 assert.ok(html.includes('0/10 sesiones registradas'));
 assert.ok(html.includes('1/10 calificadas'));
 assert.ok(html.includes('9 pendientes de calificar'));
 assert.ok(html.includes('Seguimiento pendiente'));
+assert.ok(html.includes('1 ausencias registradas'));
+assert.equal((html.match(/type="checkbox"[^>]*checked=""/g)||[]).length,1,'Only the absent session starts checked.');
+assert.ok(html.includes('>AUSENCIA</span>'),'Published absence must be visible next to the grade.');
 assert.ok(html.includes('Calificada · 0/10'));
 console.log('Teacher UI: all ten unregistered sessions are editable; zero grades and honest delivery counts render.');
 (async()=>{
-  const input={studentId,sessionNumber:3,score:0,comment:'  Seguimiento pendiente  '};
+  const input={studentId,sessionNumber:3,score:0,absent:true,comment:'  Seguimiento pendiente  '};
   const saved=await actions.saveSecondYearSessionEvaluation(input);
-  assert.equal(saved.score,0);assert.equal(saved.comment,'Seguimiento pendiente');
-  assert.equal(writes[0].teacher_id,teacherId);assert.equal(writes[0].session_number,3);
+  assert.equal(saved.score,0);assert.equal(saved.absent,true);assert.equal(saved.comment,'Seguimiento pendiente');
+  assert.equal(writes[0].absent,true);assert.equal(writes[0].teacher_id,teacherId);assert.equal(writes[0].session_number,3);
   assert.ok(!Object.hasOwn(writes[0],'session_log_id'));
-  await actions.saveSecondYearSessionEvaluation({...input,score:8.5});
-  assert.equal(writes[1].score,undefined);assert.equal(writes[1].teacher_score,8.5);
+  await actions.saveSecondYearSessionEvaluation({...input,score:8.5,absent:false});
+  assert.equal(writes[1].absent,false,'The teacher can correct an absence without changing the student log.');assert.equal(writes[1].score,undefined);assert.equal(writes[1].teacher_score,8.5);
   const count=writes.length;
+  for(const absent of ['true',1,null,{}]) await assert.rejects(()=>actions.saveSecondYearSessionEvaluation({...input,absent}));
   for(const sessionNumber of [0,11,1.5]) await assert.rejects(()=>actions.saveSecondYearSessionEvaluation({...input,sessionNumber}));
   for(const score of [-1,11,8.55,NaN]) await assert.rejects(()=>actions.saveSecondYearSessionEvaluation({...input,score}));
   await assert.rejects(()=>actions.saveSecondYearSessionEvaluation({...input,comment:'a'.repeat(501)}));
