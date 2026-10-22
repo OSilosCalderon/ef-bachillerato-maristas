@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { BarChart3, CalendarDays, CheckCircle2, FileDown, Loader2, MessageSquareText, Plus, Save, Trash2 } from "lucide-react";
+import { CopyPlanTask } from "@/components/copy-plan-task";
 import { PersonalPlanTaskEditor } from "@/components/personal-plan-task-editor";
 import { cleanPlanItems, emptyExercise, methodologyLabels, normalizeItems, type PlanItem } from "@/lib/personal-plan-tasks";
 import { FIRST_YEAR_PLAN_SESSIONS } from "@/lib/first-year-personal-plan-calendar";
@@ -178,6 +179,12 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
       "items",
       form.items.map((item) => (item.id === id ? { ...item, [key]: value } : item)),
     );
+  }
+
+  function addCopiedItem(copy: PlanItem) {
+    setForm((current) => ({ ...current, items: [...current.items, copy] }));
+    setError("");
+    setMessage(`Tarea copiada al ${formatPlanDate(copy.sessionDate)}. Pulsa «Guardar plan» para conservar los cambios.`);
   }
 
   function removeItem(id: string) {
@@ -367,6 +374,7 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
               <label className="text-xs font-bold text-slate-500">Sesión del calendario<select value={item.sessionDate} onChange={(event) => assignSession(item.id, event.target.value)} className="mt-2 w-full rounded-xl border p-3 text-sm"><option value="">Por concretar</option>{planSessions.map((session, sessionIndex) => <option key={session.date} value={session.date}>Sesión {sessionIndex + 1} · {formatPlanDate(session.date)} · {session.start}</option>)}</select></label>
               <label className="text-xs font-bold text-slate-500">Objetivo al que contribuye<select value={item.goal} onChange={(event) => updateItem(item.id, "goal", event.target.value)} className="mt-2 w-full rounded-xl border p-3 text-sm"><option value="1">Principal</option><option value="2" disabled={!form.secondaryObjective.trim()}>Segundo objetivo</option><option value="both" disabled={!form.secondaryObjective.trim()}>Ambos</option></select></label>
               <PersonalPlanTaskEditor item={item} onChange={(updated) => updateField("items", form.items.map((entry) => entry.id === item.id ? updated : entry))}/>
+              {courseYear === 1 && <CopyPlanTask item={item} sessions={planSessions} onCopy={addCopiedItem}/>}
               <button type="button" onClick={() => removeItem(item.id)} aria-label={`Eliminar tarea ${index + 1}`} className="rounded-xl border border-slate-200 p-3 text-slate-500 hover:bg-red-50 hover:text-red-600"><Trash2 className="mr-2 inline" size={18}/>Eliminar tarea completa</button>
             </div>
           ))}

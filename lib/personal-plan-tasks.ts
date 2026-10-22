@@ -46,3 +46,15 @@ export function cleanPlanItems(items: PlanItem[], hasSecondGoal: boolean): PlanI
     exercises: item.exercises.map((exercise) => ({ ...exercise, activity: exercise.activity.trim(), dose: exercise.dose.trim(), recovery: exercise.recovery.trim() })),
   }));
 }
+
+/** Make an independent task for another session without replacing any existing task. */
+export function copyPlanItemToSession(item: PlanItem, session: { date: string; day: string }): PlanItem {
+  return {
+    ...item,
+    id: crypto.randomUUID(),
+    sessionDate: session.date,
+    day: session.day,
+    materials: [...item.materials],
+    exercises: item.exercises.map((exercise) => ({ ...exercise, id: crypto.randomUUID() })),
+  };
+}
