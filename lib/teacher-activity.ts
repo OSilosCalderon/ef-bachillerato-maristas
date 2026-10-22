@@ -6,6 +6,11 @@ export const activityCategories = {
 export type ActivityCategory = keyof typeof activityCategories;
 export type TeacherStudent = { id: string; name: string; group: string };
 export type TeacherSessionEvaluation = { studentId: string; number: number; score: number; comment: string; updatedAt: string; absent?: boolean };
+export type ExpectedTeacherInstrument = {
+  key?: string; sa: string; category: ActivityCategory; title: string;
+  filters?: Record<string, string | number>; matchAll?: boolean; group?: string;
+  completion?: "reflection"; tracking?: "unavailable";
+};
 export type TeacherActivity = {
   id: string; studentId: string; category: ActivityCategory; sa: string; title: string; date: string;
   status: string; score: number | null; scoreLabel?: string; details: Record<string, unknown>;
@@ -14,7 +19,7 @@ export type PhysicalDefinition = { id: string; name: string; unit: string; direc
 export type TeacherActivityData = {
   students: TeacherStudent[]; activities: TeacherActivity[];
   situations: { id: string; code: string; title: string }[]; physicalTests: PhysicalDefinition[];
-  expectedInstruments?: { sa: string; category: ActivityCategory; title: string }[];
+  expectedInstruments?: ExpectedTeacherInstrument[];
   sessionEvaluations?: TeacherSessionEvaluation[];
   courseName: string; loadedAt: string;
 };
@@ -45,3 +50,4 @@ export function physicalComparison(activities: TeacherActivity[], studentId: str
     improvement: first !== null && last !== null && first !== 0 ? (last - first) / Math.abs(first) * 100 * (test.direction === "lower_better" ? -1 : 1) : null,
     pairedN: paired.length, pairedInitial: mean(paired.map((row) => initialByStudent.get(row.studentId)!)), pairedFinal: mean(paired.map((row) => row.score!)) };
 }
+

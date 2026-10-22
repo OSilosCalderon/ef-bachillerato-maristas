@@ -5,7 +5,8 @@ import { firstYearCalendarGroup } from "@/lib/class-groups";
 import { trainingTheoryTopics } from "@/lib/training-theory-topics";
 import { flexibilityTheoryTopic } from "@/lib/training-theory-flexibility";
 import { secondYearTheoryTopics } from "@/lib/second-year-theory-topics";
-import type { ActivityCategory, TeacherActivity, TeacherActivityData } from "@/lib/teacher-activity";
+import { SECOND_YEAR_PLAN_SESSIONS } from "@/lib/second-year-personal-plan-calendar";
+import type { ExpectedTeacherInstrument, ActivityCategory, TeacherActivity, TeacherActivityData } from "@/lib/teacher-activity";
 
 type Row = Record<string, unknown>;
 type QueryError = { code?: string | null; message?: string | null };
@@ -53,6 +54,24 @@ export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityD
   const tableNames = ["personal_training_plans", "session_journals", "sports_journals", "training_session_logs", "physical_test_results", "technical_test_results", "questionnaire_attempts", "procedural_attempts", "theory_topic_progress", "theory_challenge_responses", "content_reads", "healthy_habit_plans", "healthy_habit_weekly_logs", "sports_event_projects"];
   const loaded = await Promise.all(tableNames.map((table) => rows(table, { key: "student_id", values: ids }, optionalTables.has(table))));
   const table = Object.fromEntries(tableNames.map((name, index) => [name, loaded[index]]));
+  const [questionnaireResponses, questionnaireQuestions, proceduralResponses, proceduralQuestions] = await Promise.all([
+    rows("questionnaire_responses", {key:"attempt_id",values:table.questionnaire_attempts.map((row) => str(row.id))}),
+    rows("questionnaire_questions", {key:"questionnaire_id",values:questionnaires.filter((row) => situations.some((sa) => sa.id===row.learning_situation_id)).map((row) => str(row.id))}),
+    rows("procedural_responses", {key:"attempt_id",values:table.procedural_attempts.map((row) => str(row.id))}),
+    rows("procedural_questions", {key:"activity_id",values:procedural.filter((row) => situations.some((sa) => sa.id===row.learning_situation_id)).map((row) => str(row.id))}),
+  ]);
+  const proceduralOptions = await rows("procedural_options", {key:"question_id",values:proceduralQuestions.map((row) => str(row.id))});
+  const questionnaireAnswers = (attemptId: unknown) => questionnaireResponses.filter((row) => row.attempt_id===attemptId).map((row) => {
+    const question = questionnaireQuestions.find((item) => item.id===row.question_id);
+    const answer = row.answer !== null && typeof row.answer==="object" && !Array.isArray(row.answer) ? row.answer as Row : null;
+    return {question:str(question?.prompt)||"Pregunta",answer:answer?.label ?? answer?.value ?? row.answer,position:Number(question?.position)||0};
+  }).sort((a,b) => a.position-b.position).map(({question,answer}) => ({question,answer}));
+  const proceduralAnswers = (attemptId: unknown) => proceduralResponses.filter((row) => row.attempt_id===attemptId).map((row) => {
+    const question = proceduralQuestions.find((item) => item.id===row.question_id);
+    const option = proceduralOptions.find((item) => item.id===row.selected_option_id);
+    return {question:str(question?.prompt)||"Pregunta",answer:str(row.text_answer)||str(option?.label)||"Sin responder",score:num(row.score)};
+  });
+
   const evaluationRows: Row[] = [];
   if (year === 2 && ids.length) for (let start = 0; ; start += 1000) {
     const { data, error: evaluationError } = await supabase
@@ -81,7 +100,7 @@ export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityD
   }
   for (const row of table.physical_test_results) {
     const test = physicalTests.find((entry) => entry.id === row.physical_test_id);
-    if (test) add(row, "physical", str(test.name), "SA1", num(row.value), str(test.unit));
+    if (test) add(row, "physical", str(test.name), year === 2 && row.period === "december" ? "SA2" : "SA1", num(row.value), str(test.unit));
   }
   for (const row of table.technical_test_results) {
     const test = technicalTests.find((entry) => entry.id === row.technical_test_id);
@@ -90,36 +109,65 @@ export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityD
   }
   for (const row of table.questionnaire_attempts) {
     const definition = questionnaires.find((entry) => entry.id === row.questionnaire_id);
-    if (definition) add({ ...row, instrument_code: definition.instrument_code, assessment_phase: definition.assessment_phase }, "questionnaires", str(definition.title), saFor(definition.learning_situation_id));
+    if (definition) add({ ...row, answers: questionnaireAnswers(row.id), instrument_code: definition.instrument_code, assessment_phase: definition.assessment_phase }, "questionnaires", str(definition.title), year === 2 && definition.assessment_phase === "final" ? "SA2" : saFor(definition.learning_situation_id));
   }
   for (const row of table.procedural_attempts) {
     const definition = procedural.find((entry) => entry.id === row.activity_id);
-    if (definition) add(row, "procedural", str(definition.title), saFor(definition.learning_situation_id), row.status === "submitted" ? num(row.total_score) : null, "Puntos");
+    if (definition) add({ ...row, answers: proceduralAnswers(row.id) }, "procedural", str(definition.title), saFor(definition.learning_situation_id), row.status === "submitted" ? num(row.total_score) : null, "Puntos");
   }
   const topics = year === 2 ? secondYearTheoryTopics : [...trainingTheoryTopics, flexibilityTheoryTopic].map((topic) => ({ ...topic, sa: "SA1" }));
-  const expectedInstruments: { sa: string; category: ActivityCategory; title: string }[] = [];
-  for (const test of physicalTests) expectedInstruments.push({ sa: "SA1", category: "physical", title: str(test.name) });
+  const expectedInstruments: ExpectedTeacherInstrument[] = [];
+  const expect = (item: ExpectedTeacherInstrument) => { if (situations.some((sa) => sa.code === item.sa)) expectedInstruments.push(item); };
+  expect({ key: "SA1:plan", sa: "SA1", category: "plans", title: "Plan personal", matchAll: true });
+  expect({ key: "SA1:plan-reflection", sa: "SA1", category: "plans", title: "Reflexión final del plan", matchAll: true, completion: "reflection" });
+  for (const test of physicalTests) for (const period of ["september", "december"]) {
+    const sa = year === 2 && period === "december" ? "SA2" : "SA1";
+    expect({ key: `${sa}:physical:${test.id}:${period}`, sa, category: "physical", title: `${test.name} · ${period === "september" ? "Inicial" : "Final"}`, filters: { physical_test_id: str(test.id), period } });
+  }
   for (const test of technicalTests) {
     const sport = sports.find((entry) => entry.id === test.sport_id);
     const sa = saFor(sport?.learning_situation_id);
-    if (sa) expectedInstruments.push({ sa, category: "technical", title: str(test.name) });
+    for (const period of ["january", "march"]) if (sa) expect({ key: `${sa}:technical:${test.id}:${period}`, sa, category: "technical", title: `${test.name} · ${period === "january" ? "Inicial" : "Final"}`, filters: { technical_test_id: str(test.id), period } });
   }
   for (const questionnaire of questionnaires) {
-    const sa = saFor(questionnaire.learning_situation_id);
-    if (sa) expectedInstruments.push({ sa, category: "questionnaires", title: str(questionnaire.title) });
+    const sa = year === 2 && questionnaire.assessment_phase === "final" ? "SA2" : saFor(questionnaire.learning_situation_id);
+    if (sa) expect({ key: `${sa}:questionnaire:${questionnaire.id}`, sa, category: "questionnaires", title: str(questionnaire.title), filters: { questionnaire_id: str(questionnaire.id) } });
   }
   for (const activity of procedural) {
     const sa = saFor(activity.learning_situation_id);
-    if (sa) expectedInstruments.push({ sa, category: "procedural", title: str(activity.title) });
+    if (sa) expect({ key: `${sa}:procedural:${activity.id}`, sa, category: "procedural", title: str(activity.title), filters: { activity_id: str(activity.id) } });
   }
-  for (const topic of topics) expectedInstruments.push({ sa: topic.sa, category: "quizzes", title: topic.title });
+  for (const topic of topics) for (const category of ["theory", "quizzes"] as const) expect({ key: `${topic.sa}:${category}:${topic.slug}`, sa: topic.sa, category, title: topic.title, filters: { topic_slug: topic.slug } });
+  if (year === 2) {
+    SECOND_YEAR_PLAN_SESSIONS.forEach((session, index) => expect({ key: `SA2:session:${index + 1}`, sa: "SA2", category: "journals", title: `Sesión ${index + 1} · ${session.date.slice(8)}/${session.date.slice(5, 7)}`, filters: { session_number: index + 1 } }));
+    expect({ key: "SA3:habit-plan", sa: "SA3", category: "habits", title: "Plan personal de hábitos", filters: { _kind: "habit-plan" } });
+    for (let week = 1; week <= 4; week++) expect({ key: `SA3:habit-week:${week}`, sa: "SA3", category: "habits", title: `Seguimiento de hábitos · semana ${week}`, filters: { _kind: "habit-week", week_number: week } });
+    expect({ key: "SA4:event-project", sa: "SA4", category: "projects", title: "Proyecto de evento deportivo", matchAll: true });
+  } else {
+    const classSessions = await rows("class_sessions");
+    const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date());
+    for (const group of [...new Set(students.map((student) => student.group))]) {
+      const scheduled = classSessions.filter((session) => session.class_group === group && session.academic_year === "2026/2027" && session.status === "scheduled" && str(session.session_date) <= today);
+      for (const session of scheduled) expect({ key: `SA1:journal:${session.id}`, sa: "SA1", category: "journals", group, title: `Diario · ${str(session.session_date).slice(8)}/${str(session.session_date).slice(5, 7)}`, filters: { session_date: str(session.session_date) } });
+      if (!scheduled.length) expect({ key: `SA1:journal:${group}`, sa: "SA1", category: "journals", group, title: "Diario de clase", matchAll: true });
+    }
+    expect({ key: "SA2:sports-journal", sa: "SA2", category: "journals", title: "Diario deportivo", matchAll: true, tracking: "unavailable" });
+    for (const [category, title] of [["technical","Pruebas técnicas · Inicial y final"],["questionnaires","Cuestionarios"],["procedural","Conocimiento y toma de decisiones"],["theory","Bloque teórico"],["quizzes","Autoevaluación teórica"]] as const) if (!expectedInstruments.some((item) => item.sa === "SA2" && item.category === category)) expect({ key: `SA2:${category}:planned`, sa: "SA2", category, title, matchAll:true, tracking:"unavailable" });
+    // These existing pupil screens are demonstrations without a persisted submission.
+    // Keep them visible without claiming that the pupil failed to deliver them.
+    expect({ key: "SA3:session-design", sa: "SA3", category: "projects", title: "Diseño y realización de la sesión", matchAll: true, tracking: "unavailable" });
+    expect({ key: "SA3:game-ratings", sa: "SA3", category: "procedural", title: "Valoración de juegos", filters: { _kind: "game-rating" }, tracking: "unavailable" });
+    expect({ key: "SA3:attitude", sa: "SA3", category: "quizzes", title: "Autoevaluación de actitud", filters: { _kind: "attitude" }, tracking: "unavailable" });
+    expect({ key: "SA3:materials", sa: "SA3", category: "theory", title: "Bloque teórico de SA3", matchAll: true, tracking: "unavailable" });
+  }
   for (const row of table.theory_topic_progress) {
     const topic = topics.find((entry) => entry.slug === row.topic_slug);
     if (!topic) continue;
-    if (row.completed) add(row, "theory", topic.title, topic.sa);
+    add(row, "theory", topic.title, topic.sa);
     if (row.quiz_score !== null) add(row, "quizzes", topic.title, topic.sa, num(row.quiz_score), "Mejor puntuación (%)");
   }
   const challengeTopics = await rows("theory_challenge_topics", { key: "course_year", values: [String(year)] });
+  for (const topic of challengeTopics) expect({ key: `${topic.sa_code}:challenge:${topic.slug}`, sa: str(topic.sa_code), category: "challenges", title: str(topic.title), filters: { topic_slug: str(topic.slug) } });
   for (const row of table.theory_challenge_responses) {
     const definition = challengeTopics.find((entry) => entry.slug === row.topic_slug);
     if (definition) add({ ...row, challenge_prompt: definition.prompt }, "challenges", str(definition.title), str(definition.sa_code));
@@ -132,8 +180,9 @@ export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityD
     const content = contents.find((entry) => entry.id === row.content_id);
     if (content) add(row, "theory", str(content.title), saFor(content.learning_situation_id));
   }
-  for (const row of table.healthy_habit_plans) add(row, "habits", str(row.focus_habit) || "Plan de hábitos", str(row.sa_code));
-  for (const row of table.healthy_habit_weekly_logs) add(row, "habits", `Seguimiento de hábitos · semana ${row.week_number}`, str(row.sa_code));
+  for (const row of table.healthy_habit_plans) add({ ...row, _kind: "habit-plan" }, "habits", str(row.focus_habit) || "Plan de hábitos", str(row.sa_code));
+  for (const row of table.healthy_habit_weekly_logs) add({ ...row, _kind: "habit-week" }, "habits", `Seguimiento de hábitos · semana ${row.week_number}`, str(row.sa_code));
   for (const row of table.sports_event_projects) add(row, "projects", str(row.event_name) || "Proyecto deportivo", str(row.sa_code));
   return { students, activities, sessionEvaluations, situations: situations.map((sa) => ({ id: str(sa.id), code: str(sa.code), title: str(sa.title) })), physicalTests: physicalTests.map((test) => ({ id: str(test.id), name: str(test.name), unit: str(test.unit), direction: str(test.direction) })), expectedInstruments, courseName: courses.map((course) => course.name).join(" · "), loadedAt: new Date().toISOString() };
 }
+
