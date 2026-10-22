@@ -109,7 +109,7 @@ export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityD
   }
   for (const row of table.questionnaire_attempts) {
     const definition = questionnaires.find((entry) => entry.id === row.questionnaire_id);
-    if (definition) add({ ...row, answers: questionnaireAnswers(row.id), instrument_code: definition.instrument_code, assessment_phase: definition.assessment_phase }, "questionnaires", str(definition.title), year === 2 && definition.assessment_phase === "final" ? "SA2" : saFor(definition.learning_situation_id));
+    if (definition && saFor(definition.learning_situation_id)) add({ ...row, answers: questionnaireAnswers(row.id), instrument_code: definition.instrument_code, assessment_phase: definition.assessment_phase }, "questionnaires", str(definition.title), year === 2 && definition.assessment_phase === "final" ? "SA2" : saFor(definition.learning_situation_id));
   }
   for (const row of table.procedural_attempts) {
     const definition = procedural.find((entry) => entry.id === row.activity_id);
@@ -130,7 +130,8 @@ export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityD
     for (const period of ["january", "march"]) if (sa) expect({ key: `${sa}:technical:${test.id}:${period}`, sa, category: "technical", title: `${test.name} · ${period === "january" ? "Inicial" : "Final"}`, filters: { technical_test_id: str(test.id), period } });
   }
   for (const questionnaire of questionnaires) {
-    const sa = year === 2 && questionnaire.assessment_phase === "final" ? "SA2" : saFor(questionnaire.learning_situation_id);
+    const originalSa = saFor(questionnaire.learning_situation_id);
+    const sa = originalSa && year === 2 && questionnaire.assessment_phase === "final" ? "SA2" : originalSa;
     if (sa) expect({ key: `${sa}:questionnaire:${questionnaire.id}`, sa, category: "questionnaires", title: str(questionnaire.title), filters: { questionnaire_id: str(questionnaire.id) } });
   }
   for (const activity of procedural) {

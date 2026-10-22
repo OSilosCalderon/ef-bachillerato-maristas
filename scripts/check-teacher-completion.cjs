@@ -66,7 +66,7 @@ const tables={
   profiles:[{id:'pa',display_name:'Alumno A',class_group:'2º Bachillerato'},{id:'pb',display_name:'Alumno B',class_group:'1ºA Bachillerato'}],
   learning_situations:['c1','c2'].flatMap(course_id=>['SA1','SA2','SA3','SA4','SA5','SA6'].map(code=>({id:course_id+code,course_id,code,title:code}))),
   physical_tests:[{id:'sprint',name:'Sprint',unit:'s',direction:'lower_better'}],
-  questionnaires:[{id:'qi',learning_situation_id:'c2SA1',title:'GOES inicial',assessment_phase:'initial'},{id:'qf',learning_situation_id:'c2SA1',title:'GOES final',assessment_phase:'final'}],
+  questionnaires:[{id:'qi',learning_situation_id:'c2SA1',title:'GOES inicial',assessment_phase:'initial'},{id:'qf',learning_situation_id:'c2SA1',title:'GOES final',assessment_phase:'final'},{id:'foreign-final',learning_situation_id:'c1SA1',title:'GOES final de otro curso',assessment_phase:'final'}],
   questionnaire_attempts:[{id:'attempt',questionnaire_id:'qf',student_id:'a',status:'submitted'}],
   questionnaire_questions:[{id:'question',questionnaire_id:'qf',prompt:'Pregunta real',position:1}],
   questionnaire_responses:[{id:'answer',attempt_id:'attempt',question_id:'question',answer:{label:'Muy de acuerdo'}}],
@@ -88,6 +88,7 @@ const loader=load('lib/teacher-activity-server.ts',{
   const second=await loader.loadTeacherActivity(2);
   assert.equal(second.students.length,1);assert.equal(second.students[0].id,'a');
   assert.equal(second.expectedInstruments.filter(item=>item.category==='journals'&&item.sa==='SA2').length,10);
+  assert.equal(second.expectedInstruments.filter(item=>item.category==='questionnaires').length,2,'Final questionnaires from another course must not become extra pending work.');
   assert.equal(second.activities.find(row=>row.category==='physical').sa,'SA2');
   const questionnaire=second.activities.find(row=>row.category==='questionnaires');
   assert.equal(questionnaire.sa,'SA2');assert.equal(questionnaire.details.answers[0].question,'Pregunta real');assert.equal(questionnaire.details.answers[0].answer,'Muy de acuerdo');
