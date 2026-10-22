@@ -117,7 +117,7 @@ export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityD
   }
   const topics = year === 2 ? secondYearTheoryTopics : [...trainingTheoryTopics, flexibilityTheoryTopic].map((topic) => ({ ...topic, sa: "SA1" }));
   const expectedInstruments: ExpectedTeacherInstrument[] = [];
-  const expect = (item: ExpectedTeacherInstrument) => { if (situations.some((sa) => sa.code === item.sa)) expectedInstruments.push(item); };
+  const expect = (item: ExpectedTeacherInstrument) => { if (situations.some((sa) => sa.code === item.sa)) expectedInstruments.push(year === 1 && item.sa !== "SA1" ? { ...item, tracking: "unavailable" } : item); };
   expect({ key: "SA1:plan", sa: "SA1", category: "plans", title: "Plan personal", matchAll: true });
   expect({ key: "SA1:plan-reflection", sa: "SA1", category: "plans", title: "Reflexión final del plan", matchAll: true, completion: "reflection" });
   for (const test of physicalTests) for (const period of ["september", "december"]) {
