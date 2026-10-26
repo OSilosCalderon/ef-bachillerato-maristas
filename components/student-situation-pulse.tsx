@@ -28,7 +28,7 @@ export function StudentSituationPulse({ courseYear, visibleSituations }: { cours
       const requests = [
         supabase.from("theory_topic_progress").select("topic_slug,completed,quiz_score").eq("student_id", studentId),
         supabase.from("personal_training_plans").select("sa_code,status").eq("student_id", studentId),
-        supabase.from("training_session_logs").select("sa_code,status").eq("student_id", studentId),
+        supabase.from(courseYear === 1 ? "first_year_plan_session_logs" : "training_session_logs").select("sa_code,status,session_number").eq("student_id", studentId),
         supabase.from("healthy_habit_plans").select("sa_code,status").eq("student_id", studentId),
         supabase.from("healthy_habit_weekly_logs").select("sa_code").eq("student_id", studentId),
         supabase.from("sports_event_projects").select("sa_code,status").eq("student_id", studentId),
@@ -44,7 +44,7 @@ export function StudentSituationPulse({ courseYear, visibleSituations }: { cours
         const read = topicRows.filter((row) => row.completed).length;
         const tests = topicRows.filter((row) => row.quiz_score !== null).length;
         const planCount = plans.filter((row) => row.sa_code === code).length;
-        const logCount = logs.filter((row) => row.sa_code === code).length;
+        const logCount = new Set(logs.filter((row) => row.sa_code === code && row.status === "completed").map((row) => row.session_number)).size;
         const habits = habitPlans.filter((row) => row.sa_code === code).length + habitLogs.filter((row) => row.sa_code === code).length;
         const projectCount = projects.filter((row) => row.sa_code === code).length;
         const physicalCount = code === "SA1" ? physical.length : 0;
@@ -52,10 +52,11 @@ export function StudentSituationPulse({ courseYear, visibleSituations }: { cours
         const evidence = read + tests + planCount + logCount + habits + projectCount + physicalCount + questionnaireCount;
         const theoryExpected = Math.max(1, topicSlugs.size * 2);
         const practicalExpected = code === "SA1" ? 4 : code === "SA2" ? 3 : code === "SA3" ? 3 : 2;
-        const total = theoryExpected + practicalExpected;
-        const completed = Math.min(total, read + tests + Math.min(practicalExpected, planCount + logCount + habits + projectCount + (physicalCount ? 1 : 0) + questionnaireCount));
+        const planExpected = courseYear === 1 && code === "SA1" ? 8 : 0;
+        const total = theoryExpected + practicalExpected + planExpected;
+        const completed = Math.min(total, read + tests + Math.min(planExpected, logCount) + Math.min(practicalExpected, planCount + (planExpected ? 0 : logCount) + habits + projectCount + (physicalCount ? 1 : 0) + questionnaireCount));
         const highlights = [`${read}/${topicSlugs.size || 1} lecturas`, `${tests}/${topicSlugs.size || 1} autoevaluaciones`];
-        if (code === "SA1") highlights.push(`${physicalCount} marcas · ${questionnaireCount} cuestionarios`);
+        if (code === "SA1") { highlights.push(`${physicalCount} marcas · ${questionnaireCount} cuestionarios`); if (courseYear === 1) highlights.push(`${logCount}/8 sesiones del plan registradas`); }
         else if (code === "SA2") highlights.push(`${logCount} seguimientos`);
         else if (code === "SA3") highlights.push(`${habits} registros de hábitos`);
         else if (code === "SA4") highlights.push(`${projectCount} proyectos`);
@@ -72,4 +73,5 @@ export function StudentSituationPulse({ courseYear, visibleSituations }: { cours
   if (!rows) return <p role="status" className="flex items-center gap-2 text-sm text-slate-500"><Loader2 className="animate-spin" size={17}/>Actualizando tu evolución por situaciones…</p>;
   return <section aria-labelledby="pulse-title"><div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.18em] text-[#0f766e]">Tu evolución, de un vistazo</p><h2 id="pulse-title" className="mt-1 text-2xl font-black">Progreso por situación</h2></div><Link href="/alumno/progreso" className="inline-flex items-center gap-2 text-sm font-black text-[#0f766e]">Ver todo el detalle <ArrowRight size={16}/></Link></div><div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">{rows.map((item) => { const percent = Math.round(item.completed / item.total * 100); return <article key={item.code} className="modern-panel p-5"><div className="flex items-center justify-between"><span className="rounded-full bg-[#dff8ed] px-3 py-1 text-xs font-black text-[#0f766e]">{item.code}</span><strong className="text-2xl font-black">{percent}%</strong></div><div className="progress-track mt-4 h-2.5"><div className="progress-fill" style={{ width: `${percent}%` }}/></div><div className="mt-4 space-y-2">{item.highlights.map((text) => <p key={text} className="flex items-center gap-2 text-xs font-semibold text-slate-600"><CheckCircle2 size={14} className="text-[#0f766e]"/>{text}</p>)}</div><p className="mt-4 text-[11px] leading-5 text-slate-400">{item.evidence} registros conservados. Los pendientes no se cuentan como realizados.</p></article>; })}</div></section>;
 }
+
 

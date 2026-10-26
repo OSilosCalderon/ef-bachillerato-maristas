@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { BarChart3, CalendarDays, CheckCircle2, FileDown, Loader2, MessageSquareText, Plus, Save, Trash2 } from "lucide-react";
 import { CopyPlanTask } from "@/components/copy-plan-task";
@@ -295,7 +296,7 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
       </section>
 
       <section className="card p-6 sm:p-8">
-        <div className="flex items-start gap-3"><CalendarDays className="mt-1 text-[#1e6b4f]"/><div><p className="text-xs font-bold uppercase tracking-[.18em] text-[#1e6b4f]">{courseYear === 1 ? `${classGroup} · 8 sesiones` : "2º Bachillerato · 10 sesiones"}</p><h2 className="mt-2 text-xl font-extrabold">Calendario del plan personal</h2></div></div>
+        <div className="flex items-start gap-3"><CalendarDays className="mt-1 text-[#1e6b4f]"/><div><p className="text-xs font-bold uppercase tracking-[.18em] text-[#1e6b4f]">{courseYear === 1 ? `${classGroup} · 8 sesiones` : "2º Bachillerato · 10 sesiones"}</p><h2 className="mt-2 text-xl font-extrabold">Calendario del plan personal</h2><Link href={courseYear === 1 ? "/alumno/sa1/seguimiento" : "/alumno/2bach/sa2/seguimiento"} className="mt-3 inline-block text-sm font-bold text-[#1e6b4f] underline">Registrar mis sesiones y ver la valoración del profesor</Link></div></div>
         <p className="mt-3 text-sm leading-6 text-slate-600">{courseYear === 1 ? "El trabajo comienza en la última semana de octubre y termina el 23 de noviembre." : `El periodo comienza el ${formatPlanDate(SECOND_YEAR_PLAN_START)}. Al ser festivo, la primera sesión lectiva es el 13 de octubre y la décima termina el 28 de octubre.`} Las tareas que añadas abajo aparecerán automáticamente en la sesión elegida.</p>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{planSessions.map((session, index) => {
           const assigned = form.items.filter((item) => item.sessionDate === session.date);
@@ -442,3 +443,4 @@ function PrintSection({ title, children }: { title: string; children: React.Reac
 function formatPlanDate(value: string) {
   return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long" }).format(new Date(`${value}T12:00:00`));
 }
+

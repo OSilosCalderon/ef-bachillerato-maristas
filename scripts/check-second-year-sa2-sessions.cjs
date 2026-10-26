@@ -15,7 +15,7 @@ assert.equal(SECOND_YEAR_PLAN_SESSIONS[0].date, "2026-10-13");
 assert.equal(SECOND_YEAR_PLAN_SESSIONS[9].date, "2026-10-28");
 
 const tracker = fs.readFileSync("components/second-year-sa2-tracker.tsx", "utf8");
-assert.match(tracker, /SECOND_YEAR_PLAN_SESSIONS\.map\(\(session, index\)/, "La selección debe venir del calendario compartido.");
+assert.match(tracker, /planSessions\.map\(\(session, index\)/, "La selección debe venir del calendario compartido.");
 assert.match(tracker, /session_date: selectedSession\.date/, "La fecha se debe guardar desde la sesión del plan.");
 assert.match(tracker, /Esfuerzo percibido · 1–10/, "El esfuerzo debe usar la escala solicitada.");
 assert.ok(tracker.includes("aria-label={`Esfuerzo ${rating} de 10`}"), "Cada estrella debe ser accesible.");
@@ -36,7 +36,7 @@ assert.ok(/grant select, insert, update .* authenticated/i.test(evaluationMigrat
 assert.ok(evaluationMigration.includes("training_session_evaluations_insert_teacher") && evaluationMigration.includes("public.is_teacher()"), "Solo profesorado puede insertar valoraciones.");
 assert.ok(evaluationMigration.includes("training_session_evaluations_select_own_or_teacher") && evaluationMigration.includes("public.current_student_id()"), "El alumno solo debe leer sus valoraciones propias.");
 assert.ok(teacherActions.includes('requireRole("teacher")'), "Guardar la valoración requiere rol docente.");
-assert.ok(teacherActions.includes("input.sessionNumber > 10"), "La acción limita la valoración al conjunto de diez sesiones.");
+assert.ok(teacherActions.includes("input.sessionNumber > (year === 1 ? 8 : 10)"), "La acción limita la valoración al conjunto de diez sesiones.");
 assert.ok(teacherGrading.includes("saveSecondYearSessionEvaluation"), "La vista docente debe enviar la valoración.");
 assert.ok(teacherDashboard.includes("teacher_score"));
 assert.ok(activityLoader.includes("training_session_grade_results"), "La vista docente carga las valoraciones guardadas.");
@@ -49,8 +49,10 @@ const gradingModule = { exports: {} };
 vm.runInNewContext(
   ts.transpileModule(gradingSource, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText,
   { module: gradingModule, exports: gradingModule.exports, require: (name) => {
-    assert.equal(name, "./second-year-personal-plan-calendar");
-    return calendarModule.exports;
+    if (name === "./second-year-personal-plan-calendar") return calendarModule.exports;
+    const module={exports:{}};
+    vm.runInNewContext(ts.transpileModule(fs.readFileSync("lib/"+name.slice(2)+".ts","utf8"),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{module,exports:module.exports});
+    return module.exports;
   } },
 );
 const { teacherSessionSlots, parseTeacherSessionScore, teacherSessionScore } = gradingModule.exports;
@@ -92,3 +94,4 @@ assert.equal(independent[1].evaluation.score, 0, "Se puede calificar con cero un
 assert.equal(independent[3].evaluation, null, "Las notas de otro alumno no deben mezclarse.");
 assert.equal(independent.filter((slot) => slot.record).length, 2, "Una nota no se cuenta como entrega.");
 console.log("Unregistered sessions: independent grades, zero, peer isolation and honest submission counts passed.");
+

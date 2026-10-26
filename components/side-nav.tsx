@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   CalendarDays, BarChart3, BookOpen, ClipboardCheck, Download, Dumbbell, Eye, FileText, Gauge, GraduationCap, HeartPulse,
   Home, PlusCircle, Settings, Sparkles, User, Users
@@ -43,6 +43,7 @@ const teacherItems: NavItem[] = [
   { label: "Activar situaciones", mobileLabel: "Activar SA", href: "/profesor/situaciones", icon: BookOpen },
   { label: "Agenda de clases", mobileLabel: "Agenda", href: "/profesor/agenda", icon: CalendarDays },
   { label: "Publicar calificaciones", mobileLabel: "Publicar notas", href: "/profesor/calificaciones", icon: GraduationCap },
+  { label: "Calificar sesiones · 1º SA1", mobileLabel: "Calificar 1º", href: "/profesor/calificar-sesiones?curso=1", icon: ClipboardCheck },
   { label: "Calificar sesiones · 2º SA2", mobileLabel: "Calificar", href: "/profesor/calificar-sesiones", icon: ClipboardCheck },
   { label: "Resultados del alumnado", mobileLabel: "Resultados", href: "/profesor", icon: Gauge },
   { label: "Alumnado", href: "/profesor/alumnado", icon: Users },
@@ -65,9 +66,12 @@ const teacherItems: NavItem[] = [
 
 export function SideNav({ role, courseYear = 1, visibleSituations }: { role: "student" | "teacher"; courseYear?: 1 | 2; visibleSituations?: string[] }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const items = (role === "teacher" ? teacherItems : courseYear === 2 ? secondYearItems : firstYearItems).filter((item) => { const sa = item.href.match(/\/sa([1-6])(?:\/|$)/); return role === "teacher" || !sa || !visibleSituations || visibleSituations.includes(`SA${sa[1]}`); });
   const root = role === "student" ? "/alumno" : "/profesor";
-  const isActive = (href: string) => href === root ? pathname === href : pathname.startsWith(href);
+  const isActive = (href: string) => href.startsWith("/profesor/calificar-sesiones")
+    ? pathname === "/profesor/calificar-sesiones" && (searchParams.get("curso") === "1" ? href.includes("curso=1") : !href.includes("curso=1"))
+    : href === root ? pathname === href : pathname.startsWith(href);
   const courseLabel = role === "teacher" ? "EF · Bachillerato" : `EF · ${courseYear}º Bachillerato`;
 
   return (
@@ -113,6 +117,7 @@ export function SideNav({ role, courseYear = 1, visibleSituations }: { role: "st
     </>
   );
 }
+
 
 
 

@@ -47,7 +47,7 @@ export function TeacherStudentChecklist({ student, items, situations, renderReco
             {item.state === "untracked" && <p className="rounded-xl bg-sky-50 p-3 text-sky-900">Esta pantalla todavía no guarda entregas en la plataforma. Aquí no se puede confirmar si el alumno ha realizado la actividad.</p>}
             {!item.records.length && item.state !== "untracked" && <p className="text-slate-500">No hay una respuesta o entrega guardada para esta tarea.</p>}
             {item.evaluation?.comment && <div className="rounded-xl bg-emerald-50 p-3"><p className="text-xs font-bold text-[#164c3a]">Comentario del profesor</p><p className="mt-1 whitespace-pre-wrap break-words">{item.evaluation.comment}</p></div>}
-            {item.sessionNumber && <Link href={`/profesor/calificar-sesiones?alumno=${student.id}#sesion-${item.sessionNumber}`} className="inline-block rounded-lg border border-emerald-300 px-3 py-2 text-xs font-bold text-[#164c3a]">Calificar sesión {item.sessionNumber}</Link>}
+            {item.sessionNumber && <Link href={`/profesor/calificar-sesiones?curso=${item.sa === "SA1" ? 1 : 2}&alumno=${student.id}#sesion-${item.sessionNumber}`} className="inline-block rounded-lg border border-emerald-300 px-3 py-2 text-xs font-bold text-[#164c3a]">Calificar sesión {item.sessionNumber}</Link>}
             {item.records.map((row) => <div key={row.id} className="min-w-0 rounded-xl bg-slate-50 p-3">{renderRecord(row)}</div>)}
           </div>
         </details>)}</div></div>)}</div>
@@ -55,4 +55,5 @@ export function TeacherStudentChecklist({ student, items, situations, renderReco
     })}
   </section>;
 }
+
 

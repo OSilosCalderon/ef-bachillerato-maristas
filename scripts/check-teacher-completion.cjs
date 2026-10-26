@@ -82,6 +82,7 @@ const loader=load('lib/teacher-activity-server.ts',{
   '@/lib/class-groups':{firstYearCalendarGroup:group=>group.startsWith('1ºA')?'1ºA Bachillerato':null},
   '@/lib/training-theory-topics':{trainingTheoryTopics:[{slug:'topic-1',title:'Primer tema'}]},'@/lib/training-theory-flexibility':{flexibilityTheoryTopic:{slug:'flex',title:'Flexibilidad'}},
   '@/lib/second-year-theory-topics':{secondYearTheoryTopics:[{slug:'topic-2',title:'Cargas',sa:'SA2'}]},
+  '@/lib/first-year-personal-plan-calendar':load('lib/first-year-personal-plan-calendar.ts',{}),
   '@/lib/second-year-personal-plan-calendar':{SECOND_YEAR_PLAN_SESSIONS:Array.from({length:10},(_,index)=>({date:`2026-10-${13+index}`}))},
 });
 (async()=>{
@@ -100,6 +101,22 @@ const loader=load('lib/teacher-activity-server.ts',{
   assert.equal(first.activities.length,0,'Empty pupils must not inherit another course\'s activity.');
   assert.ok(first.expectedInstruments.length>0,'An empty pupil must still have a visible list of requested work.');
   assert.ok(first.expectedInstruments.some(item=>item.sa==='SA3'&&item.tracking==='unavailable'));
+  tables.profiles.push({id:'pc',display_name:'Alumno C',class_group:'1ºB Bachillerato'});
+  tables.students.push({id:'c',profile_id:'pc',course_id:'c1',active:true});
+  tables.first_year_plan_session_logs=[{id:'first-log',student_id:'b',sa_code:'SA1',session_number:1,session_date:'2026-10-26',status:'completed',completion_percent:100}];
+  tables.first_year_plan_session_grades=[{student_id:'b',session_number:2,teacher_score:0,teacher_comment:'Ausencia',absent:true,updated_at:'2026-10-26'}];
+  tables.session_journals=[{id:'old-diary',student_id:'b',learning_situation_id:'c1SA1',session_date:'2026-10-26',reflection:'Diario conservado'}];
+  tables.class_sessions=[{id:'calendar-day',class_group:'1ºA Bachillerato',academic_year:'2026/2027',status:'scheduled',session_date:'2026-10-26'}];
+  const updated=await loader.loadTeacherActivity(1);
+  for(const group of ['1ºA Bachillerato','1ºB Bachillerato']) assert.equal(updated.expectedInstruments.filter(item=>item.filters?._kind==='plan-session'&&item.group===group).length,8);
+  assert.ok(!updated.expectedInstruments.some(item=>item.filters?._kind==='class-journal'&&item.filters?.session_date==='2026-10-26'),'Do not request a second diary for the same planned day.');
+  assert.ok(updated.activities.some(row=>row.details.id==='old-diary'),'Existing diary remains accessible.');
+  assert.equal(updated.sessionEvaluations[0].score,0);
+  const firstCompletion=completion.studentCompletion(updated,'b');
+  assert.equal(firstCompletion.filter(item=>item.sessionNumber).length,8);assert.equal(firstCompletion.find(item=>item.sessionNumber===1).state,'completed');
+  assert.equal(firstCompletion.find(item=>item.sessionNumber===2).state,'pending');assert.equal(firstCompletion.find(item=>item.sessionNumber===2).evaluation.absent,true);
+  assert.equal(completion.studentCompletion(updated,'c').filter(item=>item.sessionNumber&&item.state==='completed').length,0);
   console.log('Teacher loader: ten expected sessions, full empty-pupil catalog, final/initial placement, actual response text and course isolation passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
+
 
