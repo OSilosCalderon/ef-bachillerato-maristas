@@ -20,9 +20,18 @@ export function validateGradePublication(input: { studentId: string; itemId: str
   return { studentId: input.studentId, itemId: input.itemId, score: input.score, comment };
 }
 
+export const isRetiredDiaryItem = (item: AssessmentGradeItem) => item.item_key === "sports-journal";
+
+export function displayAssessmentItem(item: AssessmentGradeItem): AssessmentGradeItem {
+  if (isRetiredDiaryItem(item)) return { ...item, title: "Registro anterior · Diario deportivo" };
+  if (item.item_key === "session-follow-up") return { ...item, title: "Seguimiento del plan personal" };
+  return item;
+}
+
 export function gradesForStudent(items: AssessmentGradeItem[], grades: PublishedAssessmentGrade[], studentId: string, courseId: string) {
   const ownGrades = new Map(grades.filter((grade) => grade.student_id === studentId).map((grade) => [grade.item_id, grade]));
-  return items.filter((item) => item.course_id === courseId)
+  // Retired diaries are no longer pending work; keep every existing published grade.
+  return items.filter((item) => item.course_id === courseId && (!isRetiredDiaryItem(item) || ownGrades.has(item.id)))
     .sort((a,b) => a.sa_code.localeCompare(b.sa_code) || a.position-b.position || a.title.localeCompare(b.title,"es"))
-    .map((item) => ({ item, grade: ownGrades.get(item.id) ?? null }));
+    .map((item) => ({ item: displayAssessmentItem(item), grade: ownGrades.get(item.id) ?? null }));
 }

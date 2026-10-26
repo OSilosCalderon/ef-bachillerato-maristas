@@ -1,12 +1,11 @@
 import Link from "next/link";
-import { BookOpen, BrainCircuit, ClipboardCheck, Gauge, NotebookPen, Trophy } from "lucide-react";
+import { BookOpen, BrainCircuit, ClipboardCheck, Gauge, Trophy } from "lucide-react";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { Sa2Layout } from "@/components/sa2-layout";
 
 const sections = [
   { href: "/alumno/sa2/habilidades", title: "Mis habilidades deportivas", description: "Compara tus registros técnicos de enero y marzo.", icon: Trophy },
   { href: "/alumno/sa2/contenidos", title: "Contenidos teóricos", description: "Consulta materiales de reglamento, técnica, táctica y seguridad.", icon: BookOpen },
-  { href: "/alumno/sa2/diario", title: "Diario deportivo", description: "Registra lo trabajado, tu participación y tus reflexiones.", icon: NotebookPen },
   { href: "/alumno/sa2/cuestionarios", title: "Cuestionarios psicológicos", description: "Accede a cuestionarios asignados por el profesorado.", icon: ClipboardCheck },
   { href: "/alumno/sa2/decisiones", title: "Conocimiento y toma de decisiones", description: "Trabaja escenarios deportivos y conocimiento procedimental.", icon: BrainCircuit },
   { href: "/alumno/sa2/progreso", title: "Mi progreso", description: "Revisa de forma global tu participación y evolución en SA2.", icon: Gauge },

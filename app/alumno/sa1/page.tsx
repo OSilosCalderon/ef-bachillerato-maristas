@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Activity, BookOpen, ClipboardList, Gauge, MessageSquareText, ArrowRight, Target } from "lucide-react";
+import { Activity, BookOpen, ClipboardList, Gauge, ArrowRight, Target } from "lucide-react";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { Sa1Layout } from "@/components/sa1-layout";
 
@@ -8,7 +8,6 @@ const sections = [
   { href: "/alumno/sa1/plan", title: "Mi plan personal", text: "Define objetivos, selecciona tareas y organiza ocho sesiones de trabajo.", icon: Target, meta: "26 octubre – 23 noviembre" },
   { href: "/alumno/sa1/contenidos", title: "Contenidos teóricos", text: "Consulta materiales, recursos y documentos publicados.", icon: BookOpen, meta: "Teoría y recursos" },
   { href: "/alumno/sa1/seguimiento", title: "Seguimiento del plan", text: "Registra tus ocho sesiones y consulta las notas y comentarios del profesor.", icon: ClipboardList, meta: "Realización y valoración de cada sesión" },
-  { href: "/alumno/sa1/diario", title: "Diario de sesiones", text: "Reflexiona sobre lo realizado, tus sensaciones y aprendizajes.", icon: MessageSquareText, meta: "Reflexión de cada sesión" },
   { href: "/alumno/sa1/cuestionarios", title: "Cuestionarios", text: "Responde cuestionarios académicos publicados por tu profesor/a.", icon: ClipboardList, meta: "GOES y BPNES · inicial y final" },
   { href: "/alumno/sa1/progreso", title: "Mi progreso", text: "Revisa de forma global tu participación en esta situación.", icon: Gauge, meta: "Tus resultados registrados" },
 ];

@@ -37,7 +37,6 @@ export const recentActivities: Activity[] = [
 ];
 
 export const pendingActivities: Activity[] = [
-  { id: "p1", title: "Diario de sensaciones", situation: "SA1", date: "12 sep", status: "Pendiente" },
   { id: "p2", title: "Análisis técnico individual", situation: "SA2", date: "16 sep", status: "Pendiente" },
 ];
 

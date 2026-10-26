@@ -1,4 +1,4 @@
-import type { AssessmentGradeItem, PublishedAssessmentGrade } from "./gradebook";
+import { displayAssessmentItem, isRetiredDiaryItem, type AssessmentGradeItem, type PublishedAssessmentGrade } from "./gradebook";
 import type { TeacherActivity, TeacherActivityData } from "./teacher-activity";
 import { isPlanSessionLog, teacherSessionScore } from "./teacher-session-grading";
 
@@ -37,7 +37,7 @@ function workedOnBlock(row: TeacherActivity, item: AssessmentGradeItem, year: 1 
     case "final-technical-tests": return row.category === "technical" && row.details.period === "march";
     case "theory-self-assessment": case "theory-block": return ["theory","quizzes","challenges"].includes(row.category);
     case "personal-plan": return row.category === "plans";
-    case "session-follow-up": return isPlanSessionLog(row,year) || (year===1 && row.category==="journals" && row.details._kind==="class-journal");
+    case "session-follow-up": return isPlanSessionLog(row,year);
     case "sports-journal": return row.category === "journals";
     case "questionnaire-completion": return row.category === "questionnaires" && row.details.assessment_phase !== "final";
     case "final-questionnaire-completion": return row.category === "questionnaires" && row.details.assessment_phase === "final";
@@ -60,6 +60,6 @@ export function studentBlockScores(data: Pick<TeacherActivityData, "students" | 
     if (!grades.has(grade.item_id) || grade.published_at > grades.get(grade.item_id)!.published_at) grades.set(grade.item_id, grade);
   }
   const own = data.activities.filter((row) => row.studentId === studentId);
-  return items.slice().sort((a,b) => a.sa_code.localeCompare(b.sa_code) || a.position-b.position || a.title.localeCompare(b.title,"es"))
-    .map((item) => ({item,grade:grades.get(item.id) ?? null,worked:grades.has(item.id) || own.some((row) => workedOnBlock(row,item,year))}));
+  return items.filter((item) => !isRetiredDiaryItem(item) || grades.has(item.id)).sort((a,b) => a.sa_code.localeCompare(b.sa_code) || a.position-b.position || a.title.localeCompare(b.title,"es"))
+    .map((item) => ({item:displayAssessmentItem(item),grade:grades.get(item.id) ?? null,worked:grades.has(item.id) || own.some((row) => workedOnBlock(row,item,year))}));
 }

@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, BookOpen, ClipboardList, Gauge, MessageSquareText, Target } from "lucide-react";
+import { Activity, BookOpen, ClipboardList, Gauge, Target } from "lucide-react";
 
 const items = [
   { href: "/alumno/sa1/evolucion", label: "Mi evolución física", icon: Activity },
   { href: "/alumno/sa1/plan", label: "Mi plan personal", icon: Target },
   { href: "/alumno/sa1/contenidos", label: "Contenidos teóricos", icon: BookOpen },
   { href: "/alumno/sa1/seguimiento", label: "Seguimiento del plan", icon: ClipboardList },
-  { href: "/alumno/sa1/diario", label: "Diario de sesiones", icon: MessageSquareText },
   { href: "/alumno/sa1/cuestionarios", label: "Cuestionarios", icon: ClipboardList },
   { href: "/alumno/sa1/progreso", label: "Mi progreso", icon: Gauge },
 ];
