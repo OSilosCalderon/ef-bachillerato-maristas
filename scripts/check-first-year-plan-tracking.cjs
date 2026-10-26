@@ -1,9 +1,9 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),ts=require('typescript');
 const React=require('react'),{renderToStaticMarkup}=require('react-dom/server');
-function load(file,mocks={}) {
+function load(file,mocks={},browser={scrollTo(){}}) {
  const module={exports:{}};
  const resolve=name=>Object.hasOwn(mocks,name)?mocks[name]:name.startsWith('@/')?load(name.slice(2)+(fs.existsSync(name.slice(2)+'.tsx')?'.tsx':'.ts'),mocks):name.startsWith('.')?load(path.join(path.dirname(file),name)+'.ts',mocks):require(name);
- vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022}}).outputText,{module,exports:module.exports,require:resolve,console,Date,Set,Map,Intl,window:{scrollTo(){}}});
+ vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022}}).outputText,{module,exports:module.exports,require:resolve,console,Date,Set,Map,Intl,window:browser});
  return module.exports;
 }
 const helper=load('lib/teacher-session-grading.ts');
@@ -22,6 +22,34 @@ const slots=helper.teacherSessionSlots(records,'a',[],1,'1ºA');assert.equal(slo
 const completion=load('lib/teacher-completion.ts');
 const result=completion.studentCompletion({students:[{id:'a',group:'1ºA'}],activities:[],expectedInstruments:[{sa:'SA1',category:'journals',title:'Sesión 1',filters:{_kind:'plan-session',session_number:1}}],sessionEvaluations:[{studentId:'a',number:1,score:0,absent:true}]},'a');
 assert.equal(result[0].state,'pending');assert.equal(result[0].evaluation.score,0);assert.equal(completion.completionTotals(result).completed,0);
+
+// Switching classes must also switch the actual grading target and keep saved evaluations separate.
+{
+ let state=[],cursor=0,url='',refreshUrl='';
+ const browser={history:{replaceState(_a,_b,value){url=value;}},location:{assign(value){refreshUrl=value;}}};
+ const hooks={useState(initial){const i=cursor++;if(!(i in state))state[i]=typeof initial==='function'?initial():initial;return [state[i],value=>{state[i]=typeof value==='function'?value(state[i]):value;}];}};
+ const jsx={jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props}),Fragment:'fragment'};
+ const ui=load('components/teacher-session-grading.tsx',{'react':hooks,'react/jsx-runtime':jsx,'@/app/profesor/actions':{}},browser);
+ const data={students:[{id:'a',name:'Alumno A',group:'1ºA'},{id:'b',name:'Alumno B',group:'1ºB Bachillerato'}],activities:[],sessionEvaluations:[{studentId:'a',number:1,score:8,comment:'Comentario A'},{studentId:'b',number:1,score:5,comment:'Comentario B'}]};
+ const original=JSON.stringify(data);
+ const nodes=n=>Array.isArray(n)?n.flatMap(nodes):n&&typeof n==='object'?[n,...nodes(n.props?.children)]:[];
+ const render=(extra={})=>{cursor=0;return nodes(ui.TeacherSessionGrading({data,courseYear:1,initialGroup:'1ºA',initialStudentId:'b',...extra}));};
+ const select=(tree,label)=>tree.find(n=>n.type==='select'&&n.props['aria-label']===label);
+ let tree=render();assert.equal(select(tree,'Alumno para calificar').props.value,'a','A link to another group must not leave that pupil selected.');
+ const oldForm=tree.find(n=>n.props?.sessionNumber===1&&typeof n.props.onSaved==='function');
+ select(tree,'Grupo para calificar').props.onChange({target:{value:'1ºB Bachillerato'}});tree=render();
+ assert.equal(select(tree,'Alumno para calificar').props.value,'b');
+ const choices=nodes(select(tree,'Alumno para calificar')).filter(n=>n.type==='option');assert.equal(choices.length,1);assert.equal(choices[0].props.value,'b');
+ const firstB=tree.find(n=>n.props?.sessionNumber===1&&typeof n.props.onSaved==='function');assert.equal(firstB.props.studentId,'b');assert.equal(firstB.props.initialScore,5);assert.equal(firstB.props.initialComment,'Comentario B');
+ oldForm.props.onSaved({score:8.5,comment:'Guardado A',absent:false,updatedAt:'2026-10-26'});tree=render();
+ assert.equal(tree.find(n=>n.props?.sessionNumber===1&&typeof n.props.onSaved==='function').props.initialScore,5,'A delayed save from A must not change B.');
+ tree.find(n=>n.type==='button'&&n.props.children==='Actualizar sesiones').props.onClick();assert.equal(new URL(refreshUrl,'https://school.test').searchParams.get('grupo'),'1ºB Bachillerato');assert.equal(new URL(url,'https://school.test').searchParams.get('alumno'),'b');
+ select(tree,'Grupo para calificar').props.onChange({target:{value:'1ºA Bachillerato'}});tree=render();assert.equal(tree.find(n=>n.props?.sessionNumber===1&&typeof n.props.onSaved==='function').props.initialScore,8.5,'Switching back keeps the confirmed mark.');
+ assert.equal(JSON.stringify(data),original,'Filtering must not mutate any pupil records.');
+ state=[];tree=render({data:{...data,students:[data.students[0]]},initialGroup:'1ºB'});assert.equal(select(tree,'Alumno para calificar').props.disabled,true);assert.equal(tree.filter(n=>typeof n.props?.onSaved==='function').length,0,'An empty class must not show forms for another class.');
+ state=[];tree=render({courseYear:2});assert.equal(select(tree,'Grupo para calificar'),undefined,'Second-year grading is unchanged.');
+ console.log('First-year grading filter: A/B isolation, actual grading target, retained marks, empty class and refresh URL passed.');
+}
 
 // Exercise the actual pupil load/save handlers with deterministic hook state, for both calendars.
 async function pupilFlow(group,year=1) {

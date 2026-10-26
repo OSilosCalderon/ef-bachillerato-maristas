@@ -37,7 +37,7 @@ const actions = load('app/profesor/actions.ts',{
   '@/lib/auth/guards':{requireRole:async role=>{assert.equal(role,'teacher');if(!allowed)throw new Error('Teacher required');return {id:teacherId};}},
   '@/lib/supabase/server':{createClient:async()=>supabase},
 });
-const ui=load('components/teacher-session-grading.tsx',{'@/app/profesor/actions':actions,'@/lib/teacher-session-grading':helpers});
+const ui=load('components/teacher-session-grading.tsx',{'@/app/profesor/actions':actions,'@/lib/teacher-session-grading':helpers,'@/lib/class-groups':load('lib/class-groups.ts',{})});
 const data={students:[{id:studentId,name:'Alumno de prueba',group:'2º'}],activities:[],sessionEvaluations:[{studentId,number:3,score:0,absent:true,comment:'Seguimiento pendiente',updatedAt:'2026-10-19'}]};
 const html=renderToStaticMarkup(React.createElement(ui.TeacherSessionGrading,{data}));
 assert.equal((html.match(/aria-label="Calificar sesión \d+"/g)||[]).length,10,'All ten empty slots must have a grade form.');
