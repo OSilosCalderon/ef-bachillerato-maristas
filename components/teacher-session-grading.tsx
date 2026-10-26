@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { saveFirstYearSessionEvaluation, saveSecondYearSessionEvaluation } from "@/app/profesor/actions";
 import { isPlanSessionLog, parseTeacherSessionScore, teacherSessionScore, teacherSessionSlots } from "@/lib/teacher-session-grading";
 import type { TeacherActivityData } from "@/lib/teacher-activity";
+import { FIRST_YEAR_CALENDAR_GROUPS, firstYearCalendarGroup } from "@/lib/class-groups";
 
 type SavedEvaluation = { absent: boolean; score: number; comment: string; updatedAt: string };
 
@@ -66,34 +67,56 @@ export function TeacherSessionEvaluationForm({ studentId, sessionNumber, initial
 const dateLabel = (value: string) => new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long" }).format(new Date(`${value}T12:00:00`));
 const scoreLabel = (value: number) => new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1 }).format(value);
 
-export function TeacherSessionGrading({ data, initialStudentId, courseYear = 2 }: {
-  data: Pick<TeacherActivityData, "students" | "activities" | "sessionEvaluations">; initialStudentId?: string; courseYear?: 1 | 2;
+export function TeacherSessionGrading({ data, initialStudentId, initialGroup, courseYear = 2 }: {
+  data: Pick<TeacherActivityData, "students" | "activities" | "sessionEvaluations">; initialStudentId?: string; initialGroup?: string; courseYear?: 1 | 2;
 }) {
   const logs = data.activities.filter((row) => isPlanSessionLog(row, courseYear));
-  const [studentId, setStudentId] = useState(() => data.students.find((student) => student.id === initialStudentId)?.id ?? data.students.find((student) => logs.some((row) => row.studentId === student.id))?.id ?? data.students[0]?.id ?? "");
+  const [group, setGroup] = useState(() => courseYear === 1 ? firstYearCalendarGroup(initialGroup) ?? "" : "");
+  const students = data.students.filter((student) => !group || firstYearCalendarGroup(student.group) === group);
+  const [studentId, setStudentId] = useState(() => students.find((student) => student.id === initialStudentId)?.id ?? students.find((student) => logs.some((row) => row.studentId === student.id))?.id ?? students[0]?.id ?? "");
   const [saved, setSaved] = useState<Record<string, SavedEvaluation>>({});
-  const student = data.students.find((entry) => entry.id === studentId);
-  const slots = teacherSessionSlots(logs, studentId, data.sessionEvaluations, courseYear, student?.group);
+  const student = students.find((entry) => entry.id === studentId) ?? students[0];
+  const activeStudentId = student?.id ?? "";
+  const slots = teacherSessionSlots(logs, activeStudentId, data.sessionEvaluations, courseYear, student?.group);
+  const gradingUrl = (selectedGroup: string, selectedId: string) => `/profesor/calificar-sesiones?curso=${courseYear}${selectedGroup ? `&grupo=${encodeURIComponent(selectedGroup)}` : ""}${selectedId ? `&alumno=${encodeURIComponent(selectedId)}` : ""}`;
+  function changeGroup(value: string) {
+    const nextGroup = firstYearCalendarGroup(value) ?? "";
+    const filtered = data.students.filter((entry) => !nextGroup || firstYearCalendarGroup(entry.group) === nextGroup);
+    const nextStudentId = filtered.some((entry) => entry.id === activeStudentId) ? activeStudentId : filtered[0]?.id ?? "";
+    setGroup(nextGroup);
+    setStudentId(nextStudentId);
+    window.history.replaceState(null, "", gradingUrl(nextGroup, nextStudentId));
+  }
   const sa = courseYear === 1 ? "SA1" : "SA2";
   const count = courseYear === 1 ? 8 : 10;
-  const scoreFor = (slot: (typeof slots)[number]) => saved[`${studentId}:${slot.number}`]?.score ?? slot.evaluation?.score ?? teacherSessionScore(slot.record?.details.teacher_score);
-  const absentFor = (slot: (typeof slots)[number]) => saved[`${studentId}:${slot.number}`]?.absent ?? slot.evaluation?.absent ?? (slot.record?.details.teacher_absent === true);
+  const scoreFor = (slot: (typeof slots)[number]) => saved[`${activeStudentId}:${slot.number}`]?.score ?? slot.evaluation?.score ?? teacherSessionScore(slot.record?.details.teacher_score);
+  const absentFor = (slot: (typeof slots)[number]) => saved[`${activeStudentId}:${slot.number}`]?.absent ?? slot.evaluation?.absent ?? (slot.record?.details.teacher_absent === true);
   const absences = slots.filter(absentFor).length;
   const registered = slots.filter((slot) => slot.record).length;
   const graded = slots.filter((slot) => scoreFor(slot) !== null).length;
 
   return <section id={`calificaciones-${sa.toLowerCase()}`} aria-label={`Calificaciones de las ${count} sesiones`} className="space-y-5">
     <div className="card p-5 sm:p-7">
-      <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-extrabold">Calificar seguimiento · {sa} de {courseYear}º Bachillerato</h2><p className="mt-2 text-sm text-slate-600">Selecciona un alumno y califica cualquiera de las {count} sesiones, aunque todavía no haya registrado su seguimiento.</p></div><button type="button" onClick={() => window.location.assign(`/profesor/calificar-sesiones?curso=${courseYear}&alumno=${encodeURIComponent(studentId)}`)} className="rounded-xl border px-4 py-2 text-sm font-bold">Actualizar sesiones</button></div>
-      <label className="mt-5 block max-w-xl text-sm font-bold">Alumno para calificar
-        <select value={studentId} onChange={(event) => setStudentId(event.target.value)} className="mt-2 w-full rounded-xl border border-emerald-600 bg-emerald-50 p-3">
-          {data.students.map((entry) => <option key={entry.id} value={entry.id}>{entry.name} · {entry.group}</option>)}
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-extrabold">Calificar seguimiento · {sa} de {courseYear}º Bachillerato</h2><p className="mt-2 text-sm text-slate-600">Selecciona un alumno y califica cualquiera de las {count} sesiones, aunque todavía no haya registrado su seguimiento.</p></div><button type="button" onClick={() => window.location.assign(gradingUrl(group, activeStudentId))} className="rounded-xl border px-4 py-2 text-sm font-bold">Actualizar sesiones</button></div>
+      <div className={`mt-5 grid gap-4 ${courseYear === 1 ? "md:grid-cols-2" : "max-w-xl"}`}>
+      {courseYear === 1 && <label className="block text-sm font-bold">Grupo para calificar
+        <select aria-label="Grupo para calificar" value={group} onChange={(event) => changeGroup(event.target.value)} className="mt-2 w-full rounded-xl border border-emerald-600 bg-emerald-50 p-3">
+          <option value="">Todos los grupos de 1º</option>
+          {FIRST_YEAR_CALENDAR_GROUPS.map((entry) => <option key={entry} value={entry}>{entry}</option>)}
+        </select>
+      </label>}
+      <label className="block text-sm font-bold">Alumno para calificar
+        <select aria-label="Alumno para calificar" value={activeStudentId} disabled={!students.length} onChange={(event) => {setStudentId(event.target.value); window.history.replaceState(null, "", gradingUrl(group, event.target.value));}} className="mt-2 w-full rounded-xl border border-emerald-600 bg-emerald-50 p-3 disabled:opacity-50">
+          {!students.length && <option value="">Sin alumnado en este grupo</option>}
+          {students.map((entry) => <option key={entry.id} value={entry.id}>{entry.name} · {entry.group}</option>)}
         </select>
       </label>
+      </div>
+      {courseYear === 1 && <p role="status" className="mt-3 text-sm font-semibold text-[#164c3a]">{group || "Todos los grupos de 1º"} · {students.length} alumnos/as</p>}
       <div className="mt-4 flex flex-wrap gap-2 text-sm"><span className="rounded-full bg-slate-100 px-3 py-1.5 font-semibold">{registered}/{count} sesiones registradas</span><span className="rounded-full bg-emerald-100 px-3 py-1.5 font-semibold text-emerald-800">{graded}/{count} calificadas</span><span className="rounded-full bg-amber-100 px-3 py-1.5 font-semibold text-amber-900">{count - graded} pendientes de calificar</span><span className="rounded-full bg-rose-100 px-3 py-1.5 font-semibold text-rose-800">{absences} ausencias registradas</span></div>
       <p className="mt-3 text-xs text-slate-500">La calificación no cuenta como seguimiento entregado. Cada alumno ve su nota y comentario en {sa} → Seguimiento y en Mis calificaciones.</p>
     </div>
-    {!student ? <p className="card p-5">No hay alumnado activo de {courseYear}º de Bachillerato.</p> : !slots.length ? <p role="alert" className="card p-5">Este alumno necesita tener asignado el grupo 1ºA o 1ºB para mostrar su calendario.</p> : <div className="grid gap-4 xl:grid-cols-2">{slots.map((slot) => {
+    {!student ? <p className="card p-5">No hay alumnado activo {group ? `en ${group}` : `de ${courseYear}º de Bachillerato`}.</p> : !slots.length ? <p role="alert" className="card p-5">Este alumno necesita tener asignado el grupo 1ºA o 1ºB para mostrar su calendario.</p> : <div className="grid gap-4 xl:grid-cols-2">{slots.map((slot) => {
       const { number, planned, record } = slot;
       const key = `${student.id}:${number}`;
       const evaluation = saved[key] ?? slot.evaluation;
