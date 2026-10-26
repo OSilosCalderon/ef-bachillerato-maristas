@@ -47,10 +47,11 @@ export async function loadStudentGradebook() {
   ]);
   if (itemsResult.error || gradesResult.error || courseResult.error || !courseResult.data || situationsResult.error) throw new Error("No se han podido cargar tus calificaciones. Actualiza la página e inténtalo de nuevo.");
   const sessionGrades:{number:number;score:number;comment:string;date:string;absent:boolean}[]=[];
-  if (courseResult.data.bachillerato_year===2) {
-    const evaluations=await supabase.from("training_session_grade_results").select("session_number,teacher_score,teacher_comment,updated_at,absent").eq("student_id",student.id).order("session_number");
+  if ([1,2].includes(Number(courseResult.data.bachillerato_year))) {
+    const evaluations=await supabase.from(courseResult.data.bachillerato_year===1 ? "first_year_plan_session_grades" : "training_session_grade_results").select("session_number,teacher_score,teacher_comment,updated_at,absent").eq("student_id",student.id).order("session_number");
     if (evaluations.error) throw new Error("No se han podido cargar las valoraciones de tus sesiones.");
     for (const evaluation of evaluations.data ?? []) sessionGrades.push({number:Number(evaluation.session_number),score:Number(evaluation.teacher_score),comment:String(evaluation.teacher_comment),date:String(evaluation.updated_at),absent:evaluation.absent===true});
   }
   return {studentId:String(student.id),courseId:String(student.course_id),year:Number(courseResult.data.bachillerato_year),items:(itemsResult.data ?? []) as AssessmentGradeItem[],grades:(gradesResult.data ?? []).map((row) => ({...row,score:Number(row.score)})) as PublishedAssessmentGrade[],situations:situationsResult.data ?? [],sessionGrades:sessionGrades.sort((a,b) => a.number-b.number)};
 }
+

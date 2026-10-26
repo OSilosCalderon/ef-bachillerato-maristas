@@ -11,7 +11,7 @@ export async function refreshTeacherActivity(year: 1 | 2) {
 }
 
 
-export async function saveSecondYearSessionEvaluation(input: {
+async function saveSessionEvaluation(year: 1 | 2, input: {
   studentId: string;
   sessionNumber: number;
   score: number;
@@ -32,8 +32,8 @@ export async function saveSecondYearSessionEvaluation(input: {
   if (typeof input.studentId !== "string" || !/^[0-9a-f-]{36}$/i.test(input.studentId)) {
     throw new Error("Selecciona un alumno válido.");
   }
-  if (!Number.isInteger(input.sessionNumber) || input.sessionNumber < 1 || input.sessionNumber > 10) {
-    throw new Error("Selecciona una de las diez sesiones del plan.");
+  if (!Number.isInteger(input.sessionNumber) || input.sessionNumber < 1 || input.sessionNumber > (year === 1 ? 8 : 10)) {
+    throw new Error(`Selecciona una de las ${year === 1 ? "ocho" : "diez"} sesiones del plan.`);
   }
   const { data: student, error: studentError } = await supabase
     .from("students").select("id,course_id")
@@ -43,12 +43,12 @@ export async function saveSecondYearSessionEvaluation(input: {
   const { data: course, error: courseError } = await supabase
     .from("courses").select("bachillerato_year")
     .eq("id", student.course_id).eq("is_active", true).maybeSingle();
-  if (courseError || course?.bachillerato_year !== 2) {
-    throw new Error("Estas valoraciones solo están disponibles para SA2 de 2º de Bachillerato.");
+  if (courseError || course?.bachillerato_year !== year) {
+    throw new Error(`Estas valoraciones solo están disponibles para ${year === 1 ? "SA1 de 1º" : "SA2 de 2º"} de Bachillerato.`);
   }
   const updatedAt = new Date().toISOString();
   const { data: saved, error: saveError } = await supabase
-    .from("training_session_grades")
+    .from(year === 1 ? "first_year_plan_session_grades" : "training_session_grades")
     .upsert({
       student_id: student.id,
       session_number: input.sessionNumber,
@@ -65,3 +65,12 @@ export async function saveSecondYearSessionEvaluation(input: {
   return { absent: saved.absent === true, score: Number(saved.teacher_score), comment: String(saved.teacher_comment), updatedAt: String(saved.updated_at) };
 }
 
+
+
+export async function saveSecondYearSessionEvaluation(input: { studentId: string; sessionNumber: number; score: number; comment: string; absent?: boolean }) {
+  return saveSessionEvaluation(2, input);
+}
+
+export async function saveFirstYearSessionEvaluation(input: { studentId: string; sessionNumber: number; score: number; comment: string; absent?: boolean }) {
+  return saveSessionEvaluation(1, input);
+}

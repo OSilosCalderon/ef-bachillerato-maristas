@@ -60,9 +60,10 @@ const button = tree => tree.find(node => node.type === 'button' && node.props.ch
   select(tree,'Curso de los resultados').props.onChange({target:{value:'1'}});await Promise.all(tasks);tasks=[];
   assert.equal(destination,'/profesor?curso=1');
   state = []; tree = render('SA2');
-  assert.ok(tree.some(node => node.type === 'a' && node.props.href === '/profesor/calificar-sesiones'), 'SA2 debe ofrecer un acceso visible a las calificaciones.');
+  assert.ok(tree.some(node => node.type === 'a' && node.props.href === '/profesor/calificar-sesiones?curso=2'), 'SA2 debe ofrecer un acceso visible a las calificaciones.');
   state = []; tree = render('SA1');
-  assert.ok(!tree.some(node => node.type === 'a' && node.props.href === '/profesor/calificar-sesiones'), 'Las calificaciones de 2º SA2 no deben mostrarse en SA1.');
+  assert.ok(!tree.some(node => node.type === 'a' && node.props.href === '/profesor/calificar-sesiones?curso=2'), 'Las calificaciones de 2º SA2 no deben mostrarse en SA1.');
   console.log('Teacher refresh: fresh records, preserved filters, failure recovery and second-year SA navigation passed.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
+
 

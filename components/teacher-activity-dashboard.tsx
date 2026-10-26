@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { TeacherStudentChecklist } from "@/components/teacher-student-checklist";
 import { studentCompletion, completionTotals } from "@/lib/teacher-completion";
+import { isPlanSessionLog, teacherSessionSlots } from "@/lib/teacher-session-grading";
 import { TeacherSessionEvaluationForm } from "@/components/teacher-session-grading";
 import { useRouter } from "next/navigation";
 import { FileDown } from "lucide-react";
@@ -103,24 +104,14 @@ function exportStudentResultsPdf(
     sa: instrument.sa, title: instrument.title, completed: instrument.state === "completed",
   }));
   if (!expectedCatalog?.length) for (const row of personalRows) instruments.push({sa:row.sa,title:row.title,completed:isEvaluationInstrumentAchieved(row)});
-  const sessionLogs = year === 2
-    ? personalRows.filter((row) => row.category === "journals" && row.sa === "SA2" && Number.isInteger(Number(row.details.session_number)) && Number(row.details.session_number) >= 1 && Number(row.details.session_number) <= 10)
-    : [];
-  const sessionsByNumber = new Map(sessionLogs.map((row) => [Number(row.details.session_number), row]));
-  const sessions = year === 2 ? Array.from({ length: 10 }, (_, index) => {
-    const sessionNumber = index + 1;
-    const row = sessionsByNumber.get(sessionNumber);
+  const planSa = year === 1 ? "SA1" : "SA2";
+  const sessions = teacherSessionSlots(personalRows, student.id, [], year, student.group).map(({number,planned,record:row}) => {
     const numeric = (value: unknown) => value === null || value === undefined || value === "" || !Number.isFinite(Number(value)) ? null : Number(value);
-    return {
-      sessionNumber,
-      date: typeof row?.details.session_date === "string" ? row.details.session_date : "",
-      durationMinutes: numeric(row?.details.duration_minutes),
-      rpe: numeric(row?.details.rpe),
-      completionPercent: numeric(row?.details.completion_percent),
-      recorded: Boolean(row && (row.status === "completed" || row.status === "submitted")),
-    };
-  }) : [];
-  if (!expectedCatalog?.some((item) => item.sa === "SA2" && item.category === "journals" && item.filters?.session_number)) for (const session of sessions) instruments.push({ sa: "SA2", title: "Sesión " + session.sessionNumber + " · valoración", completed: session.recorded });
+    return {sessionNumber:number,date:typeof row?.details.session_date === "string" ? row.details.session_date : planned.date,
+      durationMinutes:numeric(row?.details.duration_minutes),rpe:numeric(row?.details.rpe),completionPercent:numeric(row?.details.completion_percent),
+      recorded:Boolean(row && (row.status === "completed" || row.status === "submitted"))};
+  });
+  if (!expectedCatalog?.some((item) => item.sa === planSa && item.category === "journals" && item.filters?.session_number)) for (const session of sessions) instruments.push({sa:planSa,title:"Sesión " + session.sessionNumber + " · valoración",completed:session.recorded});
   const radar = ["Fuerza", "Resistencia", "Velocidad", "Flexibilidad / movilidad", "Otras pruebas"].flatMap((capacity) => {
     const capacityTests = tests.filter((test) => physicalCapacity(test.name) === capacity);
     const periodIndex = (period: "september" | "december") => capacityTests.flatMap((test) => {
@@ -156,7 +147,7 @@ function exportStudentResultsPdf(
       { label: "INFORME", value: "Resultados y seguimiento" },
     ],
     sections: [],
-    resultsReport: {
+    resultsReport: { sessionSa: planSa,
       situations: situations.map((situation) => ({ code: situation.code, title: situation.title })),
       instruments,
       sessions,
@@ -213,7 +204,7 @@ export function TeacherActivityDashboard({ data: initialData, year, initialSitua
   function chooseStudent(id: string) { setStudentId(id); setView("individual"); setSa(""); }
 
   function renderRecord(row: TeacherActivity) {
-    return <><p className="mb-3 text-xs text-slate-500">Última actualización: {row.date ? new Date(row.date).toLocaleDateString("es-ES") : "Sin fecha"}{row.status ? ` · ${statuses[row.status] ?? row.status}` : ""}</p>{row.category === "plans" && selected && <button type="button" onClick={() => exportStudentPlan(row, selected, year)} className="mb-4 inline-flex items-center gap-2 rounded-xl bg-[#1e6b4f] px-4 py-2.5 text-sm font-bold text-white"><FileDown size={16}/>Descargar plan en PDF</button>}<DetailValue value={row.details}/>{year === 2 && row.category === "journals" && row.sa === "SA2" && Number(row.details.session_number) >= 1 && Number(row.details.session_number) <= 10 && <TeacherSessionEvaluationForm key={`${row.id}-${row.details.teacher_evaluated_at ?? ""}`} studentId={row.studentId} sessionNumber={Number(row.details.session_number)} initialScore={row.details.teacher_score == null ? null : Number(row.details.teacher_score)} initialComment={String(row.details.teacher_comment ?? "")} initialAbsent={row.details.teacher_absent === true}/>}</>;
+    return <><p className="mb-3 text-xs text-slate-500">Última actualización: {row.date ? new Date(row.date).toLocaleDateString("es-ES") : "Sin fecha"}{row.status ? ` · ${statuses[row.status] ?? row.status}` : ""}</p>{row.category === "plans" && selected && <button type="button" onClick={() => exportStudentPlan(row, selected, year)} className="mb-4 inline-flex items-center gap-2 rounded-xl bg-[#1e6b4f] px-4 py-2.5 text-sm font-bold text-white"><FileDown size={16}/>Descargar plan en PDF</button>}<DetailValue value={row.details}/>{isPlanSessionLog(row, year) && <TeacherSessionEvaluationForm courseYear={year} key={`${row.id}-${row.details.teacher_evaluated_at ?? ""}`} studentId={row.studentId} sessionNumber={Number(row.details.session_number)} initialScore={row.details.teacher_score == null ? null : Number(row.details.teacher_score)} initialComment={String(row.details.teacher_comment ?? "")} initialAbsent={row.details.teacher_absent === true}/>}</>;
   }
 
   const physicalRadar = ["Fuerza", "Resistencia", "Velocidad", "Flexibilidad / movilidad", "Otras pruebas"].flatMap((capacity) => {
@@ -261,7 +252,7 @@ export function TeacherActivityDashboard({ data: initialData, year, initialSitua
           </article>;
         })}</div>
       </section>}
-      {year === 2 && (!sa || sa === "SA2") && <section className="card flex flex-wrap items-center justify-between gap-3 border-emerald-200 bg-emerald-50 p-5"><div><h2 className="font-extrabold text-[#164c3a]">Calificar las diez sesiones · SA2</h2><p className="mt-1 text-sm text-slate-600">Nota, comentario y ausencia, incluso sin seguimiento registrado.</p></div><Link href={`/profesor/calificar-sesiones${view === "individual" && selected ? `?alumno=${selected.id}` : ""}`} className="rounded-xl bg-[#1e6b4f] px-4 py-2.5 text-sm font-bold text-white">Abrir calificaciones de las sesiones</Link></section>}
+      {(!sa || sa === (year === 1 ? "SA1" : "SA2")) && <section className="card flex flex-wrap items-center justify-between gap-3 border-emerald-200 bg-emerald-50 p-5"><div><h2 className="font-extrabold text-[#164c3a]">Calificar las {year === 1 ? "ocho" : "diez"} sesiones · {year === 1 ? "SA1" : "SA2"}</h2><p className="mt-1 text-sm text-slate-600">Nota, comentario y ausencia, incluso sin seguimiento registrado.</p></div><Link href={`/profesor/calificar-sesiones?curso=${year}${view === "individual" && selected ? `&alumno=${selected.id}` : ""}`} className="rounded-xl bg-[#1e6b4f] px-4 py-2.5 text-sm font-bold text-white">Abrir calificaciones de las sesiones</Link></section>}
       {(!sa || sa === "SA1" || sa === "SA2") && <details className="card space-y-5 p-5 sm:p-7"><summary className="cursor-pointer text-lg font-extrabold">Evolución física · gráfica y marcas</summary><h2 className="text-xl font-extrabold">Evolución física por capacidades</h2><p className="text-sm text-slate-500">La red compara septiembre y diciembre con el promedio del grupo, situado en el 100 %. Debajo se conservan todas las marcas, unidades, tamaños de muestra y cambios emparejados.</p>{physicalRadar.length >= 3 && <PhysicalRadarChart data={physicalRadar} title={view === "individual" ? `Perfil físico de ${selected!.name}` : "Evolución del grupo por capacidades"}/>} {["Fuerza", "Resistencia", "Velocidad", "Flexibilidad / movilidad", "Otras pruebas"].map((capacity) => {
         const tests = data.physicalTests.filter((test) => physicalCapacity(test.name) === capacity && physicalRows.some((row) => row.category === "physical" && row.details.physical_test_id === test.id));
         return tests.length ? <div key={capacity}><h3 className="mb-3 font-extrabold text-[#1e6b4f]">{capacity}</h3><div className="grid gap-4 md:grid-cols-2">{tests.map((test) => {
@@ -278,4 +269,5 @@ export function TeacherActivityDashboard({ data: initialData, year, initialSitua
     </>}
   </div>;
 }
+
 

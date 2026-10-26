@@ -34,7 +34,7 @@ export function studentCompletion(data: Pick<TeacherActivityData, "students" | "
     const own = records.filter((row) => matches(row, item)).sort((a, b) => b.date.localeCompare(a.date));
     own.forEach((row) => used.add(row.id));
     const states = own.map((row) => completionOf(row, item.completion));
-    const number = item.sa === "SA2" && item.category === "journals" ? Number(item.filters?.session_number) : NaN;
+    const number = (item.sa === "SA2" || item.filters?._kind === "plan-session") && item.category === "journals" ? Number(item.filters?.session_number) : NaN;
     const evaluation = Number.isInteger(number) ? data.sessionEvaluations?.find((row) => row.studentId === studentId && row.number === number) : undefined;
     return { key: item.key ?? evaluationInstrumentKey(item), sa: item.sa, category: item.category, title: item.title, state: item.tracking === "unavailable" && !own.length ? "untracked" : states.includes("completed") ? "completed" : states.includes("in_progress") ? "in_progress" : "pending", records: own, requested: true, evaluation, sessionNumber: Number.isInteger(number) ? number : undefined };
   });
@@ -53,4 +53,5 @@ export function completionTotals(items: CompletionItem[]) {
   const inProgress = tracked.filter((item) => item.state === "in_progress").length;
   return { total: tracked.length, completed, inProgress, pending: tracked.length - completed - inProgress, percent: tracked.length ? Math.round(completed / tracked.length * 100) : 0, untracked: items.filter((item) => item.state === "untracked").length };
 }
+
 

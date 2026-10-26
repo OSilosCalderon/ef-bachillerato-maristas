@@ -5,6 +5,7 @@ import { firstYearCalendarGroup } from "@/lib/class-groups";
 import { trainingTheoryTopics } from "@/lib/training-theory-topics";
 import { flexibilityTheoryTopic } from "@/lib/training-theory-flexibility";
 import { secondYearTheoryTopics } from "@/lib/second-year-theory-topics";
+import { FIRST_YEAR_PLAN_SESSIONS } from "@/lib/first-year-personal-plan-calendar";
 import { SECOND_YEAR_PLAN_SESSIONS } from "@/lib/second-year-personal-plan-calendar";
 import type { ExpectedTeacherInstrument, ActivityCategory, TeacherActivity, TeacherActivityData } from "@/lib/teacher-activity";
 
@@ -52,6 +53,7 @@ export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityD
   const ids = students.map((student) => student.id);
   const optionalTables = new Set(["personal_training_plans", "training_session_logs", "theory_topic_progress", "healthy_habit_plans", "healthy_habit_weekly_logs", "sports_event_projects"]);
   const tableNames = ["personal_training_plans", "session_journals", "sports_journals", "training_session_logs", "physical_test_results", "technical_test_results", "questionnaire_attempts", "procedural_attempts", "theory_topic_progress", "theory_challenge_responses", "content_reads", "healthy_habit_plans", "healthy_habit_weekly_logs", "sports_event_projects"];
+  if (year === 1) tableNames.push("first_year_plan_session_logs");
   const loaded = await Promise.all(tableNames.map((table) => rows(table, { key: "student_id", values: ids }, optionalTables.has(table))));
   const table = Object.fromEntries(tableNames.map((name, index) => [name, loaded[index]]));
   const [questionnaireResponses, questionnaireQuestions, proceduralResponses, proceduralQuestions] = await Promise.all([
@@ -73,9 +75,9 @@ export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityD
   });
 
   const evaluationRows: Row[] = [];
-  if (year === 2 && ids.length) for (let start = 0; ; start += 1000) {
+  if (ids.length) for (let start = 0; ; start += 1000) {
     const { data, error: evaluationError } = await supabase
-      .from("training_session_grade_results")
+      .from(year === 1 ? "first_year_plan_session_grades" : "training_session_grade_results")
       .select("student_id,session_number,teacher_score,teacher_comment,updated_at,absent")
       .in("student_id", ids)
       .order("student_id").order("session_number").range(start, start + 999);
@@ -92,11 +94,11 @@ export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityD
     activities.push({ id: `${category}-${str(row.id)}`, studentId: str(row.student_id), category, sa, title, date: str(row.updated_at || row.read_at || row.submitted_at || row.recorded_at || row.created_at), status: str(row.status), score, scoreLabel, details: row });
   }
   for (const row of table.personal_training_plans) add(row, "plans", str(row.objective) || "Plan personal", str(row.sa_code));
-  for (const row of table.session_journals) add(row, "journals", str(row.title) || "Diario de clase", saFor(row.learning_situation_id), num(row.perceived_effort), "Esfuerzo percibido");
+  for (const row of table.session_journals) add({ ...row, _kind: "class-journal" }, "journals", str(row.title) || "Diario de clase", saFor(row.learning_situation_id), num(row.perceived_effort), "Esfuerzo percibido");
   for (const row of table.sports_journals) add(row, "journals", "Diario deportivo", saFor(row.learning_situation_id));
-  for (const row of table.training_session_logs) {
+  for (const row of (year === 1 ? table.first_year_plan_session_logs : table.training_session_logs)) {
     const evaluation = evaluationsBySession.get(`${row.student_id}:${row.session_number}`);
-    add({ ...row, teacher_score: evaluation?.score ?? null, teacher_absent: evaluation?.absent ?? false, teacher_comment: evaluation?.comment ?? "", teacher_evaluated_at: evaluation?.updatedAt ?? null }, "journals", `Sesión de entrenamiento ${row.session_number}`, str(row.sa_code), num(row.completion_percent), "Realización declarada (%)");
+    add({ ...row, _kind: "plan-session", teacher_score: evaluation?.score ?? null, teacher_absent: evaluation?.absent ?? false, teacher_comment: evaluation?.comment ?? "", teacher_evaluated_at: evaluation?.updatedAt ?? null }, "journals", `Sesión de entrenamiento ${row.session_number}`, str(row.sa_code), num(row.completion_percent), "Realización declarada (%)");
   }
   for (const row of table.physical_test_results) {
     const test = physicalTests.find((entry) => entry.id === row.physical_test_id);
@@ -148,9 +150,11 @@ export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityD
     const classSessions = await rows("class_sessions");
     const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date());
     for (const group of [...new Set(students.map((student) => student.group))]) {
-      const scheduled = classSessions.filter((session) => session.class_group === group && session.academic_year === "2026/2027" && session.status === "scheduled" && str(session.session_date) <= today);
-      for (const session of scheduled) expect({ key: `SA1:journal:${session.id}`, sa: "SA1", category: "journals", group, title: `Diario · ${str(session.session_date).slice(8)}/${str(session.session_date).slice(5, 7)}`, filters: { session_date: str(session.session_date) } });
-      if (!scheduled.length) expect({ key: `SA1:journal:${group}`, sa: "SA1", category: "journals", group, title: "Diario de clase", matchAll: true });
+      (FIRST_YEAR_PLAN_SESSIONS[group] ?? []).forEach((session,index) => expect({key:`SA1:plan-session:${group}:${index+1}`,sa:"SA1",category:"journals",group,title:`Seguimiento del plan · sesión ${index+1} · ${session.date.slice(8)}/${session.date.slice(5,7)}`,filters:{_kind:"plan-session",session_number:index+1}}));
+      const planDates = new Set((FIRST_YEAR_PLAN_SESSIONS[group] ?? []).map((session) => session.date));
+      const scheduled = classSessions.filter((session) => session.class_group === group && session.academic_year === "2026/2027" && session.status === "scheduled" && str(session.session_date) <= today && !planDates.has(str(session.session_date)));
+      for (const session of scheduled) expect({ key: `SA1:journal:${session.id}`, sa: "SA1", category: "journals", group, title: `Diario · ${str(session.session_date).slice(8)}/${str(session.session_date).slice(5, 7)}`, filters: { _kind: "class-journal", session_date: str(session.session_date) } });
+      if (!scheduled.length) expect({ key: `SA1:journal:${group}`, sa: "SA1", category: "journals", group, title: "Diario de clase", filters: { _kind: "class-journal" } });
     }
     expect({ key: "SA2:sports-journal", sa: "SA2", category: "journals", title: "Diario deportivo", matchAll: true, tracking: "unavailable" });
     for (const [category, title] of [["technical","Pruebas técnicas · Inicial y final"],["questionnaires","Cuestionarios"],["procedural","Conocimiento y toma de decisiones"],["theory","Bloque teórico"],["quizzes","Autoevaluación teórica"]] as const) if (!expectedInstruments.some((item) => item.sa === "SA2" && item.category === category)) expect({ key: `SA2:${category}:planned`, sa: "SA2", category, title, matchAll:true, tracking:"unavailable" });
@@ -186,4 +190,5 @@ export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityD
   for (const row of table.sports_event_projects) add(row, "projects", str(row.event_name) || "Proyecto deportivo", str(row.sa_code));
   return { students, activities, sessionEvaluations, situations: situations.map((sa) => ({ id: str(sa.id), code: str(sa.code), title: str(sa.title) })), physicalTests: physicalTests.map((test) => ({ id: str(test.id), name: str(test.name), unit: str(test.unit), direction: str(test.direction) })), expectedInstruments, courseName: courses.map((course) => course.name).join(" · "), loadedAt: new Date().toISOString() };
 }
+
 

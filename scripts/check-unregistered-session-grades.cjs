@@ -11,6 +11,7 @@ function load(path, imports) {
   vm.runInNewContext(ts.transpileModule(fs.readFileSync(path,'utf8'), {compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2020}}).outputText, {
     module,exports:module.exports,require: name => {
       if (Object.hasOwn(imports,name)) return imports[name];
+      if (name.startsWith('.')) return load(require('node:path').join(require('node:path').dirname(path),name+'.ts'),imports);
       if (name==='react' || name==='react/jsx-runtime') return require(name);
       throw new Error(`Unexpected import ${name}`);
     },
@@ -21,12 +22,12 @@ const calendar = load('lib/second-year-personal-plan-calendar.ts',{});
 const helpers = load('lib/teacher-session-grading.ts',{'./second-year-personal-plan-calendar':calendar});
 let year=2, allowed=true, writes=[];
 const supabase = {from(table) {
-  assert.ok(['students','courses','training_session_grades'].includes(table),'Grading must never create or alter student logs.');
+  assert.ok(['students','courses','training_session_grades','first_year_plan_session_grades'].includes(table),'Grading must never create or alter student logs.');
   let payload;
   const query = {
     select(){return query;},eq(){return query;},
     maybeSingle:async()=>({data:table==='students'?{id:studentId,course_id:'course'}:{bachillerato_year:year},error:null}),
-    upsert(value, options){assert.equal(table,'training_session_grades');assert.equal(options.onConflict,'student_id,session_number');payload=value;return query;},
+    upsert(value, options){assert.equal(table,year===1?'first_year_plan_session_grades':'training_session_grades');assert.equal(options.onConflict,'student_id,session_number');payload=value;return query;},
     single:async()=>{writes.push(payload);return {data:payload,error:null};},
   };
   return query;
@@ -65,6 +66,14 @@ console.log('Teacher UI: all ten unregistered sessions are editable; zero grades
   year=1;await assert.rejects(()=>actions.saveSecondYearSessionEvaluation(input));year=2;
   allowed=false;await assert.rejects(()=>actions.saveSecondYearSessionEvaluation(input));
   assert.equal(writes.length,count,'Rejected requests must not write data.');
+  allowed=true;year=1;
+  const first=await actions.saveFirstYearSessionEvaluation({...input,sessionNumber:8,score:8.5});
+  assert.equal(first.score,8.5);assert.equal(first.absent,true);
+  const firstCount=writes.length;
+  for(const sessionNumber of [0,9,10]) await assert.rejects(()=>actions.saveFirstYearSessionEvaluation({...input,sessionNumber}));
+  year=2;await assert.rejects(()=>actions.saveFirstYearSessionEvaluation(input));
+  assert.equal(writes.length,firstCount,'Wrong course or session must not write first-year grades.');
   console.log('Teacher action: no student log dependency, zero and decimal grades, comments, scope checks and role protection passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
+
 

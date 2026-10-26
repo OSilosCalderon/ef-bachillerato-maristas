@@ -1,5 +1,6 @@
 export type PlanPdfSection = { title: string; lines: string[] };
 export type StudentResultsReport = {
+  sessionSa?: string;
   situations: { code: string; title: string }[];
   instruments: { sa: string; title: string; completed: boolean }[];
   sessions?: { sessionNumber: number; date: string; durationMinutes: number | null; rpe: number | null; completionPercent: number | null; recorded: boolean }[];
@@ -151,7 +152,7 @@ function compactResultsCommands(report: StudentResultsReport) {
   }
 
   if (report.sessions?.length) {
-    commands.push(text("F2", 6.4, 310, y, "SA2 · VALORACIÓN DE LAS 10 SESIONES", "0.04 0.30 0.28"));
+    commands.push(text("F2", 6.4, 310, y, `${report.sessionSa ?? "SA2"} · VALORACIÓN DE LAS ${report.sessions.length} SESIONES`, "0.04 0.30 0.28"));
     y -= 10;
     for (const session of report.sessions.slice(0, 10)) {
       if (y < 359) break;
@@ -290,4 +291,5 @@ export function downloadPersonalPlanPdf(data: PlanPdfData) {
   link.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
 

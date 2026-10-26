@@ -55,6 +55,12 @@ Module._extensions['.tsx']=(mod,filename)=>mod._compile(ts.transpileModule(fs.re
     assert.ok(html.includes('Pendiente'));
     assert.ok(!html.includes('Comentario privado de otro alumno'));
     assert.ok(!html.includes('Otro curso'));
+    pupilData={...pupilData,year:1};
+    const firstYear=renderToStaticMarkup(await Page());
+    assert.ok(firstYear.includes('/alumno/sa1/seguimiento'));
+    assert.ok(firstYear.includes('SA1'));
+    assert.ok(firstYear.includes('Sesión comentada'));
+    assert.ok(!firstYear.includes('/alumno/2bach/sa2/seguimiento'));
     pupilData={...pupilData,grades:[],sessionGrades:[]};
     const empty=renderToStaticMarkup(await Page());
     assert.ok(empty.includes('Aún no tienes calificaciones publicadas'));
@@ -62,3 +68,4 @@ Module._extensions['.tsx']=(mod,filename)=>mod._compile(ts.transpileModule(fs.re
     console.log('Pupil grade page: published notes, session feedback, pending entries, private-data filtering and empty state rendered correctly.');
   }finally{Module._load=originalLoad;if(originalTsx)Module._extensions['.tsx']=originalTsx;else delete Module._extensions['.tsx'];}
 })().catch(error=>{console.error(error);process.exitCode=1;});
+

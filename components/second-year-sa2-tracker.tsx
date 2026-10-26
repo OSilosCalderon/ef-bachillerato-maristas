@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { BarChart3, CheckCircle2, Loader2, Pencil, Save, Star, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { SECOND_YEAR_PLAN_SESSIONS } from "@/lib/second-year-personal-plan-calendar";
+import { planSessionsForYear } from "@/lib/teacher-session-grading";
+import { firstYearCalendarGroup } from "@/lib/class-groups";
+import { normalizeItems, methodologyLabels, type PlanItem } from "@/lib/personal-plan-tasks";
 
 type PlanSummary = {
   objective: string;
@@ -67,9 +69,14 @@ const formatDate = (value: string | null) => {
   return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${value}T12:00:00`));
 };
 
-const getPlanSession = (number: number) => number >= 1 && number <= SECOND_YEAR_PLAN_SESSIONS.length ? SECOND_YEAR_PLAN_SESSIONS[number - 1] : null;
-
-export function SecondYearSa2Tracker() {
+export function SecondYearSa2Tracker({ courseYear = 2 }: { courseYear?: 1 | 2 }) {
+  const [classGroup, setClassGroup] = useState("");
+  const [planItems, setPlanItems] = useState<PlanItem[]>([]);
+  const planSessions = planSessionsForYear(courseYear, classGroup);
+  const getPlanSession = (number: number) => planSessions[number - 1] ?? null;
+  const logTable = courseYear === 1 ? "first_year_plan_session_logs" : "training_session_logs";
+  const gradeTable = courseYear === 1 ? "first_year_plan_session_grades" : "training_session_grade_results";
+  const saCode = courseYear === 1 ? "SA1" : "SA2";
   const [studentId, setStudentId] = useState<string | null>(null);
   const [courseId, setCourseId] = useState<string | null>(null);
   const [plan, setPlan] = useState<PlanSummary | null>(null);
@@ -83,7 +90,7 @@ export function SecondYearSa2Tracker() {
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [courseYear]);
 
   async function load() {
     setLoading(true);
@@ -103,23 +110,32 @@ export function SecondYearSa2Tracker() {
 
       const currentStudentId = student.id as string;
       const currentCourseId = student.course_id as string;
+      const [courseResult, profileResult] = await Promise.all([
+        supabase.from("courses").select("bachillerato_year").eq("id", currentCourseId).single(),
+        supabase.from("profiles").select("class_group").eq("id", auth.user.id).single(),
+      ]);
+      if (courseResult.error || courseResult.data?.bachillerato_year !== courseYear) throw new Error("Este seguimiento no corresponde a tu curso.");
+      const group = firstYearCalendarGroup(profileResult.data?.class_group);
+      if (courseYear === 1 && (profileResult.error || !group)) throw new Error("Tu cuenta necesita tener asignado el grupo 1ºA o 1ºB. Consulta con el profesor.");
+      setClassGroup(group ?? "");
+      const ownSessions = planSessionsForYear(courseYear, group ?? "");
       setStudentId(currentStudentId);
       setCourseId(currentCourseId);
 
       const [planResult, logsResult] = await Promise.all([
         supabase
           .from("personal_training_plans")
-          .select("objective,priority_capacity,weekly_frequency,session_duration_minutes,progression_strategy,recovery_strategy,status")
+          .select("objective,priority_capacity,weekly_frequency,session_duration_minutes,progression_strategy,recovery_strategy,status,plan_items")
           .eq("student_id", currentStudentId)
           .eq("course_id", currentCourseId)
           .eq("sa_code", "SA1")
           .maybeSingle(),
         supabase
-          .from("training_session_logs")
+          .from(logTable)
           .select("id,session_number,week_number,session_date,objective,activities,duration_minutes,rpe,completion_percent,modifications,reflection,status")
           .eq("student_id", currentStudentId)
           .eq("course_id", currentCourseId)
-          .eq("sa_code", "SA2")
+          .eq("sa_code", saCode)
           .order("session_number", { ascending: true }),
       ]);
 
@@ -127,9 +143,10 @@ export function SecondYearSa2Tracker() {
       if (logsResult.error) throw logsResult.error;
 
       setPlan((planResult.data as PlanSummary | null) ?? null);
+      setPlanItems(normalizeItems(planResult.data?.plan_items));
       const nextLogs = (logsResult.data ?? []) as SessionLog[];
       const { data: evaluationRows, error: evaluationError } = await supabase
-        .from("training_session_grade_results")
+        .from(gradeTable)
         .select("session_number,teacher_score,teacher_comment,absent")
         .eq("student_id", currentStudentId)
         .order("session_number");
@@ -150,7 +167,7 @@ export function SecondYearSa2Tracker() {
       }));
       setLogs(logsWithEvaluations);
       const used = new Set(nextLogs.map((item) => item.session_number));
-      const nextNumber = SECOND_YEAR_PLAN_SESSIONS.map((_, index) => index + 1).find((number) => !used.has(number)) ?? 0;
+      const nextNumber = ownSessions.map((_, index) => index + 1).find((number) => !used.has(number)) ?? 0;
       setForm(emptyForm(nextNumber));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se ha podido cargar el seguimiento.");
@@ -160,7 +177,7 @@ export function SecondYearSa2Tracker() {
   }
 
   const metrics = useMemo(() => {
-    const completed = logs.filter((item) => item.status === "completed");
+    const completed = logs.filter((item) => item.status === "completed" && item.session_number >= 1 && item.session_number <= planSessions.length);
     const rpes = completed.map((item) => item.rpe).filter((value): value is number => value != null);
     const averageRpe = rpes.length ? rpes.reduce((sum, value) => sum + value, 0) / rpes.length : null;
     const averageCompletion = completed.length
@@ -171,10 +188,10 @@ export function SecondYearSa2Tracker() {
       0,
     );
     return { completed: completed.length, averageRpe, averageCompletion, totalLoad };
-  }, [logs]);
+  }, [logs, planSessions.length]);
 
   const weekly = useMemo(() => {
-    return Array.from({ length: 3 }, (_, index) => {
+    return Array.from({ length: courseYear === 1 ? 5 : 3 }, (_, index) => {
       const week = index + 1;
       const rows = logs.filter((item) => item.week_number === week && item.status === "completed");
       const load = rows.reduce((sum, item) => sum + ((item.duration_minutes ?? 0) * (item.rpe ?? 0)), 0);
@@ -183,7 +200,7 @@ export function SecondYearSa2Tracker() {
       const rpe = rpes.length ? rpes.reduce((sum, value) => sum + value, 0) / rpes.length : 0;
       return { week, load, completion, rpe, sessions: rows.length };
     });
-  }, [logs]);
+  }, [logs, courseYear]);
 
   const maxWeeklyLoad = Math.max(1, ...weekly.map((item) => item.load));
   const evaluationsWithoutLog = evaluations.filter((item) => !logs.some((log) => log.session_number === item.session_number));
@@ -214,16 +231,16 @@ export function SecondYearSa2Tracker() {
     if (!studentId || !courseId) return;
     const selectedSession = getPlanSession(form.sessionNumber);
     if (!selectedSession) {
-      setError("Selecciona una de las diez sesiones del plan personal.");
+      setError(`Selecciona una de las ${courseYear === 1 ? "ocho" : "diez"} sesiones del plan personal.`);
       return;
     }
     const duration = form.durationMinutes === "" ? null : Number(form.durationMinutes);
     const rpe = form.rpe === "" ? null : Number(form.rpe);
-    if (duration != null && (!Number.isFinite(duration) || duration < 1 || duration > 240)) {
+    if (duration != null && (!Number.isInteger(duration) || duration < 1 || duration > 240)) {
       setError("La duración debe estar entre 1 y 240 minutos.");
       return;
     }
-    if (rpe != null && (!Number.isFinite(rpe) || rpe < 1 || rpe > 10)) {
+    if (rpe != null && (!Number.isInteger(rpe) || rpe < 1 || rpe > 10)) {
       setError("El RPE debe estar entre 1 y 10.");
       return;
     }
@@ -235,17 +252,17 @@ export function SecondYearSa2Tracker() {
       const supabase = createClient();
       const previousLog = logs.find((item) => item.session_number === form.sessionNumber);
       const { data, error: saveError } = await supabase
-        .from("training_session_logs")
+        .from(logTable)
         .upsert(
           {
             student_id: studentId,
             course_id: courseId,
-            sa_code: "SA2",
+            sa_code: saCode,
             session_number: form.sessionNumber,
-            week_number: Math.floor((form.sessionNumber - 1) / 4) + 1,
+            week_number: courseYear === 1 ? Math.floor((Date.parse(selectedSession.date) - Date.parse(planSessions[0].date)) / 604800000) + 1 : Math.floor((form.sessionNumber - 1) / 4) + 1,
             session_date: selectedSession.date,
-            objective: previousLog?.objective ?? "",
-            activities: previousLog?.activities ?? "",
+            objective: previousLog?.objective || plan?.objective || "",
+            activities: previousLog?.activities || planItems.filter((item) => item.sessionDate === selectedSession.date).map((item) => [item.activity, ...item.exercises.map((exercise) => exercise.activity)].filter(Boolean).join(" · ")).join("\n"),
             duration_minutes: duration,
             rpe,
             completion_percent: form.completionPercent,
@@ -276,7 +293,7 @@ export function SecondYearSa2Tracker() {
     try {
       const supabase = createClient();
       const { error: deleteError } = await supabase
-        .from("training_session_logs")
+        .from(logTable)
         .delete()
         .eq("id", log.id)
         .eq("student_id", studentId);
@@ -296,7 +313,7 @@ export function SecondYearSa2Tracker() {
     <div className="space-y-6">
       {!plan && (
         <section className="card border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
-          Todavía no has guardado tu plan personal de SA1. Puedes registrar sesiones, pero será más útil si primero defines el objetivo y la progresión. <Link className="font-bold underline" href="/alumno/2bach/sa1/plan">Abrir mi plan de SA1</Link>.
+          Todavía no has guardado tu plan personal de SA1. Puedes registrar sesiones, pero será más útil si primero defines el objetivo y la progresión. <Link className="font-bold underline" href={courseYear === 1 ? "/alumno/sa1/plan" : "/alumno/2bach/sa1/plan"}>Abrir mi plan de SA1</Link>.
         </section>
       )}
 
@@ -312,7 +329,7 @@ export function SecondYearSa2Tracker() {
       )}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <article className="card p-5"><p className="text-sm text-slate-500">Sesiones completadas</p><p className="mt-2 text-3xl font-extrabold">{metrics.completed}/10</p></article>
+        <article className="card p-5"><p className="text-sm text-slate-500">Sesiones completadas</p><p className="mt-2 text-3xl font-extrabold">{metrics.completed}/{planSessions.length || (courseYear === 1 ? 8 : 10)}</p></article>
         <article className="card p-5"><p className="text-sm text-slate-500">RPE medio</p><p className="mt-2 text-3xl font-extrabold">{metrics.averageRpe == null ? "—" : metrics.averageRpe.toFixed(1)}</p><p className="mt-1 text-xs text-slate-400">Escala 1–10</p></article>
         <article className="card p-5"><p className="text-sm text-slate-500">Cumplimiento medio</p><p className="mt-2 text-3xl font-extrabold">{metrics.averageCompletion == null ? "—" : `${metrics.averageCompletion.toFixed(0)}%`}</p></article>
         <article className="card p-5"><p className="text-sm text-slate-500">Carga acumulada</p><p className="mt-2 text-3xl font-extrabold">{metrics.totalLoad || "—"}</p><p className="mt-1 text-xs text-slate-400">Índice educativo: minutos × RPE</p></article>
@@ -325,7 +342,7 @@ export function SecondYearSa2Tracker() {
         {(() => {
           const selectedPlanSession = getPlanSession(form.sessionNumber);
           const occupied = new Set(logs.map((item) => item.session_number));
-          const allRecorded = SECOND_YEAR_PLAN_SESSIONS.every((_, index) =>
+          const allRecorded = planSessions.every((_, index) =>
             occupied.has(index + 1),
           );
           const formatPlanDate = (value: string) =>
@@ -343,17 +360,16 @@ export function SecondYearSa2Tracker() {
                   Sesión del plan personal
                   <select
                     value={form.sessionNumber}
-                    onChange={(event) => update("sessionNumber", Number(event.target.value))}
+                    onChange={(event) => { const number = Number(event.target.value); const log = logs.find((item) => item.session_number === number); if (log) startEdit(log); else { setForm(emptyForm(number)); setMessage(""); } }}
                     className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-semibold"
                   >
                     <option value={0} disabled>Selecciona una sesión disponible</option>
-                    {SECOND_YEAR_PLAN_SESSIONS.map((session, index) => {
+                    {planSessions.map((session, index) => {
                       const number = index + 1;
-                      const currentSession = number === form.sessionNumber;
                       const alreadyRecorded = occupied.has(number);
                       const label = `Sesión ${number} · ${session.day} ${formatPlanDate(session.date).replace(/^\\S+\\s/, "")} · ${session.start}–${session.end}`;
                       return (
-                        <option key={number} value={number} disabled={alreadyRecorded && !currentSession}>
+                        <option key={number} value={number}>
                           {label}{alreadyRecorded ? " · Registrada" : ""}
                         </option>
                       );
@@ -371,6 +387,7 @@ export function SecondYearSa2Tracker() {
                 </div>
               </div>
 
+              {selectedPlanSession && <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/60 p-4"><h3 className="text-sm font-bold text-[#164c3a]">Tareas previstas en tu plan</h3>{planItems.filter((item) => item.sessionDate === selectedPlanSession.date).length ? planItems.filter((item) => item.sessionDate === selectedPlanSession.date).map((item) => <div key={item.id} className="mt-3 text-sm"><p className="font-bold">{item.activity || "Tarea"} · {methodologyLabels[item.methodology]}</p><ul className="mt-1 list-inside list-disc space-y-1 text-slate-600">{item.exercises.map((exercise) => <li key={exercise.id}>{exercise.activity || "Ejercicio por concretar"}{exercise.dose ? ` · ${exercise.dose}` : ""}</li>)}</ul></div>) : <p className="mt-2 text-sm text-slate-600">No hay tareas asignadas a esta fecha. Puedes organizarlas en tu plan personal.</p>}</div>}
               <div className="mt-4 grid gap-4 md:grid-cols-3">
                 <label className="text-xs font-bold uppercase tracking-wide text-slate-500">
                   Duración estimada (minutos)
@@ -417,7 +434,7 @@ export function SecondYearSa2Tracker() {
               </div>
               {allRecorded && form.sessionNumber === 0 && (
                 <p className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">
-                  Ya están registradas las diez sesiones del plan. Puedes editar cualquiera desde el historial.
+                  Ya están registradas las {planSessions.length} sesiones del plan. Puedes editar cualquiera desde el historial.
                 </p>
               )}
             </>
@@ -426,10 +443,10 @@ export function SecondYearSa2Tracker() {
 
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Modificaciones respecto al plan
-            <textarea value={form.modifications} onChange={(event) => update("modifications", event.target.value)} rows={3} className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm normal-case tracking-normal text-slate-800" placeholder="¿Cambiaste carga, ejercicio, descanso o volumen? ¿Por qué?"/>
+            <textarea maxLength={4000} value={form.modifications} onChange={(event) => update("modifications", event.target.value)} rows={3} className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm normal-case tracking-normal text-slate-800" placeholder="¿Cambiaste carga, ejercicio, descanso o volumen? ¿Por qué?"/>
           </label>
           <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Reflexión breve
-            <textarea value={form.reflection} onChange={(event) => update("reflection", event.target.value)} rows={3} className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm normal-case tracking-normal text-slate-800" placeholder="¿Qué repetirías o reajustarías en la siguiente sesión?"/>
+            <textarea maxLength={4000} value={form.reflection} onChange={(event) => update("reflection", event.target.value)} rows={3} className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm normal-case tracking-normal text-slate-800" placeholder="¿Qué repetirías o reajustarías en la siguiente sesión?"/>
           </label>
         </div>
 
@@ -472,7 +489,8 @@ export function SecondYearSa2Tracker() {
               <div><p className="font-extrabold">Sesión {log.session_number}{getPlanSession(log.session_number) ? " del plan" : " · anterior"}</p><p className="mt-1 text-xs text-slate-500">{formatDate(log.session_date)}</p></div>
               <div><p className="text-sm font-semibold text-slate-800">{log.objective || "Sin objetivo escrito"}</p><p className="mt-1 line-clamp-2 text-xs text-slate-500">{log.activities || "Sin actividades registradas"}</p></div>
               <div className="text-xs text-slate-500"><p>RPE: <strong>{log.rpe ?? "—"}</strong> · {log.duration_minutes ?? "—"} min</p><p className="mt-1">Carga: <strong>{load || "—"}</strong> · Cumplimiento: <strong>{log.completion_percent}%</strong></p></div>
-              <div className="flex gap-2"><button type="button" onClick={() => startEdit(log)} className="rounded-xl border border-slate-200 p-2 text-slate-600" aria-label={`Editar sesión ${log.session_number}`}><Pencil size={16}/></button><button type="button" onClick={() => void remove(log)} className="rounded-xl border border-red-100 p-2 text-red-600" aria-label={`Eliminar sesión ${log.session_number}`}><Trash2 size={16}/></button></div>
+              <div className="flex gap-2"><button type="button" onClick={() => startEdit(log)} className="rounded-xl border border-slate-200 p-2 text-slate-600" aria-label={`Editar sesión ${log.session_number}`}><Pencil size={16}/></button>{courseYear === 2 && <button type="button" onClick={() => void remove(log)} className="rounded-xl border border-red-100 p-2 text-red-600" aria-label={`Eliminar sesión ${log.session_number}`}><Trash2 size={16}/></button>}</div>
+              <dl className="md:col-span-full grid gap-3 text-sm sm:grid-cols-2"><div><dt className="font-bold text-slate-600">Modificaciones respecto al plan</dt><dd className="mt-1 whitespace-pre-wrap break-words">{log.modifications || "Sin modificaciones indicadas"}</dd></div><div><dt className="font-bold text-slate-600">Mi reflexión</dt><dd className="mt-1 whitespace-pre-wrap break-words">{log.reflection || "Sin reflexión escrita"}</dd></div></dl>
               <div className="md:col-span-full rounded-xl border border-[#c6e1d6] bg-[#f2faf6] p-4">
                 <p className="text-xs font-bold uppercase tracking-wide text-[#1e6b4f]">Valoración del profesor</p>
                 {log.teacher_absent && <span className="mt-2 inline-block rounded-full bg-rose-100 px-3 py-1 text-xs font-extrabold text-rose-800">AUSENCIA</span>}
@@ -494,3 +512,4 @@ export function SecondYearSa2Tracker() {
     </div>
   );
 }
+

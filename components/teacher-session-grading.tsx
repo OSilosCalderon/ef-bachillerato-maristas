@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { saveSecondYearSessionEvaluation } from "@/app/profesor/actions";
+import { saveFirstYearSessionEvaluation, saveSecondYearSessionEvaluation } from "@/app/profesor/actions";
 import { isPlanSessionLog, parseTeacherSessionScore, teacherSessionScore, teacherSessionSlots } from "@/lib/teacher-session-grading";
 import type { TeacherActivityData } from "@/lib/teacher-activity";
 
 type SavedEvaluation = { absent: boolean; score: number; comment: string; updatedAt: string };
 
-export function TeacherSessionEvaluationForm({ studentId, sessionNumber, initialScore, initialComment, initialAbsent = false, onSaved }: {
-  studentId: string; sessionNumber: number; initialScore: number | null; initialComment: string; initialAbsent?: boolean;
+export function TeacherSessionEvaluationForm({ studentId, sessionNumber, initialScore, initialComment, initialAbsent = false, courseYear = 2, onSaved }: {
+  studentId: string; sessionNumber: number; initialScore: number | null; initialComment: string; initialAbsent?: boolean; courseYear?: 1 | 2;
   onSaved?: (evaluation: SavedEvaluation) => void;
 }) {
   const [score, setScore] = useState(initialScore === null ? "" : String(initialScore).replace(".", ","));
@@ -29,7 +29,7 @@ export function TeacherSessionEvaluationForm({ studentId, sessionNumber, initial
     }
     setSaving(true);
     try {
-      const saved = await saveSecondYearSessionEvaluation({ studentId, sessionNumber, score: parsedScore, comment, absent });
+      const saved = await (courseYear === 1 ? saveFirstYearSessionEvaluation : saveSecondYearSessionEvaluation)({ studentId, sessionNumber, score: parsedScore, comment, absent });
       setScore(String(saved.score).replace(".", ","));
       setComment(saved.comment);
       setAbsent(saved.absent);
@@ -66,32 +66,34 @@ export function TeacherSessionEvaluationForm({ studentId, sessionNumber, initial
 const dateLabel = (value: string) => new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long" }).format(new Date(`${value}T12:00:00`));
 const scoreLabel = (value: number) => new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1 }).format(value);
 
-export function TeacherSessionGrading({ data, initialStudentId }: {
-  data: Pick<TeacherActivityData, "students" | "activities" | "sessionEvaluations">; initialStudentId?: string;
+export function TeacherSessionGrading({ data, initialStudentId, courseYear = 2 }: {
+  data: Pick<TeacherActivityData, "students" | "activities" | "sessionEvaluations">; initialStudentId?: string; courseYear?: 1 | 2;
 }) {
-  const logs = data.activities.filter(isPlanSessionLog);
+  const logs = data.activities.filter((row) => isPlanSessionLog(row, courseYear));
   const [studentId, setStudentId] = useState(() => data.students.find((student) => student.id === initialStudentId)?.id ?? data.students.find((student) => logs.some((row) => row.studentId === student.id))?.id ?? data.students[0]?.id ?? "");
   const [saved, setSaved] = useState<Record<string, SavedEvaluation>>({});
   const student = data.students.find((entry) => entry.id === studentId);
-  const slots = teacherSessionSlots(logs, studentId, data.sessionEvaluations);
+  const slots = teacherSessionSlots(logs, studentId, data.sessionEvaluations, courseYear, student?.group);
+  const sa = courseYear === 1 ? "SA1" : "SA2";
+  const count = courseYear === 1 ? 8 : 10;
   const scoreFor = (slot: (typeof slots)[number]) => saved[`${studentId}:${slot.number}`]?.score ?? slot.evaluation?.score ?? teacherSessionScore(slot.record?.details.teacher_score);
   const absentFor = (slot: (typeof slots)[number]) => saved[`${studentId}:${slot.number}`]?.absent ?? slot.evaluation?.absent ?? (slot.record?.details.teacher_absent === true);
   const absences = slots.filter(absentFor).length;
   const registered = slots.filter((slot) => slot.record).length;
   const graded = slots.filter((slot) => scoreFor(slot) !== null).length;
 
-  return <section id="calificaciones-sa2" aria-label="Calificaciones de las diez sesiones" className="space-y-5">
+  return <section id={`calificaciones-${sa.toLowerCase()}`} aria-label={`Calificaciones de las ${count} sesiones`} className="space-y-5">
     <div className="card p-5 sm:p-7">
-      <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-extrabold">Calificar seguimiento · SA2 de 2º Bachillerato</h2><p className="mt-2 text-sm text-slate-600">Selecciona un alumno y califica cualquiera de las diez sesiones, aunque todavía no haya registrado su seguimiento.</p></div><button type="button" onClick={() => window.location.assign(`/profesor/calificar-sesiones?alumno=${encodeURIComponent(studentId)}`)} className="rounded-xl border px-4 py-2 text-sm font-bold">Actualizar sesiones</button></div>
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-extrabold">Calificar seguimiento · {sa} de {courseYear}º Bachillerato</h2><p className="mt-2 text-sm text-slate-600">Selecciona un alumno y califica cualquiera de las {count} sesiones, aunque todavía no haya registrado su seguimiento.</p></div><button type="button" onClick={() => window.location.assign(`/profesor/calificar-sesiones?curso=${courseYear}&alumno=${encodeURIComponent(studentId)}`)} className="rounded-xl border px-4 py-2 text-sm font-bold">Actualizar sesiones</button></div>
       <label className="mt-5 block max-w-xl text-sm font-bold">Alumno para calificar
         <select value={studentId} onChange={(event) => setStudentId(event.target.value)} className="mt-2 w-full rounded-xl border border-emerald-600 bg-emerald-50 p-3">
-          {data.students.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+          {data.students.map((entry) => <option key={entry.id} value={entry.id}>{entry.name} · {entry.group}</option>)}
         </select>
       </label>
-      <div className="mt-4 flex flex-wrap gap-2 text-sm"><span className="rounded-full bg-slate-100 px-3 py-1.5 font-semibold">{registered}/10 sesiones registradas</span><span className="rounded-full bg-emerald-100 px-3 py-1.5 font-semibold text-emerald-800">{graded}/10 calificadas</span><span className="rounded-full bg-amber-100 px-3 py-1.5 font-semibold text-amber-900">{10 - graded} pendientes de calificar</span><span className="rounded-full bg-rose-100 px-3 py-1.5 font-semibold text-rose-800">{absences} ausencias registradas</span></div>
-      <p className="mt-3 text-xs text-slate-500">La calificación no cuenta como seguimiento entregado. Cada alumno ve su nota y comentario en SA2 → Seguimiento y en Mis calificaciones.</p>
+      <div className="mt-4 flex flex-wrap gap-2 text-sm"><span className="rounded-full bg-slate-100 px-3 py-1.5 font-semibold">{registered}/{count} sesiones registradas</span><span className="rounded-full bg-emerald-100 px-3 py-1.5 font-semibold text-emerald-800">{graded}/{count} calificadas</span><span className="rounded-full bg-amber-100 px-3 py-1.5 font-semibold text-amber-900">{count - graded} pendientes de calificar</span><span className="rounded-full bg-rose-100 px-3 py-1.5 font-semibold text-rose-800">{absences} ausencias registradas</span></div>
+      <p className="mt-3 text-xs text-slate-500">La calificación no cuenta como seguimiento entregado. Cada alumno ve su nota y comentario en {sa} → Seguimiento y en Mis calificaciones.</p>
     </div>
-    {!student ? <p className="card p-5">No hay alumnado activo de 2º de Bachillerato.</p> : <div className="grid gap-4 xl:grid-cols-2">{slots.map((slot) => {
+    {!student ? <p className="card p-5">No hay alumnado activo de {courseYear}º de Bachillerato.</p> : !slots.length ? <p role="alert" className="card p-5">Este alumno necesita tener asignado el grupo 1ºA o 1ºB para mostrar su calendario.</p> : <div className="grid gap-4 xl:grid-cols-2">{slots.map((slot) => {
       const { number, planned, record } = slot;
       const key = `${student.id}:${number}`;
       const evaluation = saved[key] ?? slot.evaluation;
@@ -104,8 +106,9 @@ export function TeacherSessionGrading({ data, initialStudentId }: {
           <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl bg-slate-50 p-3 text-xs text-slate-600"><p>Duración<strong className="mt-1 block text-sm text-slate-900">{String(record.details.duration_minutes ?? "—")} min</strong></p><p>Esfuerzo del alumno<strong className="mt-1 block text-sm text-slate-900">{String(record.details.rpe ?? "—")}/10</strong></p><p>Cumplimiento<strong className="mt-1 block text-sm text-slate-900">{String(record.details.completion_percent ?? "—")}%</strong></p></div>
           <dl className="mt-3 space-y-2 text-sm"><div><dt className="font-bold text-slate-600">Modificaciones respecto al plan</dt><dd className="mt-1 whitespace-pre-wrap break-words text-slate-700">{String(record.details.modifications || "Sin modificaciones indicadas")}</dd></div><div><dt className="font-bold text-slate-600">Reflexión del alumno</dt><dd className="mt-1 whitespace-pre-wrap break-words text-slate-700">{String(record.details.reflection || "Sin reflexión escrita")}</dd></div></dl>
         </>}
-        <TeacherSessionEvaluationForm key={key} studentId={student.id} sessionNumber={number} initialScore={score} initialComment={comment} initialAbsent={absent} onSaved={(value) => setSaved((current) => ({ ...current, [key]: value }))}/>
+        <TeacherSessionEvaluationForm key={key} courseYear={courseYear} studentId={student.id} sessionNumber={number} initialScore={score} initialComment={comment} initialAbsent={absent} onSaved={(value) => setSaved((current) => ({ ...current, [key]: value }))}/>
       </article>;
     })}</div>}
   </section>;
 }
+
