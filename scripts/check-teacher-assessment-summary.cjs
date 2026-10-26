@@ -1,0 +1,30 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),ts=require('typescript');
+const React=require('react'),{renderToStaticMarkup}=require('react-dom/server');
+function load(file,mocks={}) {
+ const module={exports:{}};
+ vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022}}).outputText,{module,exports:module.exports,require:name=>Object.hasOwn(mocks,name)?mocks[name]:name.startsWith('@/')?load(name.slice(2)+(fs.existsSync(name.slice(2)+'.tsx')?'.tsx':'.ts'),mocks):name.startsWith('.')?load(path.join(path.dirname(file),name)+'.ts',mocks):require(name),Intl,Date,Set,Map});
+ return module.exports;
+}
+const {sessionAssessmentSummary,studentBlockScores}=load('lib/teacher-assessment-summary.ts');
+const log=(id,number,extra={})=>({id,studentId:'a',sa:'SA2',category:'journals',status:'completed',date:'2026-10-26',score:100,title:'Sesión',details:{id,session_number:number,_kind:'plan-session'},...extra});
+const evaluation=(number,score,absent=false,extra={})=>({studentId:'a',number,score,absent,comment:'',updatedAt:'2026-10-26',...extra});
+const data={students:[{id:'a',courseId:'c2'},{id:'b',courseId:'c2'}],activities:[log('1',1),log('duplicate',1,{date:'2026-10-25'}),log('2',2),log('draft',3,{status:'draft'}),log('foreign-pupil',4,{studentId:'b'}),log('foreign-sa',4,{sa:'SA1'}),log('legacy',11)],sessionEvaluations:[evaluation(1,8),evaluation(2,6),evaluation(3,0,true),evaluation(4,10,false,{studentId:'b'}),evaluation(11,10)]};
+const original=JSON.stringify(data);
+let result=sessionAssessmentSummary(data,'a',2);
+assert.equal(result.mean,7,'Absences, pending slots and other pupils must not dilute the mean.');assert.equal(result.graded,2);assert.equal(result.absences,1);assert.equal(result.points,2);assert.equal(result.total,10);assert.equal(result.valuedSessions.join(','),'1,2');assert.equal(JSON.stringify(data),original,'Derived summaries must preserve source data.');
+assert.equal(sessionAssessmentSummary({...data,sessionEvaluations:[evaluation(1,0),evaluation(2,8)]},'a',2).mean,4,'A real zero with attendance contributes to the mean.');
+assert.equal(sessionAssessmentSummary({...data,sessionEvaluations:[evaluation(1,9,true)]},'a',2).mean,null,'All absent is ungraded, not zero.');
+assert.equal(sessionAssessmentSummary({activities:[],sessionEvaluations:[evaluation(1,8)]},'a',2).points,0,'A teacher grade must not fabricate a pupil response.');
+assert.equal(sessionAssessmentSummary({activities:[],sessionEvaluations:[evaluation(1,4),evaluation(1,10,true,{updatedAt:'2026-10-27'})]},'a',2).mean,null,'Use the latest evaluation once per session.');
+const first={...data,activities:[log('first',1,{sa:'SA1'}),log('beyond-first',9,{sa:'SA1'}),log('old-diary',2,{sa:'SA1',details:{id:'old-diary',session_number:2,_kind:'class-journal'}})],sessionEvaluations:[evaluation(1,8),evaluation(9,10)]};
+result=sessionAssessmentSummary(first,'a',1);assert.equal(result.total,8);assert.equal(result.points,1);assert.equal(result.mean,8);assert.equal(result.sa,'SA1');
+const item=(id,key,sa='SA1',course_id='c2')=>({id,item_key:key,sa_code:sa,course_id,title:key,position:1});
+const blocks={...data,activities:[{...log('plan',1),sa:'SA1',category:'plans'}],assessmentItems:[item('plan','personal-plan'),item('theory','theory-self-assessment'),item('other-course','personal-plan','SA1','c1'),item('followup','session-follow-up','SA2')],assessmentGrades:[{id:'grade',student_id:'a',item_id:'plan',score:0,comment:'Comentario propio',published_at:'2026-10-26'},{id:'private',student_id:'b',item_id:'theory',score:10,comment:'Comentario privado',published_at:'2026-10-26'},{id:'foreign',student_id:'a',item_id:'other-course',score:10,comment:'Otro curso',published_at:'2026-10-26'}]};
+const entries=studentBlockScores(blocks,'a',2);
+assert.equal(entries.length,3);assert.equal(entries.find(x=>x.item.id==='plan').grade.score,0);assert.equal(entries.find(x=>x.item.id==='theory').grade,null);assert.equal(entries.find(x=>x.item.id==='plan').worked,true);assert.equal(entries.find(x=>x.item.id==='theory').worked,false);assert.equal(studentBlockScores(blocks,'a',2,'SA2').length,1);
+const ui=load('components/teacher-assessment-summary.tsx',{'@/components/teacher-gradebook':{GradePublicationForm:()=>null}});
+const html=renderToStaticMarkup(React.createElement(ui.TeacherSessionScoreSummary,{summary:sessionAssessmentSummary(data,'a',2)}));
+assert.ok(html.includes('7/10'));assert.ok(html.includes('2/10 puntos'));assert.ok(html.includes('1 ausencias excluidas'));
+const blockHtml=renderToStaticMarkup(React.createElement(ui.TeacherBlockScores,{entries,summary:sessionAssessmentSummary(data,'a',2),studentId:'a',onPublished(){}}));
+assert.ok(blockHtml.includes('0/10'));assert.ok(blockHtml.includes('Sin calificar'));assert.ok(blockHtml.includes('Comentario propio'));assert.ok(!blockHtml.includes('Comentario privado'));assert.ok(!blockHtml.includes('Otro curso'));assert.ok(blockHtml.includes('Poner nota'));assert.ok(blockHtml.includes('2/10 puntos'));
+console.log('Assessment results: absence-free mean, genuine zeros, one point per unique pupil session, first/second limits, block notes, course/pupil isolation and safe empty states passed.');

@@ -86,7 +86,12 @@ const loader=load('lib/teacher-activity-server.ts',{
   '@/lib/second-year-personal-plan-calendar':{SECOND_YEAR_PLAN_SESSIONS:Array.from({length:10},(_,index)=>({date:`2026-10-${13+index}`}))},
 });
 (async()=>{
+  tables.assessment_grade_items=[{id:'block-2',course_id:'c2',sa_code:'SA1',item_key:'personal-plan',title:'Plan personal',position:1},{id:'block-1',course_id:'c1',sa_code:'SA1',item_key:'personal-plan',title:'Plan de 1º',position:1}];
+  tables.student_assessment_grades=[{id:'published-2',student_id:'a',item_id:'block-2',score:0,comment:'Nota propia',published_at:'2026-10-26'},{id:'foreign-grade',student_id:'a',item_id:'block-1',score:10,comment:'Otro curso',published_at:'2026-10-26'},{id:'published-1',student_id:'b',item_id:'block-1',score:8,comment:'Nota de primero',published_at:'2026-10-26'}];
   const second=await loader.loadTeacherActivity(2);
+  assert.equal(second.assessmentItems.length,1);assert.equal(second.assessmentItems[0].id,'block-2');
+  assert.equal(second.assessmentGrades.length,1);assert.equal(second.assessmentGrades[0].score,0);assert.equal(second.assessmentGrades[0].comment,'Nota propia');
+  assert.equal(second.students[0].courseId,'c2');
   assert.equal(second.students.length,1);assert.equal(second.students[0].id,'a');
   assert.equal(second.expectedInstruments.filter(item=>item.category==='journals'&&item.sa==='SA2').length,10);
   assert.equal(second.expectedInstruments.filter(item=>item.category==='questionnaires').length,2,'Final questionnaires from another course must not become extra pending work.');
@@ -97,6 +102,7 @@ const loader=load('lib/teacher-activity-server.ts',{
   assert.ok(second.expectedInstruments.some(item=>item.category==='challenges'));
   assert.ok(second.expectedInstruments.some(item=>item.category==='theory'));
   const first=await loader.loadTeacherActivity(1);
+  assert.equal(first.assessmentGrades.length,1);assert.equal(first.assessmentGrades[0].comment,'Nota de primero');
   assert.equal(first.students.length,1);assert.equal(first.students[0].id,'b');
   assert.equal(first.activities.length,0,'Empty pupils must not inherit another course\'s activity.');
   assert.ok(first.expectedInstruments.length>0,'An empty pupil must still have a visible list of requested work.');

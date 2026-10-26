@@ -2,6 +2,10 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { TeacherSessionScoreSummary, TeacherBlockScores } from "@/components/teacher-assessment-summary";
+import { sessionAssessmentSummary, studentBlockScores } from "@/lib/teacher-assessment-summary";
+import type { PublishedAssessmentGrade } from "@/lib/gradebook";
+import type { TeacherSessionEvaluation } from "@/lib/teacher-activity";
 import { TeacherStudentChecklist } from "@/components/teacher-student-checklist";
 import { studentCompletion, completionTotals } from "@/lib/teacher-completion";
 import { isPlanSessionLog, teacherSessionSlots } from "@/lib/teacher-session-grading";
@@ -196,6 +200,18 @@ export function TeacherActivityDashboard({ data: initialData, year, initialSitua
   const visibleSituations = situations.filter((entry) => !sa || entry.code === sa);
   const completionByStudent = new Map(students.map((student) => [student.id, studentCompletion(data, student.id, sa)]));
   const selectedItems = completionByStudent.get(selected?.id ?? "") ?? [];
+  const sessionSummaries = new Map(students.map((student) => [student.id, sessionAssessmentSummary(data, student.id, year)]));
+  const blockScores = new Map(students.map((student) => [student.id, studentBlockScores(data, student.id, year, sa)]));
+  function updatePublishedGrade(grade: PublishedAssessmentGrade) {
+    setData((current) => ({...current,assessmentGrades:[...(current.assessmentGrades ?? []).filter((row) => !(row.student_id === grade.student_id && row.item_id === grade.item_id)),grade]}));
+  }
+  function updateSessionEvaluation(studentId: string, number: number, evaluation: Omit<TeacherSessionEvaluation, "studentId" | "number">) {
+    setData((current) => ({...current,
+      sessionEvaluations:[...(current.sessionEvaluations ?? []).filter((row) => !(row.studentId === studentId && row.number === number)),{...evaluation,studentId,number}],
+      activities:current.activities.map((row) => row.studentId === studentId && isPlanSessionLog(row,year) && Number(row.details.session_number) === number
+        ? {...row,details:{...row.details,teacher_score:evaluation.score,teacher_absent:evaluation.absent ?? false,teacher_comment:evaluation.comment,teacher_evaluated_at:evaluation.updatedAt}} : row),
+    }));
+  }
   const groupTotals = completionTotals([...completionByStudent.values()].flat());
   const selectedCohortIds = new Set(data.students.filter((student) => student.group === selected?.group).map((student) => student.id));
   const selectedCohortRows = data.activities.filter((row) => selectedCohortIds.has(row.studentId));
@@ -204,7 +220,7 @@ export function TeacherActivityDashboard({ data: initialData, year, initialSitua
   function chooseStudent(id: string) { setStudentId(id); setView("individual"); setSa(""); }
 
   function renderRecord(row: TeacherActivity) {
-    return <><p className="mb-3 text-xs text-slate-500">Última actualización: {row.date ? new Date(row.date).toLocaleDateString("es-ES") : "Sin fecha"}{row.status ? ` · ${statuses[row.status] ?? row.status}` : ""}</p>{row.category === "plans" && selected && <button type="button" onClick={() => exportStudentPlan(row, selected, year)} className="mb-4 inline-flex items-center gap-2 rounded-xl bg-[#1e6b4f] px-4 py-2.5 text-sm font-bold text-white"><FileDown size={16}/>Descargar plan en PDF</button>}<DetailValue value={row.details}/>{isPlanSessionLog(row, year) && <TeacherSessionEvaluationForm courseYear={year} key={`${row.id}-${row.details.teacher_evaluated_at ?? ""}`} studentId={row.studentId} sessionNumber={Number(row.details.session_number)} initialScore={row.details.teacher_score == null ? null : Number(row.details.teacher_score)} initialComment={String(row.details.teacher_comment ?? "")} initialAbsent={row.details.teacher_absent === true}/>}</>;
+    return <><p className="mb-3 text-xs text-slate-500">Última actualización: {row.date ? new Date(row.date).toLocaleDateString("es-ES") : "Sin fecha"}{row.status ? ` · ${statuses[row.status] ?? row.status}` : ""}</p>{row.category === "plans" && selected && <button type="button" onClick={() => exportStudentPlan(row, selected, year)} className="mb-4 inline-flex items-center gap-2 rounded-xl bg-[#1e6b4f] px-4 py-2.5 text-sm font-bold text-white"><FileDown size={16}/>Descargar plan en PDF</button>}<DetailValue value={row.details}/>{isPlanSessionLog(row, year) && <TeacherSessionEvaluationForm courseYear={year} key={row.id} studentId={row.studentId} sessionNumber={Number(row.details.session_number)} initialScore={row.details.teacher_score == null ? null : Number(row.details.teacher_score)} initialComment={String(row.details.teacher_comment ?? "")} initialAbsent={row.details.teacher_absent === true} onSaved={(evaluation) => updateSessionEvaluation(row.studentId, Number(row.details.session_number), evaluation)}/>}</>;
   }
 
   const physicalRadar = ["Fuerza", "Resistencia", "Velocidad", "Flexibilidad / movilidad", "Otras pruebas"].flatMap((capacity) => {
@@ -240,14 +256,15 @@ export function TeacherActivityDashboard({ data: initialData, year, initialSitua
       {changingCourse && <p role="status" className="mt-3 font-semibold text-[#1e6b4f]">Cargando los resultados del curso seleccionado…</p>}
     </section>
     {!students.length ? <p className="card p-6">No hay alumnado activo en este grupo.</p> : <>
-      {view === "individual" && selected ? <TeacherStudentChecklist key={`${selected.id}-${data.loadedAt}`} student={selected} items={selectedItems} situations={visibleSituations} renderRecord={renderRecord}/> : <section className="card p-5 sm:p-7">
+      {view === "individual" && selected ? <TeacherStudentChecklist key={`${selected.id}-${data.loadedAt}`} student={selected} items={selectedItems} situations={visibleSituations} renderRecord={renderRecord} summary={(!sa || sa === (year === 1 ? "SA1" : "SA2")) && <TeacherSessionScoreSummary summary={sessionSummaries.get(selected.id)!}/>} renderGrades={(code) => <TeacherBlockScores key={`${selected.id}-${code}-${data.loadedAt}`} entries={(blockScores.get(selected.id) ?? []).filter((entry) => entry.item.sa_code === code)} summary={sessionSummaries.get(selected.id)!} studentId={selected.id} onPublished={updatePublishedGrade}/>}/> : <section className="card p-5 sm:p-7">
         <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-extrabold">Resumen de cada alumno/a</h2><p className="mt-2 text-sm text-slate-500">Selecciona un nombre para ver todo su trabajo, sus respuestas y lo que le falta en cada situación.</p></div><p className="text-sm font-bold text-[#164c3a]">{groupTotals.completed}/{groupTotals.total} tareas completadas en el grupo</p></div>
         <div className="mt-5 divide-y divide-slate-100">{students.map((student) => {
           const items = completionByStudent.get(student.id) ?? [];
           const total = completionTotals(items);
+          const sessionSummary = sessionSummaries.get(student.id)!;
           return <article key={student.id} className="grid gap-3 py-4 sm:grid-cols-[minmax(12rem,1fr)_minmax(14rem,2fr)_auto] sm:items-center">
             <div><button type="button" onClick={() => chooseStudent(student.id)} className="text-left text-sm font-extrabold text-[#164c3a] underline underline-offset-4">{student.name}</button><p className="mt-1 text-xs text-slate-500">{student.group}</p></div>
-            <div><div className="flex justify-between gap-2 text-xs"><span>{total.completed}/{total.total} completadas · {total.pending} pendientes · {total.inProgress} en curso</span><strong>{total.percent}%</strong></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-emerald-600" style={{width:`${total.percent}%`}}/></div><div className="mt-2 flex flex-wrap gap-1.5">{visibleSituations.map((instrument) => {const part=completionTotals(items.filter((item) => item.sa===instrument.code));return <span key={instrument.code} className={`rounded-full px-2 py-1 text-[11px] font-semibold ${part.total && part.completed===part.total ? "bg-emerald-50 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>{instrument.code} · {part.completed}/{part.total}</span>;})}</div></div>
+            <div><div className="flex justify-between gap-2 text-xs"><span>{total.completed}/{total.total} completadas · {total.pending} pendientes · {total.inProgress} en curso</span><strong>{total.percent}%</strong></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-emerald-600" style={{width:`${total.percent}%`}}/></div><div className="mt-2 flex flex-wrap gap-1.5">{visibleSituations.map((instrument) => {const part=completionTotals(items.filter((item) => item.sa===instrument.code));return <span key={instrument.code} className={`rounded-full px-2 py-1 text-[11px] font-semibold ${part.total && part.completed===part.total ? "bg-emerald-50 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>{instrument.code} · {part.completed}/{part.total}</span>;})}</div>{(!sa || sa === sessionSummary.sa) && <TeacherSessionScoreSummary summary={sessionSummary} compact/>}<TeacherBlockScores entries={blockScores.get(student.id) ?? []} summary={sessionSummary} studentId={student.id} compact/></div>
             <button type="button" onClick={() => chooseStudent(student.id)} className="rounded-xl border border-emerald-300 px-3 py-2 text-xs font-bold text-[#164c3a]">Ver ficha completa</button>
           </article>;
         })}</div>

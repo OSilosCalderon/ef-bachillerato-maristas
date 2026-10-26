@@ -6,7 +6,7 @@ import { addAssessmentGradeItem, publishAssessmentGrade } from "@/app/profesor/c
 import { formatGrade, formatPublication, gradesForStudent, type AssessmentGradeItem, type GradebookData, type PublishedAssessmentGrade } from "@/lib/gradebook";
 import { parseTeacherSessionScore } from "@/lib/teacher-session-grading";
 
-function GradePublicationForm({item,studentId,grade,onPublished}:{item:AssessmentGradeItem;studentId:string;grade:PublishedAssessmentGrade|null;onPublished:(grade:PublishedAssessmentGrade)=>void}) {
+export function GradePublicationForm({item,studentId,grade,onPublished}:{item:AssessmentGradeItem;studentId:string;grade:PublishedAssessmentGrade|null;onPublished:(grade:PublishedAssessmentGrade)=>void}) {
   const [score,setScore]=useState(grade?String(grade.score).replace(".",","):"");
   const [comment,setComment]=useState(grade?.comment ?? "");
   const [saving,setSaving]=useState(false);

@@ -14,7 +14,7 @@ Module._resolveFilename = function(request, parent, ...args) {
 Module._load = function(request, parent, ...args) {
   if (request === 'react/jsx-runtime') return { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }), Fragment: 'fragment' };
   if (request === 'react') return {
-    useState(initial) { const i = cursor++; if (!(i in state)) state[i] = initial; return [state[i], value => { state[i] = value; }]; },
+    useState(initial) { const i = cursor++; if (!(i in state)) state[i] = typeof initial === "function" ? initial() : initial; return [state[i], value => { state[i] = typeof value === "function" ? value(state[i]) : value; }]; },
     useTransition() { return [false, fn => { tasks.push(Promise.resolve(fn())); }]; },
   };
   if (request === 'lucide-react') return { FileDown: () => null };
@@ -32,7 +32,7 @@ Module._load = function(request, parent, ...args) {
 };
 for (const ext of ['.ts', '.tsx']) Module._extensions[ext] = (mod, filename) => mod._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2020 } }).outputText, filename);
 const { TeacherActivityDashboard } = require(path.join(root, 'components/teacher-activity-dashboard.tsx'));
-const data = { students: [{ id: 's', name: 'Test pupil', group: 'Test group' }], activities: [], situations: [{ id: 'a', code: 'SA1', title: 'Start' }, { id: 'b', code: 'SA2', title: 'Training' }], physicalTests: [], courseName: 'Test course', loadedAt: '2026-09-18T08:00:00Z' };
+const data = { students: [{ id: 's', courseId: 'c2', name: 'Test pupil', group: 'Test group' }], activities: [], situations: [{ id: 'a', code: 'SA1', title: 'Start' }, { id: 'b', code: 'SA2', title: 'Training' }], assessmentItems: [{id:'plan',course_id:'c2',sa_code:'SA1',item_key:'personal-plan',title:'Plan personal',position:1}], assessmentGrades: [], physicalTests: [], courseName: 'Test course', loadedAt: '2026-09-18T08:00:00Z' };
 const fresh = { ...data, loadedAt: '2026-09-18T08:01:00Z', activities: [{ id: 'new', studentId: 's', sa: 'SA1', category: 'plans', title: 'New saved plan', date: '2026-09-18', status: 'active', score: null, details: {} }] };
 const nodes = node => Array.isArray(node) ? node.flatMap(nodes) : node && typeof node === 'object' ? [node, ...nodes(node.props?.children)] : [];
 const render = (initialSituation = 'SA1') => { cursor = 0; return nodes(TeacherActivityDashboard({ data, year: 2, initialSituation })); };
@@ -51,6 +51,22 @@ const button = tree => tree.find(node => node.type === 'button' && node.props.ch
   assert.ok(tree.some(node => node.type === 'summary' && JSON.stringify(node.props.children).includes('New saved plan')));
   assert.equal(select(tree,'Grupo').props.value, 'Test group');
   assert.equal(select(tree,'Vista').props.value, 'individual');
+  state[0].activities.push({id:'log',studentId:'s',sa:'SA2',category:'journals',title:'Sesión 1',date:'2026-10-26',status:'completed',score:100,details:{id:'log',session_number:1,teacher_score:8}});
+  tree=render();
+  const checklist=tree.find(node=>typeof node.props?.renderGrades==='function');
+  checklist.props.renderGrades('SA1').props.onPublished({id:'new-grade',student_id:'s',item_id:'plan',score:0,comment:'Nota confirmada',published_at:'2026-10-26'});
+  tree=render();
+  const savedChecklist=tree.find(node=>typeof node.props?.renderGrades==='function');
+  assert.equal(savedChecklist.props.renderGrades('SA1').props.entries[0].grade.score,0,'Publishing a block must update results immediately, including a zero.');
+  const sessionRow=state[0].activities.find(row=>row.id==='log');
+  const inline=nodes(savedChecklist.props.renderRecord(sessionRow)).find(node=>typeof node.props?.onSaved==='function');
+  assert.ok(inline,'Session grades can be edited inside the results.');
+  inline.props.onSaved({score:0,absent:true,comment:'Ausencia confirmada',updatedAt:'2026-10-27'});
+  tree=render();
+  const updatedChecklist=tree.find(node=>typeof node.props?.renderGrades==='function');
+  assert.equal(updatedChecklist.props.summary.props.summary.mean,null,'Saving an absence updates the visible mean immediately.');
+  assert.equal(updatedChecklist.props.summary.props.summary.points,1,'A teacher edit must preserve the existing pupil valuation.');
+  assert.equal(state[0].activities.find(row=>row.id==='log').details.teacher_absent,true);
   fail = true; button(tree).props.onClick(); await Promise.all(tasks);
   tree = render();
   assert.ok(tree.some(node => node.props?.role === 'alert'));
