@@ -14,9 +14,10 @@ function StateIcon({ state }: { state: CompletionState }) {
   const Icon = state === "completed" ? CheckCircle2 : state === "in_progress" ? Clock3 : state === "untracked" ? Info : Circle;
   return <Icon aria-hidden="true" size={19} className={`mt-0.5 shrink-0 ${state === "completed" ? "text-emerald-600" : state === "in_progress" ? "text-amber-600" : "text-slate-400"}`}/>;
 }
-export function TeacherStudentChecklist({ student, items, situations, renderRecord }: {
+export function TeacherStudentChecklist({ student, items, situations, renderRecord, summary, renderGrades }: {
   student: TeacherStudent; items: CompletionItem[]; situations: { code: string; title: string }[];
   renderRecord: (row: TeacherActivity) => ReactNode;
+  summary?: ReactNode; renderGrades?: (sa: string) => ReactNode;
 }) {
   const [pendingOnly, setPendingOnly] = useState(false);
   const totals = completionTotals(items);
@@ -30,6 +31,7 @@ export function TeacherStudentChecklist({ student, items, situations, renderReco
       <div className="mt-4 grid grid-cols-3 gap-2 text-center"><p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800"><strong className="block text-xl">{totals.completed}</strong>Completadas</p><p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900"><strong className="block text-xl">{totals.inProgress}</strong>En curso</p><p className="rounded-xl bg-slate-100 p-3 text-sm text-slate-600"><strong className="block text-xl">{totals.pending}</strong>Pendientes</p></div>
       <p className="mt-3 text-xs leading-5 text-slate-500">El progreso se calcula sobre lo solicitado, incluidas las tareas sin registro. Un test respondido cuenta como realizado aunque su puntuación sea baja. Estos porcentajes no son una nota.</p>
       {totals.untracked > 0 && <p className="mt-3 rounded-xl bg-sky-50 p-3 text-xs leading-5 text-sky-900">{totals.untracked} actividades no disponen todavía de seguimiento digital. Se muestran aparte y no se contabilizan como pendientes ni completadas.</p>}
+      {summary}
       <label className="mt-4 inline-flex cursor-pointer items-center gap-2 text-sm font-bold text-slate-700"><input type="checkbox" checked={pendingOnly} onChange={(event) => setPendingOnly(event.target.checked)} className="h-4 w-4 accent-emerald-700"/>Mostrar solo pendientes y en curso</label>
     </header>
     {codes.map((sa) => {
@@ -39,6 +41,7 @@ export function TeacherStudentChecklist({ student, items, situations, renderReco
       const categories = [...new Set(visible.map((item) => item.category))];
       return <section key={sa} aria-label={`Trabajo solicitado en ${sa}`} className="card p-5 sm:p-7">
         <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-extrabold text-[#1e6b4f]">{sa}</p><h3 className="mt-1 text-xl font-extrabold">{situations.find((row) => row.code === sa)?.title ?? sa}</h3></div><span className="rounded-full bg-emerald-50 px-3 py-2 text-sm font-bold text-[#164c3a]">{total.completed}/{total.total} completadas · {total.percent}%</span></div>
+        {renderGrades?.(sa)}
         {!all.length && <p className="mt-4 text-sm text-slate-500">No hay instrumentos de seguimiento configurados para esta situación.</p>}
         {all.length > 0 && !visible.length && <p className="mt-4 text-sm font-semibold text-emerald-700">No hay tareas pendientes en esta situación.</p>}
         <div className="mt-5 grid gap-5 lg:grid-cols-2">{categories.map((category) => <div key={category} className="min-w-0"><h4 className="mb-2 text-xs font-extrabold uppercase tracking-wide text-slate-500">{activityCategories[category]}</h4><div className="divide-y divide-slate-100 rounded-xl border border-slate-200">{visible.filter((item) => item.category === category).map((item) => <details key={item.key} className="group min-w-0 p-3 sm:p-4">

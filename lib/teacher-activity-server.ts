@@ -40,19 +40,20 @@ export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityD
   const { data: courses, error } = await supabase.from("courses").select("id,name").eq("bachillerato_year", year).eq("is_active", true);
   if (error || !courses?.length) throw new Error("No se ha encontrado un curso activo.");
   const courseIds = courses.map((course) => String(course.id));
-  const [studentRows, situations, physicalTests, sports, technicalTests, questionnaires, contents, procedural] = await Promise.all([
+  const [studentRows, situations, physicalTests, sports, technicalTests, questionnaires, contents, procedural, assessmentItemRows] = await Promise.all([
     rows("students", { key: "course_id", values: courseIds }), rows("learning_situations", { key: "course_id", values: courseIds }),
-    rows("physical_tests"), rows("sports"), rows("technical_tests"), rows("questionnaires"), rows("theoretical_contents"), rows("procedural_activities"),
+    rows("physical_tests"), rows("sports"), rows("technical_tests"), rows("questionnaires"), rows("theoretical_contents"), rows("procedural_activities"), rows("assessment_grade_items", { key: "course_id", values: courseIds }),
   ]);
   const activeStudents = studentRows.filter((row) => row.active);
   const profiles = await rows("profiles", { key: "id", values: activeStudents.map((row) => str(row.profile_id)) });
   const students = activeStudents.map((row) => {
     const profile = profiles.find((entry) => entry.id === row.profile_id);
-    return { id: str(row.id), name: str(profile?.display_name) || "Alumno/a", group: firstYearCalendarGroup(str(profile?.class_group)) ?? (str(profile?.class_group) || `${year}º Bachillerato`) };
+    return { id: str(row.id), courseId: str(row.course_id), name: str(profile?.display_name) || "Alumno/a", group: firstYearCalendarGroup(str(profile?.class_group)) ?? (str(profile?.class_group) || `${year}º Bachillerato`) };
   }).sort((a, b) => a.name.localeCompare(b.name, "es"));
   const ids = students.map((student) => student.id);
   const optionalTables = new Set(["personal_training_plans", "training_session_logs", "theory_topic_progress", "healthy_habit_plans", "healthy_habit_weekly_logs", "sports_event_projects"]);
   const tableNames = ["personal_training_plans", "session_journals", "sports_journals", "training_session_logs", "physical_test_results", "technical_test_results", "questionnaire_attempts", "procedural_attempts", "theory_topic_progress", "theory_challenge_responses", "content_reads", "healthy_habit_plans", "healthy_habit_weekly_logs", "sports_event_projects"];
+  tableNames.push("student_assessment_grades");
   if (year === 1) tableNames.push("first_year_plan_session_logs");
   const loaded = await Promise.all(tableNames.map((table) => rows(table, { key: "student_id", values: ids }, optionalTables.has(table))));
   const table = Object.fromEntries(tableNames.map((name, index) => [name, loaded[index]]));
@@ -188,7 +189,10 @@ export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityD
   for (const row of table.healthy_habit_plans) add({ ...row, _kind: "habit-plan" }, "habits", str(row.focus_habit) || "Plan de hábitos", str(row.sa_code));
   for (const row of table.healthy_habit_weekly_logs) add({ ...row, _kind: "habit-week" }, "habits", `Seguimiento de hábitos · semana ${row.week_number}`, str(row.sa_code));
   for (const row of table.sports_event_projects) add(row, "projects", str(row.event_name) || "Proyecto deportivo", str(row.sa_code));
-  return { students, activities, sessionEvaluations, situations: situations.map((sa) => ({ id: str(sa.id), code: str(sa.code), title: str(sa.title) })), physicalTests: physicalTests.map((test) => ({ id: str(test.id), name: str(test.name), unit: str(test.unit), direction: str(test.direction) })), expectedInstruments, courseName: courses.map((course) => course.name).join(" · "), loadedAt: new Date().toISOString() };
+  const assessmentItems = assessmentItemRows.map((row) => ({id:str(row.id),course_id:str(row.course_id),sa_code:str(row.sa_code),item_key:str(row.item_key),title:str(row.title),position:Number(row.position)}));
+  const itemIds = new Set(assessmentItems.map((item) => item.id));
+  const assessmentGrades = table.student_assessment_grades.filter((row) => itemIds.has(str(row.item_id))).map((row) => ({id:str(row.id),student_id:str(row.student_id),item_id:str(row.item_id),score:Number(row.score),comment:str(row.comment),published_at:str(row.published_at)}));
+  return { students, activities, sessionEvaluations, assessmentItems, assessmentGrades, situations: situations.map((sa) => ({ id: str(sa.id), code: str(sa.code), title: str(sa.title) })), physicalTests: physicalTests.map((test) => ({ id: str(test.id), name: str(test.name), unit: str(test.unit), direction: str(test.direction) })), expectedInstruments, courseName: courses.map((course) => course.name).join(" · "), loadedAt: new Date().toISOString() };
 }
 
 

@@ -1,10 +1,12 @@
+import type { AssessmentGradeItem, PublishedAssessmentGrade } from "./gradebook";
+
 export const activityCategories = {
   plans: "Planes de trabajo", journals: "Diarios y seguimiento de sesiones", physical: "Pruebas físicas",
   questionnaires: "Cuestionarios", theory: "Lecturas", challenges: "Retos de aplicación", quizzes: "Autoevaluaciones teóricas",
   technical: "Pruebas técnicas", procedural: "Actividades prácticas", habits: "Hábitos saludables", projects: "Proyectos deportivos",
 } as const;
 export type ActivityCategory = keyof typeof activityCategories;
-export type TeacherStudent = { id: string; name: string; group: string };
+export type TeacherStudent = { id: string; name: string; group: string; courseId?: string };
 export type TeacherSessionEvaluation = { studentId: string; number: number; score: number; comment: string; updatedAt: string; absent?: boolean };
 export type ExpectedTeacherInstrument = {
   key?: string; sa: string; category: ActivityCategory; title: string;
@@ -21,6 +23,8 @@ export type TeacherActivityData = {
   situations: { id: string; code: string; title: string }[]; physicalTests: PhysicalDefinition[];
   expectedInstruments?: ExpectedTeacherInstrument[];
   sessionEvaluations?: TeacherSessionEvaluation[];
+  assessmentItems?: AssessmentGradeItem[];
+  assessmentGrades?: PublishedAssessmentGrade[];
   courseName: string; loadedAt: string;
 };
 export const mean = (values: number[]) => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
@@ -50,4 +54,5 @@ export function physicalComparison(activities: TeacherActivity[], studentId: str
     improvement: first !== null && last !== null && first !== 0 ? (last - first) / Math.abs(first) * 100 * (test.direction === "lower_better" ? -1 : 1) : null,
     pairedN: paired.length, pairedInitial: mean(paired.map((row) => initialByStudent.get(row.studentId)!)), pairedFinal: mean(paired.map((row) => row.score!)) };
 }
+
 
