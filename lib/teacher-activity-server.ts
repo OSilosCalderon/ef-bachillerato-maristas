@@ -95,8 +95,9 @@ export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityD
     activities.push({ id: `${category}-${str(row.id)}`, studentId: str(row.student_id), category, sa, title, date: str(row.updated_at || row.read_at || row.submitted_at || row.recorded_at || row.created_at), status: str(row.status), score, scoreLabel, details: row });
   }
   for (const row of table.personal_training_plans) add(row, "plans", str(row.objective) || "Plan personal", str(row.sa_code));
-  for (const row of table.session_journals) add({ ...row, _kind: "class-journal" }, "journals", str(row.title) || "Diario de clase", saFor(row.learning_situation_id), num(row.perceived_effort), "Esfuerzo percibido");
-  for (const row of table.sports_journals) add(row, "journals", "Diario deportivo", saFor(row.learning_situation_id));
+  // Keep all historical responses available to teachers without requesting new diaries.
+  for (const row of table.session_journals) add({ ...row, _kind: "class-journal" }, "journals", `Registro anterior · ${str(row.title) || "Diario de clase"}`, saFor(row.learning_situation_id), num(row.perceived_effort), "Esfuerzo percibido");
+  for (const row of table.sports_journals) add(row, "journals", "Registro anterior · Diario deportivo", saFor(row.learning_situation_id));
   for (const row of (year === 1 ? table.first_year_plan_session_logs : table.training_session_logs)) {
     const evaluation = evaluationsBySession.get(`${row.student_id}:${row.session_number}`);
     add({ ...row, _kind: "plan-session", teacher_score: evaluation?.score ?? null, teacher_absent: evaluation?.absent ?? false, teacher_comment: evaluation?.comment ?? "", teacher_evaluated_at: evaluation?.updatedAt ?? null }, "journals", `Sesión de entrenamiento ${row.session_number}`, str(row.sa_code), num(row.completion_percent), "Realización declarada (%)");
@@ -148,16 +149,9 @@ export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityD
     for (let week = 1; week <= 4; week++) expect({ key: `SA3:habit-week:${week}`, sa: "SA3", category: "habits", title: `Seguimiento de hábitos · semana ${week}`, filters: { _kind: "habit-week", week_number: week } });
     expect({ key: "SA4:event-project", sa: "SA4", category: "projects", title: "Proyecto de evento deportivo", matchAll: true });
   } else {
-    const classSessions = await rows("class_sessions");
-    const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date());
     for (const group of [...new Set(students.map((student) => student.group))]) {
       (FIRST_YEAR_PLAN_SESSIONS[group] ?? []).forEach((session,index) => expect({key:`SA1:plan-session:${group}:${index+1}`,sa:"SA1",category:"journals",group,title:`Seguimiento del plan · sesión ${index+1} · ${session.date.slice(8)}/${session.date.slice(5,7)}`,filters:{_kind:"plan-session",session_number:index+1}}));
-      const planDates = new Set((FIRST_YEAR_PLAN_SESSIONS[group] ?? []).map((session) => session.date));
-      const scheduled = classSessions.filter((session) => session.class_group === group && session.academic_year === "2026/2027" && session.status === "scheduled" && str(session.session_date) <= today && !planDates.has(str(session.session_date)));
-      for (const session of scheduled) expect({ key: `SA1:journal:${session.id}`, sa: "SA1", category: "journals", group, title: `Diario · ${str(session.session_date).slice(8)}/${str(session.session_date).slice(5, 7)}`, filters: { _kind: "class-journal", session_date: str(session.session_date) } });
-      if (!scheduled.length) expect({ key: `SA1:journal:${group}`, sa: "SA1", category: "journals", group, title: "Diario de clase", filters: { _kind: "class-journal" } });
     }
-    expect({ key: "SA2:sports-journal", sa: "SA2", category: "journals", title: "Diario deportivo", matchAll: true, tracking: "unavailable" });
     for (const [category, title] of [["technical","Pruebas técnicas · Inicial y final"],["questionnaires","Cuestionarios"],["procedural","Conocimiento y toma de decisiones"],["theory","Bloque teórico"],["quizzes","Autoevaluación teórica"]] as const) if (!expectedInstruments.some((item) => item.sa === "SA2" && item.category === category)) expect({ key: `SA2:${category}:planned`, sa: "SA2", category, title, matchAll:true, tracking:"unavailable" });
     // These existing pupil screens are demonstrations without a persisted submission.
     // Keep them visible without claiming that the pupil failed to deliver them.

@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, BrainCircuit, ClipboardCheck, Gauge, NotebookPen, Trophy } from "lucide-react";
+import { BookOpen, BrainCircuit, ClipboardCheck, Gauge, Trophy } from "lucide-react";
 
 const items = [
   { href: "/alumno/sa2/habilidades", label: "Mis habilidades deportivas", icon: Trophy },
   { href: "/alumno/sa2/contenidos", label: "Contenidos teóricos", icon: BookOpen },
-  { href: "/alumno/sa2/diario", label: "Diario deportivo", icon: NotebookPen },
   { href: "/alumno/sa2/cuestionarios", label: "Cuestionarios", icon: ClipboardCheck },
   { href: "/alumno/sa2/decisiones", label: "Conocimiento y decisiones", icon: BrainCircuit },
   { href: "/alumno/sa2/progreso", label: "Mi progreso", icon: Gauge },
@@ -16,7 +15,7 @@ const items = [
 export function Sa2SectionNav() {
   const pathname = usePathname();
   return (
-    <nav aria-label="Apartados de Habilidades motrices específicas y deportes" className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+    <nav aria-label="Apartados de Habilidades motrices específicas y deportes" className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
       {items.map(({ href, label, icon: Icon }) => {
         const active = pathname === href;
         return (

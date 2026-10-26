@@ -21,6 +21,11 @@ result=sessionAssessmentSummary(first,'a',1);assert.equal(result.total,8);assert
 const item=(id,key,sa='SA1',course_id='c2')=>({id,item_key:key,sa_code:sa,course_id,title:key,position:1});
 const blocks={...data,activities:[{...log('plan',1),sa:'SA1',category:'plans'}],assessmentItems:[item('plan','personal-plan'),item('theory','theory-self-assessment'),item('other-course','personal-plan','SA1','c1'),item('followup','session-follow-up','SA2')],assessmentGrades:[{id:'grade',student_id:'a',item_id:'plan',score:0,comment:'Comentario propio',published_at:'2026-10-26'},{id:'private',student_id:'b',item_id:'theory',score:10,comment:'Comentario privado',published_at:'2026-10-26'},{id:'foreign',student_id:'a',item_id:'other-course',score:10,comment:'Otro curso',published_at:'2026-10-26'}]};
 const entries=studentBlockScores(blocks,'a',2);
+const oldDiaries={...first,assessmentItems:[item('first-followup','session-follow-up'),item('old-block','sports-journal','SA2')],activities:first.activities.filter(row=>row.details._kind==='class-journal'),assessmentGrades:[]};
+assert.equal(studentBlockScores(oldDiaries,'a',1).length,1,'Do not request grades for retired diaries.');
+assert.equal(studentBlockScores(oldDiaries,'a',1)[0].worked,false,'A historical diary must not complete personal-plan follow-up.');
+oldDiaries.assessmentGrades=[{id:'old-grade',student_id:'a',item_id:'old-block',score:0,comment:'Histórico',published_at:'2026-10-26'}];
+assert.equal(studentBlockScores(oldDiaries,'a',1).find(row=>row.item.id==='old-block').grade.score,0,'Preserve historical diary grades in teacher results.');
 assert.equal(entries.length,3);assert.equal(entries.find(x=>x.item.id==='plan').grade.score,0);assert.equal(entries.find(x=>x.item.id==='theory').grade,null);assert.equal(entries.find(x=>x.item.id==='plan').worked,true);assert.equal(entries.find(x=>x.item.id==='theory').worked,false);assert.equal(studentBlockScores(blocks,'a',2,'SA2').length,1);
 const ui=load('components/teacher-assessment-summary.tsx',{'@/components/teacher-gradebook':{GradePublicationForm:()=>null}});
 const html=renderToStaticMarkup(React.createElement(ui.TeacherSessionScoreSummary,{summary:sessionAssessmentSummary(data,'a',2)}));

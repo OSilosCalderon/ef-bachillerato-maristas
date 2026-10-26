@@ -1,4 +1,4 @@
-import { BookOpen, BrainCircuit, ClipboardCheck, Dumbbell, NotebookPen, Trophy } from "lucide-react";
+import { BookOpen, BrainCircuit, ClipboardCheck, Dumbbell, Trophy } from "lucide-react";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { Sa2Layout } from "@/components/sa2-layout";
@@ -8,7 +8,6 @@ import { individualTechnicalEvolution } from "@/lib/sa2-demo-data";
 const stats = [
   ["Deportes trabajados", "4", "Con actividad registrada", Trophy],
   ["Pruebas realizadas", "4 / 4", "Con registros técnicos", Dumbbell],
-  ["Diarios", "2", "Entradas completadas", NotebookPen],
   ["Contenidos", "2 / 4", "Consultados", BookOpen],
   ["Cuestionarios", "0 / 1", "Completados", ClipboardCheck],
   ["Toma de decisiones", "2", "Intentos registrados", BrainCircuit],
