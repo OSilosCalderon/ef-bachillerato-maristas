@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { CheckCircle2, Send } from "lucide-react";
-import { saveOlympiadAnswer } from "@/app/alumno/olimpiada-lisboa/actions";
+import { submitOlympiadResponse } from "@/lib/olympiad-response-client";
 import { OLYMPIAD_CHOICES, OLYMPIAD_GENDERS, type OlympiadResponse } from "@/lib/olympiad-lisboa";
 
 export function OlympiadParticipationForm({ initialResponse }: { initialResponse: OlympiadResponse | null }) {
@@ -20,7 +20,7 @@ export function OlympiadParticipationForm({ initialResponse }: { initialResponse
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(""); setMessage(""); setSaving(true);
     try {
-      const response = await saveOlympiadAnswer({ participating, gender, first_choice: first, second_choice: second });
+      const response = await submitOlympiadResponse({ participating, gender, first_choice: first, second_choice: second });
       setSaved(response); setMessage("Tu respuesta se ha guardado correctamente.");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "No se ha podido guardar. Vuelve a intentarlo."); }
     finally { setSaving(false); }
@@ -38,7 +38,7 @@ export function OlympiadParticipationForm({ initialResponse }: { initialResponse
           <div className="grid gap-5 md:grid-cols-2">{[{label:"Primera opción",value:first,set:setFirst,other:second},{label:"Segunda opción",value:second,set:setSecond,other:first}].map((field) => <label key={field.label} className="block text-sm font-bold">{field.label}<select required value={field.value} onChange={(event) => field.set(event.target.value as typeof first)} className={inputClass}><option value="">Elige deporte y prueba</option>{sports.map((sport) => <optgroup key={sport} label={sport}>{OLYMPIAD_CHOICES.filter((choice) => choice.sport === sport).map((choice) => <option key={choice.id} value={choice.id} disabled={choice.id === field.other}>{choice.label}</option>)}</optgroup>)}</select></label>)}</div>
           <p className="text-xs leading-5 text-slate-500">Selecciona dos opciones diferentes. En atletismo, natación y gimnasia puedes indicar la prueba concreta.</p>
         </div>}
-        <button type="submit" disabled={participating === null || (saved !== null && !dirty)} className="inline-flex items-center gap-2 rounded-xl bg-[#1e6b4f] px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"><Send size={17} aria-hidden="true"/>{saving ? "Guardando…" : saved ? "Actualizar mi respuesta" : "Guardar mi respuesta"}</button>
+        <button type="submit" disabled={participating === null} className="inline-flex items-center gap-2 rounded-xl bg-[#1e6b4f] px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"><Send size={17} aria-hidden="true"/>{saving ? "Guardando…" : participating === false ? "Guardar que no deseo participar" : saved ? "Actualizar mi respuesta" : "Guardar mi respuesta"}</button>
       </fieldset>
       <p className="mt-3 text-xs leading-5 text-slate-500">Puedes modificar tu respuesta. Solo tú y el profesorado podéis consultarla.</p>
       {error && <p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
