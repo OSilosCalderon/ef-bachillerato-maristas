@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   CalendarDays, BarChart3, BookOpen, ClipboardCheck, Download, Dumbbell, Eye, FileText, Gauge, GraduationCap, HeartPulse,
@@ -8,11 +9,12 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-type NavItem = { label: string; mobileLabel?: string; href: string; icon: LucideIcon };
+type NavItem = { label: string; mobileLabel?: string; href: string; icon: LucideIcon; logo?: string };
 
 const firstYearItems: NavItem[] = [
   { label: "Mi agenda", mobileLabel: "Agenda", href: "/alumno/agenda", icon: CalendarDays },
   { label: "Inicio", href: "/alumno", icon: Home },
+  { label: "Olimpiada Marista Lisboa", mobileLabel: "Lisboa 2027", href: "/alumno/olimpiada-lisboa", icon: Sparkles, logo: "/olimpiada-lisboa/logo-lisboa-2027.png" },
   { label: "Mi progreso", mobileLabel: "Progreso", href: "/alumno/progreso", icon: BarChart3 },
   { label: "Mis calificaciones", mobileLabel: "Mis notas", href: "/alumno/calificaciones", icon: GraduationCap },
   { label: "Contenidos teóricos SA1", mobileLabel: "Teoría SA1", href: "/alumno/sa1/contenidos", icon: GraduationCap },
@@ -39,6 +41,7 @@ const secondYearItems: NavItem[] = [
 ];
 
 const teacherItems: NavItem[] = [
+  { label: "Olimpiada Lisboa · 1º", mobileLabel: "Lisboa 1º", href: "/profesor/olimpiada-lisboa", icon: Sparkles, logo: "/olimpiada-lisboa/logo-lisboa-2027.png" },
   { label: "Ver como alumno", mobileLabel: "Vista alumno", href: "/profesor/vista-alumno", icon: Eye },
   { label: "Activar situaciones", mobileLabel: "Activar SA", href: "/profesor/situaciones", icon: BookOpen },
   { label: "Agenda de clases", mobileLabel: "Agenda", href: "/profesor/agenda", icon: CalendarDays },
@@ -85,7 +88,7 @@ export function SideNav({ role, courseYear = 1, visibleSituations }: { role: "st
           {items.map((item) => {
             const active = isActive(item.href);
             const Icon = item.icon;
-            return <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b8f34a] ${active ? "bg-[#b8f34a] text-[#10221d]" : "text-slate-300 hover:bg-white/10 hover:text-white"}`}><Icon size={19}/>{item.label}</Link>;
+            return <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b8f34a] ${active ? "bg-[#b8f34a] text-[#10221d]" : "text-slate-300 hover:bg-white/10 hover:text-white"}`}>{item.logo ? <Image src={item.logo} alt="" width={40} height={22} className="h-7 w-10 shrink-0 rounded bg-white p-0.5 object-contain"/> : <Icon size={19}/>} {item.label}</Link>;
           })}
         </nav>
         <div className="absolute bottom-5 left-4 right-4 rounded-2xl border border-white/10 bg-white/5 p-4 text-white">
@@ -107,7 +110,7 @@ export function SideNav({ role, courseYear = 1, visibleSituations }: { role: "st
                 aria-current={active ? "page" : undefined}
                 className={`flex w-[70px] shrink-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[10px] font-semibold leading-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b8f34a] ${active ? "bg-[#b8f34a] text-[#10221d]" : "text-slate-300"}`}
               >
-                <Icon size={18}/>
+                {item.logo ? <Image src={item.logo} alt="" width={32} height={18} className="h-[18px] w-8 rounded bg-white object-contain"/> : <Icon size={18}/>}
                 <span className="block w-full truncate">{item.mobileLabel ?? item.label}</span>
               </Link>
             );

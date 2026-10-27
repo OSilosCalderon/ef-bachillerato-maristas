@@ -1,0 +1,36 @@
+import Image from "next/image";
+import Link from "next/link";
+import { ArrowDown, CalendarDays, Download, MapPin, Trophy } from "lucide-react";
+import { OLYMPIAD_CHOICES, OLYMPIAD_LOGO, OLYMPIAD_PROGRAM, OLYMPIAD_PROGRAM_DAYS, OLYMPIAD_RULES } from "@/lib/olympiad-lisboa";
+
+export function OlympiadLisboaCard() {
+  return <Link href="/alumno/olimpiada-lisboa" className="card group relative flex flex-col gap-5 overflow-hidden border-sky-200 p-6 transition hover:-translate-y-0.5 hover:shadow-lg md:flex-row md:items-center md:justify-between">
+    <div className="flex items-center gap-5"><div className="shrink-0 rounded-2xl border border-slate-100 bg-white p-2"><Image src={OLYMPIAD_LOGO} alt="Olimpiadas Maristas Lisboa 2027" width={137} height={62} className="h-auto w-28 sm:w-36"/></div><div><p className="text-xs font-extrabold uppercase tracking-wider text-sky-700">1º Bachillerato · 15–17 abril 2027</p><h2 className="mt-2 text-xl font-extrabold sm:text-2xl">Olimpiada Marista Lisboa</h2><p className="mt-2 text-sm leading-6 text-slate-600">Deporte, convivencia y una experiencia para compartir. Consulta el programa y dinos si quieres participar.</p></div></div>
+    <span className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-sky-700 px-5 py-3 text-sm font-bold text-white">Descubrir y participar <span aria-hidden="true">↗</span></span>
+  </Link>;
+}
+
+export function OlympiadLisboaContent({ showParticipationLink = false }: { showParticipationLink?: boolean }) {
+  const sports = [...new Set(OLYMPIAD_CHOICES.map((choice) => choice.sport))];
+  return <>
+    <section className="relative isolate overflow-hidden rounded-3xl border border-sky-200 bg-gradient-to-br from-sky-50 via-white to-pink-50 p-6 sm:p-9">
+      <div aria-hidden="true" className="absolute -right-16 -top-16 h-56 w-56 rounded-full border-[28px] border-sky-200/40"/>
+      <div className="relative grid items-center gap-7 lg:grid-cols-[1.3fr_1fr]">
+        <div><p className="text-xs font-extrabold uppercase tracking-[.18em] text-sky-700">Una experiencia que nos une · 1º Bachillerato</p><h1 className="mt-4 text-3xl font-extrabold leading-tight text-[#102e38] sm:text-5xl">Olimpiada Marista <span className="text-sky-700">Lisboa</span></h1><p className="mt-4 max-w-xl text-sm leading-7 text-slate-600 sm:text-base">Tres días para competir, convivir y compartir el espíritu Marista. Encuentra tu modalidad y forma parte de esta experiencia.</p>
+          <div className="mt-5 flex flex-wrap gap-2"><span className="inline-flex items-center gap-2 rounded-full border border-sky-100 bg-white px-4 py-2 text-sm font-bold text-sky-900"><CalendarDays size={17} aria-hidden="true"/>15–17 de abril de 2027</span><span className="inline-flex items-center gap-2 rounded-full border border-sky-100 bg-white px-4 py-2 text-sm font-bold text-sky-900"><MapPin size={17} aria-hidden="true"/>Lisboa</span></div>
+          {showParticipationLink && <a href="#participacion" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-sky-700 px-5 py-3 text-sm font-bold text-white">Quiero responder <ArrowDown size={17} aria-hidden="true"/></a>}
+        </div>
+        <div className="rounded-3xl border border-white bg-white p-5 shadow-sm sm:p-7"><Image src={OLYMPIAD_LOGO} alt="Olimpiadas Maristas Lisboa 2027 · Imagínate" width={682} height={306} priority className="h-auto w-full object-contain"/><p className="mt-4 border-t border-slate-100 pt-4 text-center text-xs font-bold uppercase tracking-wider text-slate-500">Deporte · Encuentro · Convivencia</p></div>
+      </div>
+    </section>
+
+    <section aria-labelledby="olympiad-program" className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-extrabold uppercase tracking-wider text-sky-700">Tres días, una experiencia</p><h2 id="olympiad-program" className="mt-2 text-2xl font-extrabold">El programa</h2></div><a href={OLYMPIAD_PROGRAM} target="_blank" rel="noreferrer" className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600">Ver programa original ↗</a></div>
+      <div className="grid gap-4 lg:grid-cols-3">{OLYMPIAD_PROGRAM_DAYS.map((day, index) => <article key={day.iso} className="card overflow-hidden"><header className={`border-b p-5 ${index === 0 ? "border-sky-100 bg-sky-50" : index === 1 ? "border-amber-100 bg-amber-50" : "border-pink-100 bg-pink-50"}`}><p className="text-xs font-extrabold uppercase tracking-widest text-slate-500">{day.day}</p><h3 className="mt-2 text-2xl font-extrabold"><time dateTime={day.iso}>{day.date}</time></h3><p className="mt-1 text-xs font-semibold text-slate-500">2027</p></header><div className="space-y-5 p-5">{[{label:"Mañana",activities:day.morning},{label:"Tarde",activities:day.afternoon},{label:"Noche",activities:day.night}].filter((period) => period.activities.length > 0).map((period) => <div key={period.label}><h4 className="text-xs font-extrabold uppercase tracking-wide text-sky-700">{period.label}</h4><ul className="mt-2 space-y-1.5 text-sm leading-6 text-slate-600">{period.activities.map((activity) => <li key={activity} className="flex gap-2"><span aria-hidden="true" className="text-sky-500">•</span>{activity}</li>)}</ul></div>)}</div></article>)}</div>
+    </section>
+
+    <section aria-labelledby="olympiad-sports" className="card p-5 sm:p-8"><div className="flex items-center gap-3"><Trophy size={24} className="text-amber-500" aria-hidden="true"/><h2 id="olympiad-sports" className="text-2xl font-extrabold">Encuentra tu modalidad</h2></div><div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{sports.map((sport) => <article key={sport} className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><h3 className="text-sm font-extrabold text-slate-900">{sport}</h3><p className="mt-2 text-xs leading-6 text-slate-600">{OLYMPIAD_CHOICES.filter((choice) => choice.sport === sport).map((choice) => choice.label.replace(`${sport} · `, "")).join(" · ")}</p></article>)}</div></section>
+
+    <section aria-labelledby="olympiad-rules" className="card overflow-hidden"><div className="flex flex-wrap items-center justify-between gap-4 p-5 sm:p-8"><div><p className="text-xs font-extrabold uppercase tracking-wider text-sky-700">Antes de competir</p><h2 id="olympiad-rules" className="mt-2 text-2xl font-extrabold">Reglamento de los deportes</h2><p className="mt-2 text-sm text-slate-500">Consulta el documento completo de las actividades deportivas.</p></div><a href={OLYMPIAD_RULES} download="Reglamento_Olimpiadas_Maristas_2027_ES.pdf" className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-white"><Download size={17} aria-hidden="true"/>Descargar reglamento PDF</a></div><details className="border-t border-slate-200"><summary className="cursor-pointer bg-slate-50 px-5 py-4 text-sm font-bold text-slate-700 sm:px-8">Leer el reglamento aquí</summary><div className="p-3"><iframe src={`${OLYMPIAD_RULES}#view=FitH`} title="Reglamento de las Olimpiadas Maristas 2027" loading="lazy" className="h-[70vh] min-h-96 w-full rounded-xl border border-slate-200"/><a href={OLYMPIAD_RULES} target="_blank" rel="noreferrer" className="mt-3 inline-block text-sm font-bold text-sky-700 underline">Abrir PDF en otra pestaña</a></div></details></section>
+  </>;
+}
