@@ -11,7 +11,11 @@ export async function saveOlympiadAnswer(input: unknown): Promise<OlympiadRespon
   const answer = validateOlympiadAnswer(input);
   const supabase = await createClient();
   const { data, error } = await supabase.from("olympiad_lisboa_2027_responses").upsert({ student_id: student.id, ...answer }, { onConflict: "student_id" }).select("student_id,participating,gender,first_choice,second_choice,updated_at").single();
-  if (error || !data || data.student_id !== student.id || data.participating !== answer.participating || data.gender !== answer.gender || data.first_choice !== answer.first_choice || data.second_choice !== answer.second_choice) throw new Error("No se ha podido confirmar el guardado. Vuelve a intentarlo.");
+  if (error) {
+    console.error("Olympiad response save failed", {code:error.code,message:error.message});
+    throw new Error("No se ha podido guardar tu respuesta. Vuelve a intentarlo; si continúa, avisa al profesor.");
+  }
+  if (!data || data.student_id !== student.id || data.participating !== answer.participating || data.gender !== answer.gender || data.first_choice !== answer.first_choice || data.second_choice !== answer.second_choice) throw new Error("No se ha podido confirmar el guardado. Vuelve a intentarlo.");
   revalidatePath("/alumno/olimpiada-lisboa");
   revalidatePath("/profesor/olimpiada-lisboa");
   return data as OlympiadResponse;
