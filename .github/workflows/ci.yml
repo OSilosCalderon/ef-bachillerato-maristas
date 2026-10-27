@@ -25,6 +25,8 @@ jobs:
         run: node scripts/check-retired-diaries.cjs
       - name: Typecheck
         run: npm run typecheck
+      - name: Check Lisboa Olympiad
+        run: node scripts/check-olympiad-lisboa.cjs
       - name: Build
         run: npm run build
 
