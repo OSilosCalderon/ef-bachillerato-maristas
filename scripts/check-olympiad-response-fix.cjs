@@ -17,6 +17,42 @@ const ui=load('components/teacher-olympiad-summary.tsx');
 const html=renderToStaticMarkup(React.createElement(ui.TeacherOlympiadSummary,{students}));
 for(const text of ['Sí desean participar · Por deportes','Primera opción','Segunda opción','No desean participar','Alumno c','1ºB Bachillerato','Atletismo · 2.000 metros'])assert.ok(html.includes(text));
 assert.ok(!html.includes('Alumno pending'),'Unanswered pupils must not be presented as declining.');assert.equal(JSON.stringify(students),original);
+
+// Compose the actual teacher controls with gender/group filters and preserve unclassified responses.
+{
+ const {filterOlympiadStudents}=load('lib/olympiad-participation-summary.ts');
+ const named=(id,group,gender,first='baloncesto',second='voleibol')=>({...student(id,first,second),group,response:{...student(id,first,second).response,gender}});
+ const roster=[named('mA','1ºA Bachillerato','masculino','atletismo-longitud','atletismo-2000'),named('fA','1ºA Bachillerato','femenino','atletismo-2000','baloncesto'),named('mB','1ºB Bachillerato','masculino','voleibol','atletismo-peso'),named('fB','1ºB Bachillerato','femenino'),named('otherA','1ºA Bachillerato','no-indicado'),named('otherB','1ºB Bachillerato','otra-identidad'),{...student('no',null,null,false),group:'1ºA Bachillerato'},{...student('pending'),group:'1ºA Bachillerato'}];
+ const snapshot=JSON.stringify(roster);
+ assert.equal(filterOlympiadStudents(roster,'','femenino').length,2);
+ assert.equal(filterOlympiadStudents(roster,'1ºB Bachillerato','femenino')[0].id,'fB');
+ assert.equal(filterOlympiadStudents(roster,'1ºA Bachillerato','masculino')[0].id,'mA');
+ assert.equal(filterOlympiadStudents(roster,'','other').length,4,'Keep other identities, unspecified gender, No and pending responses available.');
+ const breakdown=summarizeOlympiadParticipation(roster).sports.find(row=>row.sport==='Atletismo');
+ assert.equal(breakdown.interested,3);assert.equal(breakdown.genders.masculino,2);assert.equal(breakdown.genders.femenino,1);assert.equal(breakdown.genders.other,0);
+ let state=[],cursor=0;
+ const hooks={useState(initial){const i=cursor++;if(!(i in state))state[i]=initial;return [state[i],value=>{state[i]=value;}];}};
+ const jsx={jsx:(type,props,key)=>({type,props,key}),jsxs:(type,props,key)=>({type,props,key}),Fragment:'fragment'};
+ const teacher=load('components/teacher-olympiad-responses.tsx',{'react':hooks,'react/jsx-runtime':jsx,'next/navigation':{useRouter:()=>({refresh(){}})}});
+ const nodes=n=>Array.isArray(n)?n.flatMap(nodes):n&&typeof n==='object'?[n,...nodes(n.props?.children)]:[];
+ const render=()=>{cursor=0;return nodes(teacher.TeacherOlympiadResponses({students:roster}));};
+ const select=(tree,label)=>nodes(tree.find(n=>n.type==='label'&&n.props.children?.[0]===label)).find(n=>n.type==='select');
+ const tableNames=tree=>nodes(tree.find(n=>n.type==='tbody')).filter(n=>n.type==='th').map(n=>n.props.children).join(',');
+ const summaryRows=tree=>tree.find(n=>typeof n.type==='function'&&Array.isArray(n.props?.students)).props.students;
+ let tree=render();assert.equal(summaryRows(tree).length,8);
+ select(tree,'Género').props.onChange({target:{value:'femenino'}});tree=render();
+ assert.equal(summaryRows(tree).length,2);assert.equal(tableNames(tree),'Alumno fA,Alumno fB');
+ select(tree,'Grupo').props.onChange({target:{value:'1ºB Bachillerato'}});tree=render();
+ assert.equal(tableNames(tree),'Alumno fB');assert.equal(summaryRows(tree)[0].id,'fB');
+ select(tree,'Respuesta').props.onChange({target:{value:'no'}});tree=render();assert.equal(tableNames(tree),'');
+ assert.equal(summaryRows(tree)[0].id,'fB','The existing response filter affects the table, while gender/group apply to both summaries and table.');
+ select(tree,'Respuesta').props.onChange({target:{value:''}});select(tree,'Género').props.onChange({target:{value:'other'}});select(tree,'Grupo').props.onChange({target:{value:''}});tree=render();
+ assert.equal(summaryRows(tree).length,4);assert.ok(tableNames(tree).includes('Alumno no'));assert.ok(tableNames(tree).includes('Alumno pending'));
+ select(tree,'Género').props.onChange({target:{value:''}});tree=render();assert.equal(summaryRows(tree).length,8);assert.equal(JSON.stringify(roster),snapshot);
+ const genderHtml=renderToStaticMarkup(React.createElement(ui.TeacherOlympiadSummary,{students:roster}));
+ assert.ok(genderHtml.includes('Masculino: 2'));assert.ok(genderHtml.includes('Femenino: 1'));assert.ok(genderHtml.includes('Otros / sin dato:'));
+ console.log('Olympiad genders: actual controls compose class/gender/status, per-sport unique M/F counts, first/second choices and all unknown/declined/pending records preserved.');
+}
 (async()=>{
  let saves=0,saved=null,deny=false,fail=false;
  const route=load('app/api/olimpiada-lisboa/route.ts',{'next/server':{NextResponse:{json:(body,options={})=>new Response(JSON.stringify(body),{...options,headers:{'content-type':'application/json',...options.headers}})}},'@/app/alumno/olimpiada-lisboa/actions':{saveOlympiadAnswer:async input=>{if(deny)throw Object.assign(new Error('Redirect'),{digest:'NEXT_REDIRECT;replace;/auth/login;307;'});if(fail)throw Error('Guardado no disponible');saves++;saved={student_id:'own',...helper.validateOlympiadAnswer(input),updated_at:'2026-10-27T12:00:00Z'};return saved;}}});
