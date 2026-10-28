@@ -52,7 +52,7 @@ export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityD
   }).sort((a, b) => a.name.localeCompare(b.name, "es"));
   const ids = students.map((student) => student.id);
   const optionalTables = new Set(["personal_training_plans", "training_session_logs", "theory_topic_progress", "healthy_habit_plans", "healthy_habit_weekly_logs", "sports_event_projects"]);
-  const tableNames = ["personal_training_plans", "session_journals", "sports_journals", "training_session_logs", "physical_test_results", "technical_test_results", "questionnaire_attempts", "procedural_attempts", "theory_topic_progress", "theory_challenge_responses", "content_reads", "healthy_habit_plans", "healthy_habit_weekly_logs", "sports_event_projects"];
+  const tableNames = ["physical_final_reflections", "personal_training_plans", "session_journals", "sports_journals", "training_session_logs", "physical_test_results", "technical_test_results", "questionnaire_attempts", "procedural_attempts", "theory_topic_progress", "theory_challenge_responses", "content_reads", "healthy_habit_plans", "healthy_habit_weekly_logs", "sports_event_projects"];
   tableNames.push("student_assessment_grades");
   if (year === 1) tableNames.push("first_year_plan_session_logs");
   const loaded = await Promise.all(tableNames.map((table) => rows(table, { key: "student_id", values: ids }, optionalTables.has(table))));
@@ -95,6 +95,9 @@ export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityD
     activities.push({ id: `${category}-${str(row.id)}`, studentId: str(row.student_id), category, sa, title, date: str(row.updated_at || row.read_at || row.submitted_at || row.recorded_at || row.created_at), status: str(row.status), score, scoreLabel, details: row });
   }
   for (const row of table.personal_training_plans) add(row, "plans", str(row.objective) || "Plan personal", str(row.sa_code));
+  for (const row of table.physical_final_reflections) {
+    if (row.course_id === students.find((student) => student.id === row.student_id)?.courseId && Number(row.course_year) === year && row.sa_code === (year === 1 ? "SA1" : "SA2")) add(row, "reflections", "Reflexión personal y motivaciones de futuro", str(row.sa_code));
+  }
   // Keep all historical responses available to teachers without requesting new diaries.
   for (const row of table.session_journals) add({ ...row, _kind: "class-journal" }, "journals", `Registro anterior · ${str(row.title) || "Diario de clase"}`, saFor(row.learning_situation_id), num(row.perceived_effort), "Esfuerzo percibido");
   for (const row of table.sports_journals) add(row, "journals", "Registro anterior · Diario deportivo", saFor(row.learning_situation_id));
@@ -124,6 +127,7 @@ export async function loadTeacherActivity(year: 1 | 2): Promise<TeacherActivityD
   const expect = (item: ExpectedTeacherInstrument) => { if (situations.some((sa) => sa.code === item.sa)) expectedInstruments.push(year === 1 && item.sa !== "SA1" ? { ...item, tracking: "unavailable" } : item); };
   expect({ key: "SA1:plan", sa: "SA1", category: "plans", title: "Plan personal", matchAll: true });
   expect({ key: "SA1:plan-reflection", sa: "SA1", category: "plans", title: "Reflexión final del plan", matchAll: true, completion: "reflection" });
+  expect({ key: `${year === 1 ? "SA1" : "SA2"}:final-physical-reflection`, sa: year === 1 ? "SA1" : "SA2", category: "reflections", title: "Reflexión personal y motivaciones de futuro", matchAll: true });
   for (const test of physicalTests) for (const period of ["september", "december"]) {
     const sa = year === 2 && period === "december" ? "SA2" : "SA1";
     expect({ key: `${sa}:physical:${test.id}:${period}`, sa, category: "physical", title: `${test.name} · ${period === "september" ? "Inicial" : "Final"}`, filters: { physical_test_id: str(test.id), period } });

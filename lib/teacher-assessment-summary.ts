@@ -31,6 +31,7 @@ export function sessionAssessmentSummary(data: Pick<TeacherActivityData, "activi
 function workedOnBlock(row: TeacherActivity, item: AssessmentGradeItem, year: 1 | 2) {
   if (row.sa !== item.sa_code) return false;
   switch (item.item_key) {
+    case "final-physical-reflection": return row.category === "reflections";
     case "initial-assessment": return row.category === "physical" && row.details.period === "september";
     case "final-physical-tests": return row.category === "physical" && row.details.period === "december";
     case "initial-technical-tests": return row.category === "technical" && row.details.period === "january";

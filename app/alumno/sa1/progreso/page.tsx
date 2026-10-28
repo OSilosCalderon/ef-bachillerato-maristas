@@ -1,3 +1,4 @@
+import { FinalPhysicalReflectionCard } from "@/components/final-physical-reflection-card";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { Sa1Layout } from "@/components/sa1-layout";
 import { PhysicalProgressSummary } from "@/components/physical-progress-summary";
@@ -11,7 +12,7 @@ export default function Page() {
       <FirstYearPlanProgress />
       <section className="card min-w-0 p-5 sm:p-6"><PhysicalProgressSummary /></section>
       <TheoryProgressSummary courseYear={1} />
-    </Sa1Layout>
+    <FinalPhysicalReflectionCard year={1}/></Sa1Layout>
   </>;
 }
 
