@@ -3,6 +3,7 @@ import type { AssessmentGradeItem, PublishedAssessmentGrade } from "./gradebook"
 export const activityCategories = {
   plans: "Planes de trabajo", journals: "Diarios y seguimiento de sesiones", physical: "Pruebas físicas",
   questionnaires: "Cuestionarios", theory: "Lecturas", challenges: "Retos de aplicación", quizzes: "Autoevaluaciones teóricas",
+  reflections: "Reflexión personal y futuro",
   technical: "Pruebas técnicas", procedural: "Actividades prácticas", habits: "Hábitos saludables", projects: "Proyectos deportivos",
 } as const;
 export type ActivityCategory = keyof typeof activityCategories;

@@ -4,6 +4,7 @@ import { DashboardHeader } from "@/components/dashboard-header";
 import { Sa1Layout } from "@/components/sa1-layout";
 
 const sections = [
+  { href: "/alumno/sa1/reflexion-final", title: "Reflexión personal y futuro", text: "Interpreta tu evaluación física final, revisa objetivos y explica qué te motiva a seguir.", icon: Target, meta: "Cierre de la evaluación física" },
   { href: "/alumno/sa1/evolucion", title: "Mi evolución física", text: "Registra y compara tus resultados de septiembre y diciembre.", icon: Activity, meta: "Comparación inicial y final" },
   { href: "/alumno/sa1/plan", title: "Mi plan personal", text: "Define objetivos, selecciona tareas y organiza ocho sesiones de trabajo.", icon: Target, meta: "26 octubre – 23 noviembre" },
   { href: "/alumno/sa1/contenidos", title: "Contenidos teóricos", text: "Consulta materiales, recursos y documentos publicados.", icon: BookOpen, meta: "Teoría y recursos" },

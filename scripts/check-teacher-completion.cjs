@@ -75,6 +75,7 @@ const tables={
   training_session_grade_results:[{student_id:'a',session_number:1,teacher_score:0,teacher_comment:'Ausencia',absent:true,updated_at:'2026-10-22'}],
   theory_challenge_topics:[{slug:'topic-2',title:'Cargas',sa_code:'SA2',course_year:2}],
   class_sessions:[],
+  physical_final_reflections:[{id:'reflection-2',student_id:'a',course_id:'c2',course_year:2,sa_code:'SA2',status:'submitted',results_analysis:'Comparación propia',goal_review:'Objetivo logrado',personal_learning:'Conclusiones',future_motivation:'Seguir nadando'}],
 };
 const client={from(table){let filters=[],start=0,end=999;const query={select(){return query;},order(){return query;},range(a,b){start=a;end=b;return query;},eq(key,value){filters.push(row=>row[key]===value);return query;},in(key,values){filters.push(row=>values.map(String).includes(String(row[key])));return query;},then(resolve,reject){return Promise.resolve({data:(tables[table]||[]).filter(row=>filters.every(filter=>filter(row))).slice(start,end+1),error:null}).then(resolve,reject);}};return query;}};
 const loader=load('lib/teacher-activity-server.ts',{
@@ -89,6 +90,10 @@ const loader=load('lib/teacher-activity-server.ts',{
   tables.assessment_grade_items=[{id:'block-2',course_id:'c2',sa_code:'SA1',item_key:'personal-plan',title:'Plan personal',position:1},{id:'block-1',course_id:'c1',sa_code:'SA1',item_key:'personal-plan',title:'Plan de 1º',position:1}];
   tables.student_assessment_grades=[{id:'published-2',student_id:'a',item_id:'block-2',score:0,comment:'Nota propia',published_at:'2026-10-26'},{id:'foreign-grade',student_id:'a',item_id:'block-1',score:10,comment:'Otro curso',published_at:'2026-10-26'},{id:'published-1',student_id:'b',item_id:'block-1',score:8,comment:'Nota de primero',published_at:'2026-10-26'}];
   const second=await loader.loadTeacherActivity(2);
+  assert.equal(second.activities.filter(row=>row.category==='reflections').length,1);
+  assert.equal(second.activities.find(row=>row.category==='reflections').details.future_motivation,'Seguir nadando');
+  assert.equal(second.activities.find(row=>row.category==='reflections').sa,'SA2');
+  assert.equal(second.expectedInstruments.find(row=>row.category==='reflections').sa,'SA2');
   assert.equal(second.assessmentItems.length,1);assert.equal(second.assessmentItems[0].id,'block-2');
   assert.equal(second.assessmentGrades.length,1);assert.equal(second.assessmentGrades[0].score,0);assert.equal(second.assessmentGrades[0].comment,'Nota propia');
   assert.equal(second.students[0].courseId,'c2');
@@ -114,8 +119,12 @@ const loader=load('lib/teacher-activity-server.ts',{
   tables.session_journals=[{id:'old-diary',student_id:'b',learning_situation_id:'c1SA1',session_date:'2026-10-26',reflection:'Diario conservado'}];
   tables.class_sessions=[{id:'calendar-day',class_group:'1ºA Bachillerato',academic_year:'2026/2027',status:'scheduled',session_date:'2026-10-26'},{id:'before-plan',class_group:'1ºA Bachillerato',academic_year:'2026/2027',status:'scheduled',session_date:'2026-09-21'}];
   tables.sports_journals=[{id:'old-sports',student_id:'b',learning_situation_id:'c1SA2',reflection:'Respuesta deportiva conservada'}];
+  tables.physical_final_reflections.push({id:'reflection-1',student_id:'b',course_id:'c1',course_year:1,sa_code:'SA1',status:'draft',results_analysis:'Análisis de primero'});
   const storedBefore=JSON.stringify(tables);
   const updated=await loader.loadTeacherActivity(1);
+  assert.equal(updated.activities.find(row=>row.category==='reflections').sa,'SA1');
+  assert.equal(updated.activities.find(row=>row.category==='reflections').status,'draft');
+  assert.equal(updated.expectedInstruments.find(row=>row.category==='reflections').sa,'SA1');
   for(const group of ['1ºA Bachillerato','1ºB Bachillerato']) assert.equal(updated.expectedInstruments.filter(item=>item.filters?._kind==='plan-session'&&item.group===group).length,8);
   assert.ok(!updated.expectedInstruments.some(item=>item.category==='journals'&&item.filters?._kind!=='plan-session'),'Only the eight personal-plan follow-ups remain requested.');
   assert.ok(updated.activities.some(row=>row.details.id==='old-diary'),'Existing diary remains accessible.');
