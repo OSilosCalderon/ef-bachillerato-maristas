@@ -8,6 +8,19 @@ export type GradebookData = {
   situations: { courseId: string; code: string; title: string }[];
   loadedAt: string;
 };
+export type StudentSessionGrade = { number: number; score: number; comment: string; date: string; absent: boolean };
+export type StudentGradebookData = {
+  studentId: string;
+  courseId: string;
+  year: 1 | 2;
+  items: AssessmentGradeItem[];
+  grades: PublishedAssessmentGrade[];
+  situations: { code: string; title: string }[];
+  sessionGrades: StudentSessionGrade[];
+};
+export type TeacherGradesOverviewData = GradebookData & {
+  sessionGrades: (StudentSessionGrade & { studentId: string })[];
+};
 export const formatGrade = (value: number) => new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1 }).format(value);
 export const formatPublication = (value: string) => new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", dateStyle: "short", timeStyle: "short" }).format(new Date(value));
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

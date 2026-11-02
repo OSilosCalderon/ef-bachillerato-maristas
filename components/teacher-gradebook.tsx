@@ -6,7 +6,7 @@ import { addAssessmentGradeItem, publishAssessmentGrade } from "@/app/profesor/c
 import { formatGrade, formatPublication, gradesForStudent, type AssessmentGradeItem, type GradebookData, type PublishedAssessmentGrade } from "@/lib/gradebook";
 import { parseTeacherSessionScore } from "@/lib/teacher-session-grading";
 
-export function GradePublicationForm({item,studentId,grade,onPublished}:{item:AssessmentGradeItem;studentId:string;grade:PublishedAssessmentGrade|null;onPublished:(grade:PublishedAssessmentGrade)=>void}) {
+export function GradePublicationForm({item,studentId,grade,onPublished,embedded=false,onCancel}:{item:AssessmentGradeItem;studentId:string;grade:PublishedAssessmentGrade|null;onPublished:(grade:PublishedAssessmentGrade)=>void;embedded?:boolean;onCancel?:()=>void}) {
   const [score,setScore]=useState(grade?String(grade.score).replace(".",","):"");
   const [comment,setComment]=useState(grade?.comment ?? "");
   const [saving,setSaving]=useState(false);
@@ -21,14 +21,15 @@ export function GradePublicationForm({item,studentId,grade,onPublished}:{item:As
     catch(cause){setError(cause instanceof Error?cause.message:"No se ha podido publicar la calificación.");}
     finally{setSaving(false);}
   }
-  return <article className="card min-w-0 p-5 sm:p-6">
-    <header className="flex flex-wrap items-start justify-between gap-2"><div><p className="text-xs font-bold text-[#1e6b4f]">{item.sa_code}</p><h3 className="mt-1 text-lg font-extrabold">{item.title}</h3></div><span className={`rounded-full px-3 py-1 text-xs font-bold ${grade?"bg-emerald-100 text-emerald-800":"bg-slate-100 text-slate-600"}`}>{grade?`Publicada · ${formatGrade(grade.score)}/10`:"Sin publicar"}</span></header>
-    {grade && <p className="mt-2 text-xs text-slate-500">Última publicación: {formatPublication(grade.published_at)}</p>}
+  return <article className={embedded ? "min-w-0" : "card min-w-0 p-5 sm:p-6"}>
+    {!embedded && <header className="flex flex-wrap items-start justify-between gap-2"><div><p className="text-xs font-bold text-[#1e6b4f]">{item.sa_code}</p><h3 className="mt-1 text-lg font-extrabold">{item.title}</h3></div><span className={`rounded-full px-3 py-1 text-xs font-bold ${grade?"bg-emerald-100 text-emerald-800":"bg-slate-100 text-slate-600"}`}>{grade?`Publicada · ${formatGrade(grade.score)}/10`:"Sin publicar"}</span></header>}
+    {!embedded && grade && <p className="mt-2 text-xs text-slate-500">Última publicación: {formatPublication(grade.published_at)}</p>}
     <form aria-label={`Publicar ${item.title}`} onSubmit={(event)=>void submit(event)} className="mt-4">
       <fieldset disabled={saving} className="grid gap-3 sm:grid-cols-[8rem_1fr]">
         <label className="text-sm font-bold">Nota · 0–10<input type="text" inputMode="decimal" required maxLength={4} value={score} onChange={(event)=>{setScore(event.target.value);setError("");setMessage("");}} placeholder="Ej.: 8,5" className="mt-2 w-full rounded-xl border bg-white p-3 font-normal"/></label>
         <label className="text-sm font-bold">Comentario del profesor · opcional<textarea rows={3} maxLength={500} value={comment} onChange={(event)=>{setComment(event.target.value);setMessage("");}} placeholder="Orientación, puntos fuertes o aspectos que mejorar" className="mt-2 w-full rounded-xl border bg-white p-3 font-normal"/><span className="mt-1 block text-right text-xs font-normal text-slate-500">{comment.length}/500</span></label>
         <button type="submit" className="justify-self-start rounded-xl bg-[#1e6b4f] px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{saving?"Publicando…":grade?"Actualizar publicación":"Publicar calificación"}</button>
+        {onCancel && <button type="button" onClick={onCancel} className="justify-self-start rounded-xl border px-4 py-3 text-sm font-bold">Cancelar edición</button>}
       </fieldset>
       <p className="mt-3 text-xs text-slate-500">La nota y el comentario serán visibles para este alumno al publicar.</p>
       {error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
