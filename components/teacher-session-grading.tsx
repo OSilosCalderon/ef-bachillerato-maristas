@@ -8,9 +8,10 @@ import { FIRST_YEAR_CALENDAR_GROUPS, firstYearCalendarGroup } from "@/lib/class-
 
 type SavedEvaluation = { absent: boolean; score: number; comment: string; updatedAt: string };
 
-export function TeacherSessionEvaluationForm({ studentId, sessionNumber, initialScore, initialComment, initialAbsent = false, courseYear = 2, onSaved }: {
+export function TeacherSessionEvaluationForm({ studentId, sessionNumber, initialScore, initialComment, initialAbsent = false, courseYear = 2, onSaved, onCancel }: {
   studentId: string; sessionNumber: number; initialScore: number | null; initialComment: string; initialAbsent?: boolean; courseYear?: 1 | 2;
   onSaved?: (evaluation: SavedEvaluation) => void;
+  onCancel?: () => void;
 }) {
   const [score, setScore] = useState(initialScore === null ? "" : String(initialScore).replace(".", ","));
   const [comment, setComment] = useState(initialComment);
@@ -58,6 +59,7 @@ export function TeacherSessionEvaluationForm({ studentId, sessionNumber, initial
         <span className="mt-1 block text-right font-normal">{comment.length}/500</span>
       </label>
       <button type="submit" aria-label={`Guardar calificación de la sesión ${sessionNumber}`} className="justify-self-start rounded-lg bg-[#1e6b4f] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">{saving ? "Guardando…" : "Guardar calificación"}</button>
+      {onCancel && <button type="button" onClick={onCancel} className="justify-self-start rounded-lg border px-4 py-2.5 text-sm font-bold">Cancelar edición</button>}
     </fieldset>
     {error && <p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
     {feedback && <p role="status" className="mt-2 text-sm text-emerald-800">{feedback}</p>}

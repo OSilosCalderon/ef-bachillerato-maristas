@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
 import { validateGradePublication, type AssessmentGradeItem, type PublishedAssessmentGrade } from "@/lib/gradebook";
@@ -13,10 +14,15 @@ export async function publishAssessmentGrade(input:{studentId:string;itemId:stri
     supabase.from("assessment_grade_items").select("id,course_id").eq("id",value.itemId).maybeSingle(),
   ]);
   if (student.error || item.error || !student.data?.active || !item.data || student.data.course_id!==item.data.course_id) throw new Error("El instrumento y el alumno deben pertenecer al mismo curso activo.");
-  const course=await supabase.from("courses").select("id").eq("id",item.data.course_id).eq("is_active",true).maybeSingle();
+  const course=await supabase.from("courses").select("id,bachillerato_year").eq("id",item.data.course_id).eq("is_active",true).maybeSingle();
   if (course.error || !course.data) throw new Error("El curso no está activo.");
   const {data,error}=await supabase.from("student_assessment_grades").upsert({student_id:value.studentId,item_id:value.itemId,teacher_id:teacher.id,score:value.score,comment:value.comment,published_at:new Date().toISOString()},{onConflict:"student_id,item_id"}).select("id,student_id,item_id,score,comment,published_at").single();
   if(error || !data || data.student_id!==value.studentId || data.item_id!==value.itemId) throw new Error("No se ha podido confirmar la publicación. Vuelve a intentarlo.");
+  if (course.data.bachillerato_year === 2) {
+    revalidatePath("/profesor/2bach/notas");
+    revalidatePath(`/profesor/2bach/notas/${value.studentId}`);
+    revalidatePath("/alumno/calificaciones");
+  }
   return {...data,score:Number(data.score)} as PublishedAssessmentGrade;
 }
 

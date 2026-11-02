@@ -33,6 +33,7 @@ const supabase = {from(table) {
   return query;
 }};
 const actions = load('app/profesor/actions.ts',{
+  'next/cache':{revalidatePath(){}},
   '@/lib/teacher-activity-server':{},
   '@/lib/auth/guards':{requireRole:async role=>{assert.equal(role,'teacher');if(!allowed)throw new Error('Teacher required');return {id:teacherId};}},
   '@/lib/supabase/server':{createClient:async()=>supabase},

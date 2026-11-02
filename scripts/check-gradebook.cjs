@@ -40,6 +40,7 @@ Module._load=function(request,parent,...args){
   if(request==='next/link')return {__esModule:true,default:({href,children,...props})=>React.createElement('a',{href,...props},children)};
   if(request==='@/components/dashboard-header')return {DashboardHeader:({title,description})=>React.createElement('header',null,React.createElement('h1',null,title),React.createElement('p',null,description))};
   if(request==='@/lib/gradebook')return moduleObject.exports;
+  if(request==='@/components/gradebook-view')return originalLoad.call(this,path.resolve('components/gradebook-view.tsx'),parent,...args);
   if(request==='@/lib/gradebook-server')return {loadStudentGradebook:async()=>pupilData};
   return originalLoad.call(this,request,parent,...args);
 };

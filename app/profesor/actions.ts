@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { loadTeacherActivity } from "@/lib/teacher-activity-server";
 import { requireRole } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
@@ -61,6 +62,11 @@ async function saveSessionEvaluation(year: 1 | 2, input: {
     .select("student_id,session_number,teacher_score,teacher_comment,updated_at,absent")
     .single();
   if (saveError || !saved || saved.student_id !== student.id || saved.session_number !== input.sessionNumber) throw new Error("No se ha podido confirmar el guardado de la calificación. Vuelve a intentarlo.");
+  if (year === 2) {
+    revalidatePath("/profesor/2bach/notas");
+    revalidatePath(`/profesor/2bach/notas/${student.id}`);
+    revalidatePath("/alumno/calificaciones");
+  }
 
   return { absent: saved.absent === true, score: Number(saved.teacher_score), comment: String(saved.teacher_comment), updatedAt: String(saved.updated_at) };
 }

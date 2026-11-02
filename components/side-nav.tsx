@@ -46,6 +46,7 @@ const teacherItems: NavItem[] = [
   { label: "Activar situaciones", mobileLabel: "Activar SA", href: "/profesor/situaciones", icon: BookOpen },
   { label: "Agenda de clases", mobileLabel: "Agenda", href: "/profesor/agenda", icon: CalendarDays },
   { label: "Publicar calificaciones", mobileLabel: "Publicar notas", href: "/profesor/calificaciones", icon: GraduationCap },
+  { label: "Notas de todos · 2º", mobileLabel: "Notas 2º", href: "/profesor/2bach/notas", icon: GraduationCap },
   { label: "Calificar sesiones · 1º SA1", mobileLabel: "Calificar 1º", href: "/profesor/calificar-sesiones?curso=1", icon: ClipboardCheck },
   { label: "Calificar sesiones · 2º SA2", mobileLabel: "Calificar", href: "/profesor/calificar-sesiones", icon: ClipboardCheck },
   { label: "Resultados del alumnado", mobileLabel: "Resultados", href: "/profesor", icon: Gauge },
