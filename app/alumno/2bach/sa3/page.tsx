@@ -1,36 +1,36 @@
 import Link from "next/link";
-import { ArrowRight, BookOpenCheck, HeartPulse, LineChart, Target } from "lucide-react";
+import { ArrowRight, BookOpenCheck, FileText, NotebookPen, Target } from "lucide-react";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { SecondYearSa3Layout } from "@/components/second-year-sa3-layout";
 
 const sections = [
   {
     href: "/alumno/2bach/sa3/habitos",
-    title: "Mi reto de hábitos",
-    text: "Analiza tu rutina, escoge un hábito prioritario y formula un objetivo observable para cuatro semanas.",
-    icon: Target,
-    meta: "Punto de partida",
+    title: "Diario y calculadora",
+    text: "Registra alimentos, calcula su energía a partir de la etiqueta y compara los grupos presentes en distintos días.",
+    icon: NotebookPen,
+    meta: "Observa",
   },
   {
-    href: "/alumno/2bach/sa3/habitos#seguimiento",
-    title: "Seguimiento semanal",
-    text: "Valora sueño, movimiento, sedentarismo, recuperación, hidratación y alimentación desde un enfoque educativo.",
-    icon: LineChart,
-    meta: "4 semanas",
+    href: "/alumno/2bach/sa3/habitos#reto",
+    title: "Mi hábito y su seguimiento",
+    text: "Elige una acción observable, prepara una alternativa y documenta cómo te ha ido durante cuatro semanas.",
+    icon: Target,
+    meta: "Prueba",
   },
   {
     href: "/alumno/2bach/sa3/habitos#balance",
-    title: "Balance final",
-    text: "Compara la primera y la cuarta semana y explica qué cambio ha sido sostenible y qué necesitas reajustar.",
-    icon: HeartPulse,
-    meta: "Antes y después",
+    title: "Informe final",
+    text: "Compara el punto de partida y la última semana. Usa tus evidencias para explicar qué mantendrás o ajustarás.",
+    icon: FileText,
+    meta: "Explica",
   },
   {
-    href: "/alumno/2bach/sa3/teoria",
-    title: "Teoría aplicada",
-    text: "Comprende cómo actividad, descanso, recuperación y organización cotidiana sostienen el entrenamiento y la salud.",
+    href: "/alumno/2bach/sa3/habitos#sesiones",
+    title: "Ruta de diez sesiones",
+    text: "Consulta la práctica, la evidencia que vas a preparar y la rúbrica de la bitácora.",
     icon: BookOpenCheck,
-    meta: "Hábitos + biblioteca común",
+    meta: "Guía de trabajo",
   },
 ];
 
@@ -44,10 +44,10 @@ export default function Page() {
       />
       <SecondYearSa3Layout>
         <section className="rounded-3xl bg-slate-950 p-6 text-white sm:p-8">
-          <p className="text-xs font-bold uppercase tracking-[.18em] text-emerald-300">Diciembre – finales enero · 16 sesiones · 4 semanas</p>
-          <h2 className="mt-3 max-w-4xl text-2xl font-extrabold sm:text-3xl">La condición física no depende solo del entrenamiento</h2>
+          <p className="text-xs font-bold uppercase tracking-[.18em] text-emerald-300">10 sesiones · 4 semanas de seguimiento</p>
+          <h2 className="mt-3 max-w-4xl text-2xl font-extrabold sm:text-3xl">Producto final · Bitácora de un cambio sostenible</h2>
           <p className="mt-3 max-w-4xl text-sm leading-7 text-slate-300">
-            En esta SA observarás cómo tus rutinas cotidianas pueden facilitar o dificultar la recuperación y la continuidad del plan. Trabajarás con autorregistros sencillos, sin diagnósticos, dietas, calorías ni comparaciones entre compañeros.
+            Investiga un hábito cotidiano con un diario de alimentación, una acción practicable y cuatro registros semanales. Cierra la bitácora explicando qué muestran tus observaciones y qué paso darás después.
           </p>
         </section>
 
@@ -69,7 +69,7 @@ export default function Page() {
               <div key={title} className="rounded-2xl bg-slate-50 p-5">
                 <p className="font-extrabold text-slate-900">{title}</p>
                 <p className="mt-2 text-sm leading-6 text-slate-500">
-                  {index === 0 && "Analizo mi rutina sin etiquetarme ni compararme."}
+                  {index === 0 && "Identifico el contexto de mi rutina y observo tres días del diario."}
                   {index === 1 && "Selecciono un hábito concreto y un objetivo realista."}
                   {index === 2 && "Pongo en práctica acciones sencillas durante cuatro semanas."}
                   {index === 3 && "Registro tendencias semanales y mi grado de cumplimiento."}

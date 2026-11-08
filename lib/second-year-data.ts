@@ -34,7 +34,7 @@ export const secondYearLearningSituations: SecondYearLearningSituation[] = [
     slug: "sa3",
     title: "Más que entrenar: hábitos para una vida saludable",
     period: "Diciembre – finales enero",
-    sessions: 16,
+    sessions: 10,
     weeks: 4,
     href: "/alumno/2bach/sa3",
   },
@@ -67,17 +67,19 @@ export const secondYearLearningSituations: SecondYearLearningSituation[] = [
   },
 ];
 
-export const secondYearTransversalMargin = {
-  label: "Margen transversal",
-  sessions: "11 orientativas",
-  description:
-    "Diferencia entre las 115 clases del calendario autonómico y las 104 sesiones previstas en las SA. Se destina a evaluación, reajustes y actividades del centro; las cancelaciones locales pueden reducirla. Consulta la agenda para las fechas reales.",
-};
-
 export const secondYearPlannedSessions = secondYearLearningSituations.reduce(
   (total, situation) => total + situation.sessions,
   0,
 );
+
+const secondYearCalendarClasses = 115;
+export const secondYearTransversalMargin = {
+  label: "Margen transversal",
+  sessions: (secondYearCalendarClasses - secondYearPlannedSessions) + " orientativas",
+  description:
+    "Diferencia entre las " + secondYearCalendarClasses + " clases del calendario autonómico y las " +
+    secondYearPlannedSessions + " sesiones previstas en las SA. Se destina a evaluación, reajustes y actividades del centro. Consulta la agenda para las fechas reales.",
+};
 
 export function getSecondYearLearningSituation(slug: string) {
   return secondYearLearningSituations.find((situation) => situation.slug === slug);
