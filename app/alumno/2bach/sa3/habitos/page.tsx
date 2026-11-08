@@ -7,8 +7,8 @@ export default function Page() {
     <>
       <DashboardHeader
         eyebrow="2º Bachillerato · SA3 · Hábitos"
-        title="Mi reto de hábitos saludables"
-        description="Elige un hábito observable, haz seguimiento durante cuatro semanas y explica qué cambio puedes mantener."
+        title="Laboratorio de hábitos"
+        description="Registra, compara y explica un cambio con tu bitácora."
       />
       <SecondYearSa3Layout>
         <SecondYearHealthyHabitsPanel />
