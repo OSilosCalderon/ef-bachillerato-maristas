@@ -105,7 +105,14 @@ const baseTopics: Omit<SecondYearTheoryTopic, "foundation" | "sourceLinks">[] = 
     sections: [
       { title: "Sueño y organización", paragraphs: ["La recuperación nocturna influye en las sensaciones, la atención y la capacidad para afrontar una sesión. En clase trabajamos regularidad y percepción del descanso, no diagnósticos médicos.", "Una agenda muy cargada puede hacer que el problema no sea falta de voluntad, sino una organización poco realista entre estudio, ocio, descanso y entrenamiento."] },
       { title: "Movimiento cotidiano y sedentarismo", paragraphs: ["Entrenar dos o tres días no elimina automáticamente muchas horas seguidas de sedentarismo. Las pausas activas, caminar y desplazarse de forma activa aportan movimiento cotidiano.", "La propuesta debe adaptarse a las posibilidades reales de cada persona y no convertirse en una competición de pasos."] },
-      { title: "Hidratación y alimentación variada", paragraphs: ["La hidratación depende de duración, intensidad, temperatura y características individuales. Evitamos cifras universales rígidas y aprendemos a anticipar necesidades básicas.", "En alimentación trabajamos variedad, regularidad y organización alrededor de la actividad física. No usamos dietas restrictivas, conteo obligatorio de calorías ni objetivos de peso."] },
+      {
+        title: "Hidratación y alimentación variada",
+        paragraphs: [
+          "La hidratación depende de duración, intensidad, temperatura y características individuales. Evitamos cifras universales rígidas y aprendemos a anticipar necesidades básicas.",
+          "En alimentación trabajamos variedad, regularidad y organización alrededor de la actividad física. No usamos dietas restrictivas, conteo obligatorio de calorías ni objetivos de peso.",
+          "En la bitácora, calcula la energía de una cantidad multiplicando la cifra de la etiqueta por la cantidad y dividiendo entre 100. Usa g o ml según la unidad de la etiqueta. El mapa cuenta entradas por grupo. Si faltan datos sobre los ingredientes de un producto, puedes marcar su procesamiento como «Por identificar».",
+        ],
+      },
     ],
     cases: [
       { sport: "Voleibol", capacity: "Recuperación", situation: "Una jugadora entrena bien pero llega fatigada tras varias noches de sueño irregular.", proposal: "Revisar horarios de estudio y descanso antes de añadir más volumen de entrenamiento.", why: "Más carga no corrige una recuperación insuficiente.", progression: "Buscar una mejora pequeña y sostenible de regularidad durante varias semanas." },
@@ -116,8 +123,74 @@ const baseTopics: Omit<SecondYearTheoryTopic, "foundation" | "sourceLinks">[] = 
     sources: ["Baechle & Earle · Principios del entrenamiento de la fuerza y del acondicionamiento físico", "Michael Boyle · El entrenamiento funcional aplicado a deportes", "Tudor O. Bompa · Teoría y metodología del entrenamiento"],
     quiz: [
       { question: "¿Qué afirmación es correcta?", options: ["Entrenar varios días elimina cualquier sedentarismo", "Movimiento cotidiano y entrenamiento son conceptos relacionados pero distintos", "Dormir no influye en la recuperación"], correct: 1, feedback: "Una persona puede entrenar y, a la vez, acumular muchas horas sedentarias." },
-      { question: "En esta SA evitamos usar como objetivo educativo…", options: ["La regularidad del sueño", "El peso y el conteo obligatorio de calorías", "Las pausas activas"], correct: 1, feedback: "El seguimiento es educativo y no se centra en peso, calorías o diagnósticos." },
+      { question: "En esta SA evitamos usar como objetivo educativo…", options: ["La regularidad del sueño", "El peso y el conteo obligatorio de calorías", "Las pausas activas"], correct: 1, feedback: "La calculadora sirve para interpretar etiquetas. El reto se valora a partir de tus observaciones y los ajustes que pruebas." },
       { question: "Un hábito sostenible es aquel que…", options: ["Puede mantenerse de forma realista", "Exige cambios extremos desde el primer día", "Solo funciona durante una semana"], correct: 0, feedback: "La sostenibilidad es clave para que el cambio tenga continuidad." },
+      {
+        question: "Una alumna llega cansada tras varias noches de sueño irregular. ¿Qué ajuste conviene valorar antes de aumentar el volumen de entrenamiento?",
+        options: [
+          "Acortar las pausas de recuperación para terminar antes.",
+          "Añadir una sesión breve los días de más estudio.",
+          "Revisar el horario de estudio y reservar tiempo para un descanso regular.",
+        ],
+        correct: 2,
+        feedback: "Revisar el descanso y la organización ayuda a decidir si es un buen momento para aumentar la carga.",
+      },
+      {
+        question: "Vas a jugar al aire libre en un día caluroso. ¿Cómo puedes preparar la hidratación?",
+        options: [
+          "Llevar agua y prever pausas según el calor, la duración y el esfuerzo.",
+          "Repetir la pauta de un día fresco aunque el partido dure más.",
+          "Dejar el agua para el final y mantener el horario habitual.",
+        ],
+        correct: 0,
+        feedback: "El calor, la duración y el esfuerzo son datos que ayudan a organizar el acceso al agua y las pausas.",
+      },
+      {
+        question: "Una etiqueta indica 240 kcal por 100 g. ¿Cuántas kcal corresponden a 50 g de ese alimento?",
+        options: ["240 kcal.", "480 kcal.", "120 kcal."],
+        correct: 2,
+        feedback: "Multiplica 240 por 50 y divide entre 100. La cantidad registrada equivale a la mitad de la referencia de la etiqueta.",
+      },
+      {
+        question: "En el mapa de alimentos aparecen dos anotaciones de fruta y una de legumbres. ¿Qué conclusión permite ese dato?",
+        options: [
+          "Se consumió el doble de gramos de fruta que de legumbres.",
+          "Se registraron dos entradas de fruta y una de legumbres.",
+          "La fruta registrada aportó más kcal que las legumbres.",
+        ],
+        correct: 1,
+        feedback: "Las barras cuentan entradas. Para comparar gramos hacen falta las cantidades. Para comparar kcal también necesitas el valor energético.",
+      },
+      {
+        question: "Tienes un plato preparado y desconoces su receta y su lista de ingredientes. ¿Qué puedes hacer en el medidor de procesamiento?",
+        options: [
+          "Marcar «Por identificar» hasta tener información suficiente.",
+          "Marcar «Ultraprocesado» porque es un plato preparado.",
+          "Marcar «Sin procesar» porque se ven algunas hortalizas.",
+        ],
+        correct: 0,
+        feedback: "La clasificación se apoya en los ingredientes y en la elaboración. Una anotación de duda conserva esa incertidumbre.",
+      },
+      {
+        question: "¿Qué plan incluye una señal concreta, una acción observable y una forma de registrarla?",
+        options: [
+          "Me moveré un poco más en mis tardes de estudio y contaré las tardes que estudie.",
+          "Haré una pausa cuando tenga tiempo y al final de la semana diré cómo me fue.",
+          "Al cerrar el primer bloque de estudio, haré una pausa de dos minutos y anotaré si la hice.",
+        ],
+        correct: 2,
+        feedback: "Cerrar el primer bloque es la señal. La pausa se puede observar y la anotación permite comprobar en cuántas ocasiones ocurrió.",
+      },
+      {
+        question: "En la semana 1 hiciste la pausa en 2 de 4 ocasiones. En la semana 4, en 3 de 6. ¿Qué comparación es correcta?",
+        options: [
+          "El cumplimiento se mantiene en el 50% aunque hayas hecho una pausa más.",
+          "El porcentaje de cumplimiento aumenta porque hiciste una pausa más.",
+          "El cumplimiento de la semana 4 es del 75%.",
+        ],
+        correct: 0,
+        feedback: "Divide las pausas realizadas entre las ocasiones observadas de cada semana. Tanto 2 de 4 como 3 de 6 equivalen al 50%.",
+      },
     ],
   },
   {
