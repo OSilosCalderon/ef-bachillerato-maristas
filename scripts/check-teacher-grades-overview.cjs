@@ -8,7 +8,7 @@ const { renderToStaticMarkup } = require('react-dom/server');
 function load(file, imports = {}) {
   const module = { exports: {} };
   const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2020 } }).outputText;
-  vm.runInNewContext(code, { module, exports: module.exports, require: name => Object.hasOwn(imports, name) ? imports[name] : require(name), Intl, Date });
+  vm.runInNewContext(code, { module, exports: module.exports, require: name => Object.hasOwn(imports, name) ? imports[name] : require(name), Intl, Date, Response, Uint8Array, atob, crypto: require('node:crypto').webcrypto });
   return module.exports;
 }
 
@@ -18,6 +18,8 @@ const date = '2026-11-02T10:00:00Z';
 const sessions = [
   { student_id: a, session_number: 1, teacher_score: '0', teacher_comment: 'Ausencia publicada', updated_at: date, absent: true },
   { student_id: b, session_number: 2, teacher_score: '7.5', teacher_comment: 'Sesión privada de B', updated_at: date, absent: false },
+  { student_id: a, session_number: 2, teacher_score: '0', teacher_comment: '', updated_at: date, absent: false },
+  { student_id: a, session_number: 3, teacher_score: '8', teacher_comment: '', updated_at: date, absent: false },
 ];
 const tables = {
   courses: [{ id: c1, bachillerato_year: 1, is_active: true }, { id: c2, bachillerato_year: 2, is_active: true }, { id: oldCourse, bachillerato_year: 2, is_active: false }],
@@ -25,22 +27,62 @@ const tables = {
   profiles: [a, b, first, inactive, old].map(value => ({ id: `profile-${value}`, display_name: value === a ? 'Álvaro Prueba' : `Alumno ${value.slice(0, 8)}`, class_group: value === a ? '2ºA' : '2ºB' })),
   assessment_grade_items: [{ id: item, course_id: c2, sa_code: 'SA1', item_key: 'personal-plan', title: 'Plan personal', position: 1 }, { id: firstItem, course_id: c1, sa_code: 'SA1', item_key: 'personal-plan', title: 'Plan de primero', position: 1 }],
   student_assessment_grades: [{ id: 'grade-a', student_id: a, item_id: item, score: 0, comment: 'Comentario de A', published_at: date }, { id: 'grade-b', student_id: b, item_id: item, score: 6, comment: 'Comentario privado de B', published_at: date }, { id: 'grade-first', student_id: first, item_id: firstItem, score: 10, comment: 'Primero', published_at: date }],
-  learning_situations: [{ course_id: c2, code: 'SA1', title: 'Punto de partida' }, { course_id: c1, code: 'SA1', title: 'Salud' }],
+  learning_situations: [{ id: 'second-sa1', course_id: c2, code: 'SA1', title: 'Punto de partida' }, { id: 'second-sa2', course_id: c2, code: 'SA2', title: 'Entrenar con cabeza' }, { id: 'second-sa3', course_id: c2, code: 'SA3', title: 'Hábitos' }, { id: 'first-sa1', course_id: c1, code: 'SA1', title: 'Salud' }],
   training_session_grade_results: sessions,
   training_session_grades: sessions,
   first_year_plan_session_grades: [{ student_id: first, session_number: 8, teacher_score: '8.5', teacher_comment: 'Sesión de primero', updated_at: date, absent: false }],
+  physical_tests: [{ id: 'jump', name: 'Salto', active: true, unit: 'cm' }, { id: 'run', name: 'Carrera', active: true, unit: 's' }, { id: 'old-test', name: 'Prueba archivada', active: false, unit: 's' }],
+  physical_test_results: [
+    { id: 'initial-a', student_id: a, physical_test_id: 'jump', period: 'september', value: 0, updated_at: date },
+    { id: 'final-a', student_id: a, physical_test_id: 'jump', period: 'december', value: 125, updated_at: date },
+    { id: 'old-a', student_id: a, physical_test_id: 'old-test', period: 'september', value: 7, updated_at: date },
+  ],
+  questionnaires: [
+    { id: 'initial-1', learning_situation_id: 'second-sa1', published: true, assessment_phase: 'initial', title: 'GOES inicial' },
+    { id: 'initial-2', learning_situation_id: 'second-sa1', published: true, assessment_phase: 'initial', title: 'BPNES inicial' },
+    { id: 'final-1', learning_situation_id: 'second-sa1', published: true, assessment_phase: 'final', title: 'GOES final' },
+    { id: 'unpublished', learning_situation_id: 'second-sa1', published: false, assessment_phase: 'final', title: 'Cuestionario oculto' },
+  ],
+  questionnaire_attempts: [
+    { id: 'sent', student_id: a, questionnaire_id: 'initial-1', status: 'submitted', submitted_at: date },
+    { id: 'repeat', student_id: a, questionnaire_id: 'initial-1', status: 'submitted', submitted_at: date },
+    { id: 'draft-quiz', student_id: a, questionnaire_id: 'initial-2', status: 'in_progress', submitted_at: null },
+    { id: 'peer', student_id: b, questionnaire_id: 'final-1', status: 'submitted', submitted_at: date },
+  ],
+  questionnaire_questions: [{ id: 'question', questionnaire_id: 'initial-1', prompt: 'Pregunta inicial', position: 1 }],
+  questionnaire_responses: [{ id: 'answer', attempt_id: 'sent', question_id: 'question', answer: { label: 'Respuesta propia' } }, { id: 'peer-answer', attempt_id: 'peer', question_id: 'question', answer: { label: 'Respuesta privada de B' } }],
+  theory_topic_progress: [
+    { id: 't1', student_id: a, topic_slug: 'theory-sa1', completed: true, quiz_score: 0, updated_at: date },
+    { id: 't2', student_id: a, topic_slug: 'theory-sa2', completed: false, quiz_score: 80, updated_at: date },
+    { id: 't3', student_id: a, topic_slug: 'theory-sa3', completed: true, quiz_score: 100, updated_at: date },
+  ],
+  training_session_logs: [
+    { id: 'log-one', student_id: a, course_id: c2, sa_code: 'SA2', session_number: 1, status: 'completed', reflection: 'Sensaciones de prueba', updated_at: date },
+    { id: 'log-two', student_id: a, course_id: c2, sa_code: 'SA2', session_number: 2, status: 'draft', updated_at: date },
+  ],
+  personal_training_plans: [
+    { id: 'plan', student_id: a, course_id: c2, sa_code: 'SA1', status: 'active', objective: 'Caminar a ritmo estable', plan_items: [{ activity: 'Caminar', sessionDate: '2026-10-15' }], final_conclusions: 'Conclusión guardada', future_work: '', updated_at: date },
+    { id: 'old-plan', student_id: a, course_id: oldCourse, sa_code: 'SA1', status: 'completed', objective: 'Plan privado anterior' },
+    { id: 'first-plan', student_id: first, course_id: c1, sa_code: 'SA1', status: 'completed', objective: 'Plan de primero' },
+  ],
+  physical_final_reflections: [{ id: 'reflection', student_id: a, course_id: c2, course_year: 2, sa_code: 'SA2', status: 'draft', results_analysis: 'Comparación propia', updated_at: date }],
+  theory_challenge_topics: [{ slug: 'theory-sa2', course_year: 2, sa_code: 'SA2', title: 'Reto de aplicación', prompt: 'Diseña un ajuste' }],
+  theory_challenge_responses: [{ id: 'challenge', student_id: a, topic_slug: 'theory-sa2', answer: 'Propuesta de prueba', updated_at: date }],
+  sports: [], technical_tests: [], theoretical_contents: [], procedural_activities: [], procedural_attempts: [],
+  session_journals: [], sports_journals: [], technical_test_results: [], content_reads: [],
 };
 let actor = { id: teacher, role: 'teacher' }, failureTable = '', queries = 0;
 const invalidations = [];
+const selections = [];
 const client = { from(table) {
   queries++;
   assert.ok(Object.hasOwn(tables, table), `Unexpected table: ${table}`);
   const filters = [];
-  let single = false, range, write;
+  let single = false, range, write, columns = '*';
   const query = {
-    select() { return query; },
+    select(fields = '*') { columns = fields; selections.push({table, columns}); return query; },
     eq(key, value) { filters.push(row => row[key] === value); return query; },
-    in(key, values) { filters.push(row => values.includes(row[key])); return query; },
+    in(key, values) { filters.push(row => values.map(String).includes(String(row[key]))); return query; },
     order() { return query; },
     range(start, end) { range = [start, end]; return query; },
     single() { single = true; return query; },
@@ -54,7 +96,9 @@ const client = { from(table) {
         else tables[table].push({ id: 'new-grade', ...write.value });
         return Promise.resolve({ data: { ...(existing ?? tables[table].at(-1)) }, error: null }).then(resolve, reject);
       }
-      let rows = tables[table].filter(row => filters.every(filter => filter(row))).map(row => ({ ...row }));
+      let rows = tables[table].filter(row => filters.every(filter => filter(row))).map(row => columns === '*'
+        ? { ...row }
+        : Object.fromEntries(columns.split(',').map(key => [key, row[key]])));
       if (range) rows = rows.slice(range[0], range[1] + 1);
       return Promise.resolve({ data: single ? rows[0] ?? null : rows, error: null }).then(resolve, reject);
     },
@@ -62,14 +106,34 @@ const client = { from(table) {
   return query;
 } };
 const grades = load('lib/gradebook.ts');
+const activity = load('lib/teacher-activity.ts');
+const completion = load('lib/teacher-completion.ts', { './teacher-activity': activity });
+const calendars = {
+  './first-year-personal-plan-calendar': load('lib/first-year-personal-plan-calendar.ts'),
+  './second-year-personal-plan-calendar': load('lib/second-year-personal-plan-calendar.ts'),
+  './class-groups': load('lib/class-groups.ts'),
+};
+const grading = load('lib/teacher-session-grading.ts', calendars);
+const summaries = load('lib/teacher-assessment-summary.ts', { './gradebook': grades, './teacher-session-grading': grading });
 const imports = {
   'server-only': {},
   'next/cache': { revalidatePath: path => invalidations.push(path) },
   '@/lib/gradebook': grades,
   '@/lib/auth/guards': { requireRole: async role => { if (actor.role !== role) throw new Error('FORBIDDEN'); return actor; } },
   '@/lib/supabase/server': { createClient: async () => client },
-  '@/lib/teacher-activity-server': {},
+  '@/lib/teacher-completion': completion,
+  '@/lib/teacher-assessment-summary': summaries,
+  '@/lib/second-year-work': load('lib/second-year-work.ts', { './teacher-activity': activity, './teacher-completion': completion, './teacher-assessment-summary': summaries }),
 };
+imports['@/lib/teacher-activity-server'] = load('lib/teacher-activity-server.ts', {
+  ...imports,
+  '@/lib/class-groups': calendars['./class-groups'],
+  '@/lib/first-year-personal-plan-calendar': calendars['./first-year-personal-plan-calendar'],
+  '@/lib/second-year-personal-plan-calendar': calendars['./second-year-personal-plan-calendar'],
+  '@/lib/training-theory-topics': { trainingTheoryTopics: [] },
+  '@/lib/training-theory-flexibility': { flexibilityTheoryTopic: {} },
+  '@/lib/second-year-theory-topics': { secondYearTheoryTopics: [1, 2, 3].map(i => ({ slug: `theory-sa${i}`, sa: `SA${i}`, title: `Teoría SA${i}` })) },
+});
 const loaders = load('lib/gradebook-server.ts', imports);
 const actions = load('app/profesor/calificaciones/actions.ts', imports);
 const sessionActions = load('app/profesor/actions.ts', imports);
@@ -79,7 +143,44 @@ const links = { 'next/link': { __esModule: true, default: ({ href, children, pre
   const overview = await loaders.loadSecondYearGradesOverview();
   assert.deepEqual(Array.from(overview.students, student => student.id).sort(), [a, b].sort(), 'Only active pupils in active second-year courses are included.');
   assert.equal(overview.grades.length, 2);
-  assert.equal(overview.sessionGrades.length, 2);
+  assert.equal(overview.sessionGrades.length, 4);
+  assert.deepEqual(JSON.parse(JSON.stringify(overview.work[a].physical)), { initial: { done: 1, total: 2 }, final: { done: 1, total: 2 } });
+  assert.deepEqual(JSON.parse(JSON.stringify(overview.work[a].questionnaires)), { initial: { done: 1, total: 2 }, final: { done: 0, total: 1 } });
+  assert.equal(overview.work[b].questionnaires.final.done, 1);
+  assert.deepEqual(JSON.parse(JSON.stringify(overview.work[a].quizzes)), { done: 2, total: 2, mean: 4 });
+  assert.equal(overview.work[b].quizzes.mean, null);
+  assert.equal(overview.work[a].readings.done, 1);
+  assert.equal(overview.work[a].readings.total, 2);
+  assert.equal(overview.work[a].sessions.mean, 4);
+  assert.equal(overview.work[a].sessions.graded, 2);
+  assert.equal(overview.work[a].sessions.points, 1);
+  assert.equal(overview.work[a].sessions.absences, 1);
+  assert.equal(overview.work[a].plan, 'active');
+  assert.equal(overview.work[a].conclusions, 'in_progress');
+  assert.equal(overview.work[a].finalReflection, 'in_progress');
+  assert.ok(!selections.some(query => query.table === 'questionnaire_responses'));
+  assert.ok(!JSON.stringify(overview).includes('privad'));
+  const work = await loaders.loadSecondYearStudentWork(a);
+  const workText = JSON.stringify(work);
+  for (const value of ['Respuesta propia', 'Conclusión guardada', 'Sensaciones de prueba', 'Comparación propia', 'Propuesta de prueba', 'Prueba archivada']) assert.ok(workText.includes(value), value);
+  for (const value of ['Respuesta privada', 'Plan privado anterior', 'Teoría SA3', 'Plan de primero']) assert.ok(!workText.includes(value), value);
+  assert.ok(work.situations.every(sa => sa.code === 'SA1' || sa.code === 'SA2'));
+  for (const rejected of [first, inactive, old, 'invalid-id', id(100)]) assert.equal(await loaders.loadSecondYearStudentWork(rejected), null);
+  const planPdf = load('lib/personal-plan-pdf.ts');
+  const planPdfData = load('lib/saved-plan-pdf.ts', { ...calendars, './personal-plan-tasks': load('lib/personal-plan-tasks.ts') });
+  const pdfRoute = load('app/profesor/2bach/notas/[id]/plan.pdf/route.ts', { '@/lib/gradebook-server': loaders, '@/lib/personal-plan-pdf': planPdf, '@/lib/saved-plan-pdf': planPdfData });
+  const pdfFor = value => pdfRoute.GET(undefined, {params: Promise.resolve({ id: value })});
+  const response = await pdfFor(a);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('Content-Type'), 'application/pdf');
+  assert.equal(response.headers.get('Cache-Control'), 'private, no-store');
+  assert.match(response.headers.get('Content-Disposition'), /^inline/);
+  const pdf = Buffer.from(await response.arrayBuffer()).toString('latin1');
+  assert.match(pdf, /^%PDF/);
+  assert.ok(pdf.includes(Buffer.from('Caminar a ritmo estable').toString('hex')));
+  const savedPlan = await loaders.loadSecondYearSavedPlan(a);
+  assert.ok(planPdfData.savedPlanPdfData(savedPlan.plan, savedPlan.student, 2).sections[2].lines.some(line => line.includes('Sesión 3 - 15 de octubre - Caminar')));
+  for (const rejected of [b, first, inactive, old, 'invalid-id']) assert.equal((await pdfFor(rejected)).status, 404);
   const detail = await loaders.loadSecondYearStudentGradebook(a);
   assert.equal(detail.student.name, 'Álvaro Prueba');
   assert.equal(detail.gradebook.grades.length, 1);
@@ -94,6 +195,8 @@ const links = { 'next/link': { __esModule: true, default: ({ href, children, pre
   const beforeDenied = queries;
   await assert.rejects(() => loaders.loadSecondYearGradesOverview(), /FORBIDDEN/);
   await assert.rejects(() => loaders.loadSecondYearStudentGradebook(a), /FORBIDDEN/);
+  await assert.rejects(() => loaders.loadSecondYearStudentWork(a), /FORBIDDEN/);
+  await assert.rejects(() => pdfFor(a), /FORBIDDEN/);
   await assert.rejects(() => actions.publishAssessmentGrade({ studentId: a, itemId: item, score: 8.5, comment: '' }), /FORBIDDEN/);
   assert.equal(queries, beforeDenied, 'Role checks precede database access.');
 
@@ -119,7 +222,7 @@ const links = { 'next/link': { __esModule: true, default: ({ href, children, pre
   const session = await sessionActions.saveSecondYearSessionEvaluation({ studentId: a, sessionNumber: 1, score: 9.5, comment: 'Sesión corregida', absent: false });
   assert.equal(session.score, 9.5);
   assert.equal(session.absent, false);
-  assert.equal(sessions.length, 2);
+  assert.equal(sessions.length, 4);
   assert.equal(sessions[1].teacher_comment, 'Sesión privada de B');
   failureTable = 'student_assessment_grades';
   await assert.rejects(() => actions.publishAssessmentGrade({ studentId: a, itemId: item, score: 2, comment: '' }));
@@ -145,7 +248,19 @@ const links = { 'next/link': { __esModule: true, default: ({ href, children, pre
   const list = renderToStaticMarkup(React.createElement(overviewUi.TeacherGradesOverview, { data: overview }));
   assert.ok(list.includes('Notas de todos') && list.includes('0/10') && list.includes('AUSENCIA'));
   assert.ok(list.includes(`/profesor/2bach/notas/${a}`));
+  assert.ok(list.includes(`/profesor/2bach/notas/${a}/plan.pdf`) && !list.includes(`/profesor/2bach/notas/${b}/plan.pdf`));
+  assert.ok(list.includes('Valoradas por el profesor') && list.includes('Valoradas por el alumno') && list.includes('Conclusiones del plan'));
   assert.ok(!list.includes('Plan de primero'));
+  const activityDetail = load('components/teacher-activity-detail.tsx');
+  const checklistUi = load('components/teacher-student-checklist.tsx', { ...links, '@/lib/teacher-activity': activity, '@/lib/teacher-completion': completion });
+  const workUi = load('components/teacher-student-work.tsx', {
+    ...links, '@/lib/gradebook': grades, '@/components/teacher-activity-detail': activityDetail, '@/components/teacher-student-checklist': checklistUi,
+    '@/components/teacher-assessment-summary': { TeacherSessionScoreSummary: () => null },
+  });
+  const workHtml = renderToStaticMarkup(React.createElement(workUi.TeacherStudentWork, work));
+  for (const value of ['Entregas de SA1 y SA2', 'Respuesta propia', 'Conclusión guardada', 'Propuesta de prueba', 'Pendiente', '/plan.pdf']) assert.ok(workHtml.includes(value), value);
+  assert.ok(!workHtml.includes('Respuesta privada de B'));
+  console.log('SA1/SA2 work: distinct submitted instruments, readings, both means, drafts, legacy records, private PDF and linked evidence passed.');
 
   // Exercise the real UI handlers with deterministic hook state, as in the existing refresh checks.
   let state = [], cursor = 0;
@@ -160,7 +275,7 @@ const links = { 'next/link': { __esModule: true, default: ({ href, children, pre
   let tree = filterRender();
   tree.find(node => node.type === 'input').props.onChange({ target: { value: 'alvaro' } });
   tree = filterRender();
-  assert.equal(tree.filter(node => node.type === 'article').length, 1, 'Name search must ignore accents.');
+  assert.equal(tree.filter(node => node.type === 'th' && node.props.scope === 'row').length, 1, 'Name search must ignore accents.');
   assert.ok(tree.some(node => node.type === 'a' && node.props.href === `/profesor/2bach/notas/${a}`));
   tree.find(node => node.type === 'select').props.onChange({ target: { value: '2ºB' } });
   assert.ok(filterRender().some(node => node.props?.children === 'No hay alumnos que coincidan con los filtros.'));

@@ -1,7 +1,13 @@
 import "server-only";
 import { requireRole } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
+import { loadTeacherActivity } from "@/lib/teacher-activity-server";
+import { studentCompletion } from "@/lib/teacher-completion";
+import { summarizeSecondYearWork } from "@/lib/second-year-work";
+import { sessionAssessmentSummary } from "@/lib/teacher-assessment-summary";
 import type { AssessmentGradeItem, GradebookData, GradebookStudent, PublishedAssessmentGrade, StudentGradebookData, StudentSessionGrade, TeacherGradesOverviewData } from "@/lib/gradebook";
+
+const studentIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function loadTeacherGradebook(year: 1 | 2): Promise<GradebookData> {
   await requireRole("teacher");
@@ -59,26 +65,29 @@ export async function loadStudentGradebook(): Promise<StudentGradebookData> {
 }
 
 export async function loadSecondYearGradesOverview(): Promise<TeacherGradesOverviewData> {
-  const data = await loadTeacherGradebook(2);
-  const sessionGrades: TeacherGradesOverviewData["sessionGrades"] = [];
-  if (data.students.length) {
-    const supabase = await createClient();
-    const ids = data.students.map((student) => student.id);
-    for (let start = 0; ; start += 1000) {
-      const result = await supabase.from("training_session_grade_results")
-        .select("student_id,session_number,teacher_score,teacher_comment,updated_at,absent")
-        .in("student_id", ids).order("student_id").order("session_number").range(start, start + 999);
-      if (result.error) throw new Error("No se han podido cargar las calificaciones de las sesiones.");
-      sessionGrades.push(...(result.data ?? []).map((row) => ({ studentId: String(row.student_id), number: Number(row.session_number), score: Number(row.teacher_score), comment: String(row.teacher_comment), date: String(row.updated_at), absent: row.absent === true })));
-      if ((result.data?.length ?? 0) < 1000) break;
-    }
-  }
-  return { ...data, sessionGrades };
+  const data = await loadTeacherActivity(2, { view: "overview" });
+  const students = data.students.map((student) => ({ ...student, courseId: student.courseId ?? "" }));
+  return {
+    students, items: data.assessmentItems ?? [], grades: data.assessmentGrades ?? [], loadedAt: data.loadedAt,
+    sessionGrades: (data.sessionEvaluations ?? []).map((row) => ({ studentId: row.studentId, number: row.number, score: row.score, comment: row.comment, date: row.updatedAt, absent: row.absent === true })),
+    work: Object.fromEntries(students.map((student) => [student.id, summarizeSecondYearWork(data, student.id)])),
+  };
 }
 
-export async function loadSecondYearStudentGradebook(studentId: string): Promise<{ student: GradebookStudent; gradebook: StudentGradebookData } | null> {
+export async function loadSecondYearStudentWork(studentId: string) {
+  if (!studentIdPattern.test(studentId)) return null;
+  const data = await loadTeacherActivity(2, { view: "student", studentId });
+  const student = data.students[0];
+  if (!student) return null;
+  return {
+    student, situations: data.situations, items: studentCompletion(data, student.id),
+    sessions: sessionAssessmentSummary(data, student.id, 2),
+  };
+}
+
+async function secondYearStudentContext(studentId: string) {
   await requireRole("teacher");
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(studentId)) return null;
+  if (!studentIdPattern.test(studentId)) return null;
   const supabase = await createClient();
   const courses = await supabase.from("courses").select("id").eq("bachillerato_year", 2).eq("is_active", true);
   if (courses.error) throw new Error("No se ha podido cargar el curso de 2º de Bachillerato.");
@@ -87,7 +96,13 @@ export async function loadSecondYearStudentGradebook(studentId: string): Promise
     .eq("id", studentId).in("course_id", courses.data.map((course) => course.id)).eq("active", true).maybeSingle();
   if (result.error) throw new Error("No se ha podido cargar el alumno.");
   if (!result.data) return null;
-  const student = result.data;
+  return { supabase, student: result.data };
+}
+
+export async function loadSecondYearStudentGradebook(studentId: string): Promise<{ student: GradebookStudent; gradebook: StudentGradebookData } | null> {
+  const context = await secondYearStudentContext(studentId);
+  if (!context) return null;
+  const { supabase, student } = context;
   const [profile, gradebook] = await Promise.all([
     supabase.from("profiles").select("display_name,class_group").eq("id", student.profile_id).single(),
     loadGradebookForStudent(supabase, student, 2),
@@ -97,5 +112,18 @@ export async function loadSecondYearStudentGradebook(studentId: string): Promise
     student: { id: String(student.id), courseId: String(student.course_id), name: String(profile.data.display_name), group: String(profile.data.class_group ?? "2º Bachillerato") },
     gradebook,
   };
+}
+
+export async function loadSecondYearSavedPlan(studentId: string) {
+  const context = await secondYearStudentContext(studentId);
+  if (!context) return null;
+  const { supabase, student } = context;
+  const [plan, profile] = await Promise.all([
+    supabase.from("personal_training_plans").select("*").eq("student_id", student.id).eq("course_id", student.course_id).eq("sa_code", "SA1").maybeSingle(),
+    supabase.from("profiles").select("display_name,class_group").eq("id", student.profile_id).single(),
+  ]);
+  if (plan.error || profile.error || !profile.data) throw new Error("No se ha podido cargar el plan personal.");
+  if (!plan.data) return null;
+  return { plan: plan.data, student: { name: String(profile.data.display_name), group: String(profile.data.class_group ?? "2º Bachillerato") } };
 }
 

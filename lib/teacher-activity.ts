@@ -11,7 +11,8 @@ export type TeacherStudent = { id: string; name: string; group: string; courseId
 export type TeacherSessionEvaluation = { studentId: string; number: number; score: number; comment: string; updatedAt: string; absent?: boolean };
 export type ExpectedTeacherInstrument = {
   key?: string; sa: string; category: ActivityCategory; title: string;
-  filters?: Record<string, string | number>; matchAll?: boolean; group?: string;
+  filters?: Record<string, string | number>; matchAll?: boolean; group?: string; courseId?: string;
+  phase?: "initial" | "final";
   completion?: "reflection"; tracking?: "unavailable";
 };
 export type TeacherActivity = {
