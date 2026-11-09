@@ -1,9 +1,23 @@
-export const sa3Sources = [
+export const sa3FoodSources = [
   {
     title: "AESAN · Recomendaciones dietéticas y de actividad física",
     url: "https://www.aesan.gob.es/es/nutricion/recomendaciones-dieteticas",
     use: "Variedad, presencia de alimentos vegetales, cereales integrales y agua en la lectura del diario.",
   },
+  {
+    title: "Public Health England · CoFID 2021",
+    url: "https://www.gov.uk/government/publications/composition-of-foods-integrated-dataset-cofid",
+    use: "Energía, proteínas, hidratos y grasas por 100 g de porción comestible. Datos de Public Health England, © Crown copyright 2021.",
+  },
+  {
+    title: "FAO/INFOODS · Base de densidades",
+    url: "https://www.fao.org/4/ap815e/ap815e.pdf",
+    use: "Conversión aproximada de ml a g para las bebidas y el aceite del catálogo.",
+  },
+];
+
+export const sa3Sources = [
+  ...sa3FoodSources,
   {
     title: "OMS · Alimentación saludable",
     url: "https://www.who.int/es/news-room/fact-sheets/detail/healthy-diet",
@@ -52,7 +66,7 @@ export const sa3Sessions = [
     title: "Interpretar el mapa de alimentos",
     week: 1,
     start: "Distingue un grupo de alimentos del tipo de procesamiento.",
-    practice: "Clasifica avena, fruta, aceite y un producto preparado a partir de ejemplos de ingredientes. Descompón un plato mixto si dispones de su receta y usa «Por identificar» si faltan datos. Completa la primera observación semanal.",
+    practice: "Clasifica avena, fruta, aceite y un producto preparado. Prueba «macarrones con carne 300 g» en el diario y ajusta un ingrediente para observar qué cambia en los grupos y nutrientes. Usa «Por identificar» si faltan datos sobre el procesamiento. Completa la primera observación semanal.",
     close: "Describe un patrón del caso y una duda de clasificación.",
     evidence: "Primer día del diario y registro de la semana 1.",
   },

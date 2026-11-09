@@ -1,27 +1,18 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { CalendarDays, Calculator, CircleHelp, Pencil, Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { CalendarDays, CircleHelp, Pencil, Trash2 } from "lucide-react";
+import { Sa3FoodEntryForm } from "@/components/sa3-food-entry-form";
+import { foodNumber as fmt, FoodMacros, Sa3FoodEstimateDetails } from "@/components/sa3-food-estimate";
 import {
-  classroomFoodDiary, displayFoodDay, foodEnergy, foodGroups, madridDay, meals,
-  parseFoodDecimal, processingGroups, readFoodDiary, summarizeFoodDay, type FoodEntry,
+  classroomFoodDiary, displayFoodDay, foodEntryEnergy, foodEntryGroups, foodGroups, madridDay, meals,
+  readFoodDiary, summarizeFoodDay, type FoodEntry, type FoodEntryDraft,
 } from "@/lib/sa3-food-diary";
 
 const control = "mt-1.5 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal";
 const label = "text-sm font-bold text-slate-700";
 const button = "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:border-emerald-500";
-const fmt = new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1 });
-
 type DiaryMode = "case" | "personal";
-type FoodDraft = Omit<FoodEntry, "id" | "day" | "quantity" | "kcalPer100"> & {
-  quantity: string;
-  kcalPer100: string;
-};
-
-const emptyFood: FoodDraft = {
-  meal: "Comida", name: "", group: "duda", processing: "duda",
-  quantity: "", unit: "g", kcalPer100: "",
-};
 
 function loadEntries(key: string, fallback: FoodEntry[]) {
   try {
@@ -63,29 +54,19 @@ export function Sa3FoodDiary({ storageKey }: { storageKey: string }) {
     case: loadEntries(storageKey + ":case", classroomFoodDiary(today)),
     personal: loadEntries(storageKey + ":personal", []),
   }));
-  const [draft, setDraft] = useState<FoodDraft>(emptyFood);
+  const [formRevision, setFormRevision] = useState(0);
   const [editing, setEditing] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
-  const [error, setError] = useState("");
 
   const entries = diaries[mode];
   const daily = entries.filter((entry) => entry.day === day);
   const days = [...new Set(entries.map((entry) => entry.day))].sort().reverse();
   const summary = summarizeFoodDay(daily);
-  const quantity = parseFoodDecimal(draft.quantity);
-  const kcalPer100 = parseFoodDecimal(draft.kcalPer100);
-  const estimate = foodEnergy(quantity, kcalPer100);
-
-  function setField<K extends keyof FoodDraft>(key: K, value: FoodDraft[K]) {
-    setDraft((current) => ({ ...current, [key]: value }));
-    setError("");
-    setNotice("");
-  }
+  const groupMentions = summary.groups.reduce((total, group) => total + group.count, 0);
 
   function clearDraft() {
-    setDraft(emptyFood);
     setEditing(null);
-    setError("");
+    setFormRevision((revision) => revision + 1);
   }
 
   function chooseDay(value: string) {
@@ -113,34 +94,11 @@ export function Sa3FoodDiary({ storageKey }: { storageKey: string }) {
     }
   }
 
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!draft.name.trim()) return setError("Escribe el nombre del alimento o bebida.");
-    if (draft.quantity.trim() && (quantity == null || quantity <= 0 || quantity > 10000)) {
-      return setError("Indica una cantidad mayor que 0, con un máximo de 10.000 g o ml.");
-    }
-    if (draft.kcalPer100.trim() && (kcalPer100 == null || kcalPer100 > 1000)) {
-      return setError("Revisa las kcal por 100 " + draft.unit + ". Introduce un número entre 0 y 1000.");
-    }
-    if (kcalPer100 != null && quantity == null) return setError("Indica la cantidad para calcular las kcal.");
-    const entry: FoodEntry = {
-      ...draft, id: editing ?? crypto.randomUUID(), day, name: draft.name.trim(), quantity, kcalPer100,
-    };
+  function saveEntry(draft: FoodEntryDraft) {
+    const entry = { ...draft, id: editing ?? crypto.randomUUID(), day };
     saveEntries(editing ? entries.map((item) => item.id === editing ? entry : item) : [...entries, entry],
       editing ? "Entrada actualizada." : "Entrada añadida al diario.");
     clearDraft();
-  }
-
-  function edit(entry: FoodEntry) {
-    setEditing(entry.id);
-    setDraft({
-      name: entry.name, meal: entry.meal, group: entry.group, processing: entry.processing,
-      unit: entry.unit, quantity: entry.quantity == null ? "" : String(entry.quantity),
-      kcalPer100: entry.kcalPer100 == null ? "" : String(entry.kcalPer100),
-    });
-    setError("");
-    setNotice("Editando " + entry.name + ".");
-    document.getElementById("sa3-food-name")?.focus();
   }
 
   return <div className="space-y-5">
@@ -149,7 +107,7 @@ export function Sa3FoodDiary({ storageKey }: { storageKey: string }) {
         <div>
           <p className="text-xs font-black uppercase tracking-widest text-[#1e6b4f]">01 · Observa</p>
           <h2 className="mt-1 text-2xl font-black text-slate-950">Diario de alimentación</h2>
-          <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">Compara tres días del caso de aula o de tu propio registro. Anota los alimentos que quieras analizar y clasifícalos con la información disponible.</p>
+          <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">Escribe lo que has tomado y la cantidad para estimar su aporte. Puedes practicar con el caso de aula o comparar tres días de tu propio registro.</p>
         </div>
         <div className="flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1" role="group" aria-label="Tipo de diario">
           <button type="button" onClick={() => chooseMode("case")} aria-pressed={mode === "case"} className={"min-h-10 rounded-lg px-3 py-2 text-sm font-bold " + (mode === "case" ? "bg-white text-[#164c3a] shadow-sm" : "text-slate-600")}>Caso de aula</button>
@@ -176,47 +134,8 @@ export function Sa3FoodDiary({ storageKey }: { storageKey: string }) {
       <div className="space-y-5">
         <section className="card p-5 sm:p-6">
           <h3 className="text-lg font-extrabold text-slate-950">{editing ? "Editar alimento" : "Añadir alimento o bebida"}</h3>
-          <form onSubmit={submit} className="mt-4 grid gap-4">
-            <label className={label}>Nombre
-              <input id="sa3-food-name" required maxLength={90} value={draft.name} onChange={(event) => setField("name", event.target.value)} placeholder="Ejemplo: pan integral" className={control}/>
-            </label>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className={label}>Momento
-                <select value={draft.meal} onChange={(event) => setField("meal", event.target.value as FoodDraft["meal"])} className={control}>
-                  {meals.map((meal) => <option key={meal}>{meal}</option>)}
-                </select>
-              </label>
-              <label className={label}>Grupo de alimentos
-                <select value={draft.group} onChange={(event) => setField("group", event.target.value as FoodDraft["group"])} className={control}>
-                  {foodGroups.map((group) => <option key={group.id} value={group.id}>{group.label}</option>)}
-                </select>
-              </label>
-            </div>
-            <label className={label}>Procesamiento orientativo
-              <select value={draft.processing} onChange={(event) => setField("processing", event.target.value as FoodDraft["processing"])} className={control}>
-                {processingGroups.map((group) => <option key={group.id} value={group.id}>{group.label}</option>)}
-              </select>
-            </label>
-            <details className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">
-              <summary className="font-bold text-slate-700">Cómo clasificar</summary>
-              <p className="mt-2 leading-6">La fruta entera o la avena simple son ejemplos de NOVA 1. El aceite es un ingrediente culinario. Una conserva de legumbres con sal puede ser procesada. Para un producto formulado, revisa la lista de ingredientes y el tipo de elaboración. Si faltan datos, elige «Por identificar».</p>
-            </details>
-            <fieldset className="min-w-0 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
-              <legend className="px-1 text-sm font-black text-[#164c3a]"><span className="inline-flex items-center gap-2"><Calculator size={16} aria-hidden="true"/> Calculadora de kcal</span></legend>
-              <p className="text-xs leading-5 text-slate-600">Cantidad × kcal de la etiqueta por 100 g o ml ÷ 100. Usa la misma unidad que la etiqueta. Estos campos son opcionales.</p>
-              <div className="mt-3 grid grid-cols-[minmax(0,1fr)_5rem] gap-3 sm:grid-cols-[minmax(0,1fr)_4.5rem_minmax(0,1fr)]">
-                <label className={label}>Cantidad<input inputMode="decimal" maxLength={10} value={draft.quantity} onChange={(event) => setField("quantity", event.target.value)} placeholder="50" className={control}/></label>
-                <label className={label}>Unidad<select value={draft.unit} onChange={(event) => setField("unit", event.target.value as FoodDraft["unit"])} className={control}><option>g</option><option>ml</option></select></label>
-                <label className={label + " col-span-2 sm:col-span-1"}>kcal por 100 {draft.unit}<input inputMode="decimal" maxLength={10} value={draft.kcalPer100} onChange={(event) => setField("kcalPer100", event.target.value)} placeholder="240" className={control}/></label>
-              </div>
-              <output className="mt-3 block font-black text-[#164c3a]" aria-label="Energía estimada de la entrada">{estimate == null ? "Resultado por entrada · —" : fmt.format(estimate) + " kcal estimadas"}</output>
-            </fieldset>
-            {error && <p role="alert" className="text-sm font-bold text-red-700">{error}</p>}
-            <div className="flex flex-wrap gap-2">
-              <button type="submit" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#1e6b4f] px-4 py-2 text-sm font-bold text-white"><Plus size={17} aria-hidden="true"/>{editing ? "Guardar entrada" : "Añadir al diario"}</button>
-              {editing && <button type="button" className={button} onClick={clearDraft}>Cancelar edición</button>}
-            </div>
-          </form>
+          <Sa3FoodEntryForm key={formRevision + ":" + (editing ?? "new")} entry={daily.find((entry) => entry.id === editing)}
+            onSave={saveEntry} onCancel={() => { clearDraft(); setNotice(""); }}/>
           <p role="status" className="mt-3 text-sm font-semibold text-[#164c3a]">{notice}</p>
         </section>
 
@@ -225,20 +144,26 @@ export function Sa3FoodDiary({ storageKey }: { storageKey: string }) {
           {daily.length === 0 ? <p className="mt-3 text-sm leading-6 text-slate-600">Aún no hay alimentos en este día. Usa el formulario para añadir una entrada.</p> :
             <ul className="mt-3 divide-y divide-slate-100">
               {[...daily].sort((a, b) => meals.indexOf(a.meal) - meals.indexOf(b.meal)).map((entry) => {
-                const kcal = foodEnergy(entry.quantity, entry.kcalPer100);
+                const kcal = foodEntryEnergy(entry);
+                const groupIds = foodEntryGroups(entry);
+                const groups = foodGroups.filter((group) => groupIds.has(group.id)).map((group) => group.label).join(", ");
                 return <li key={entry.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                   <div className="min-w-0 flex-1">
                     <p className="break-words text-sm font-bold text-slate-900">{entry.name}</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-600">{entry.meal} · {foodGroups.find((group) => group.id === entry.group)?.label}{entry.quantity != null ? " · " + fmt.format(entry.quantity) + " " + entry.unit : ""}</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-600">{entry.meal} · {groups}{entry.quantity != null ? " · " + fmt.format(entry.quantity) + " " + entry.unit : ""}</p>
                   </div>
                   <span className="text-sm font-bold tabular-nums text-[#164c3a]">{kcal == null ? "Sin dato" : fmt.format(kcal) + " kcal"}</span>
                   <div className="flex gap-1">
-                    <button type="button" aria-label={"Editar " + entry.name} onClick={() => edit(entry)} className={button}><Pencil size={16} aria-hidden="true"/></button>
+                    <button type="button" aria-label={"Editar " + entry.name} onClick={() => { setEditing(entry.id); setNotice("Editando " + entry.name + "."); }} className={button}><Pencil size={16} aria-hidden="true"/></button>
                     <button type="button" aria-label={"Eliminar " + entry.name} onClick={() => {
                       saveEntries(entries.filter((item) => item.id !== entry.id), "Entrada eliminada.");
                       if (editing === entry.id) clearDraft();
                     }} className={button}><Trash2 size={16} aria-hidden="true"/></button>
                   </div>
+                  {entry.estimate && <details className="w-full rounded-xl bg-emerald-50/60 p-3">
+                    <summary className="cursor-pointer text-xs font-bold text-[#164c3a]">Ver nutrientes e ingredientes</summary>
+                    <div className="mt-3"><Sa3FoodEstimateDetails estimate={entry.estimate}/></div>
+                  </details>}
                 </li>;
               })}
             </ul>}
@@ -249,15 +174,19 @@ export function Sa3FoodDiary({ storageKey }: { storageKey: string }) {
         <section className="rounded-3xl bg-[#0c372e] p-5 text-white sm:p-6">
           <p className="text-xs font-black uppercase tracking-widest text-emerald-200">Energía de las entradas</p>
           <p className="mt-2 text-3xl font-black tabular-nums" aria-live="polite">{summary.energy == null ? "—" : fmt.format(summary.energy) + " kcal"}</p>
-          <p className="mt-2 text-sm leading-6 text-emerald-50">{summary.known} de {daily.length} entradas con cálculo. El resultado corresponde a las entradas con cantidad y dato energético.</p>
+          <p className="mt-2 text-sm leading-6 text-emerald-50">{summary.known} de {daily.length} entradas con cálculo de energía.</p>
+          {summary.macros && <div className="mt-4 border-t border-white/20 pt-4 text-emerald-50">
+            <FoodMacros values={summary.macros}/>
+            <p className="mt-2 text-xs">{summary.macroEntries} de {daily.length} entradas con datos de macronutrientes.</p>
+          </div>}
         </section>
         <section className="card space-y-5 p-5 sm:p-6">
           <div>
             <p className="text-xs font-black uppercase tracking-widest text-[#1e6b4f]">Medidor del día</p>
             <h3 className="mt-1 text-xl font-black text-slate-950">Mapa de alimentos</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-600"><strong>{summary.distinctGroups} grupos</strong> de alimentos identificados. Las barras cuentan anotaciones. El agua, otros alimentos y las entradas por clasificar figuran por separado.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600"><strong>{summary.distinctGroups} grupos</strong> de alimentos identificados. Las barras cuentan anotaciones por grupo. Un plato puede aparecer en varios grupos. El agua, otros alimentos y las entradas por clasificar figuran por separado.</p>
           </div>
-          <EntriesMeter title="Por grupo" items={summary.groups} total={daily.length}/>
+          <EntriesMeter title="Por grupo" items={summary.groups} total={groupMentions}/>
           <div className="border-t border-slate-100 pt-4">
             <EntriesMeter title="Por procesamiento" items={summary.processing} total={daily.length}/>
           </div>
