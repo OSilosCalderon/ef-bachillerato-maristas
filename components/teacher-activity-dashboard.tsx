@@ -18,86 +18,12 @@ import { physicalCapacity } from "@/lib/second-year-progress";
 import { TeacherPsychologicalReports } from "@/components/teacher-psychological-reports";
 import { PhysicalRadarChart } from "@/components/physical-radar-chart";
 import { downloadPersonalPlanPdf } from "@/lib/personal-plan-pdf";
-import { methodologyLabels, normalizeItems } from "@/lib/personal-plan-tasks";
+import { savedPlanPdfData } from "@/lib/saved-plan-pdf";
+import { TeacherActivityDetail, teacherActivityStatuses as statuses } from "@/components/teacher-activity-detail";
 
 const fmt = (value: number | null) => value === null ? "Sin datos" : new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1 }).format(value);
-const statuses: Record<string, string> = { draft: "Borrador", active: "En marcha", completed: "Finalizado", submitted: "Enviado", in_progress: "En curso", planned: "Planificado" };
-const labels: Record<string, string> = {
-  question: "Pregunta", answers: "Respuestas guardadas", answer: "Respuesta del alumno/a", challenge_prompt: "Enunciado del reto", initial_analysis: "Análisis inicial", objective: "Objetivo", secondary_objective: "Segundo objetivo", priority_capacity: "Capacidad prioritaria", duration_weeks: "Semanas", weekly_frequency: "Frecuencia semanal", session_duration_minutes: "Minutos por sesión", progression_strategy: "Progresión", recovery_strategy: "Recuperación", success_indicator: "Indicador de logro", secondary_success_indicator: "Indicador del segundo objetivo", final_conclusions: "Conclusiones", future_work: "Trabajo futuro", plan_items: "Tareas del plan", activity: "Actividad", exercises: "Ejercicios", methodology: "Metodología", rounds: "Series", roundRecovery: "Descanso entre series (min)", dose: "Carga", recovery: "Descanso", sessionDate: "Fecha de la sesión", day: "Día", goal: "Objetivo", capacity: "Capacidad", description: "Descripción", title: "Título", activities: "Actividades", session_date: "Fecha de la sesión", feeling: "Sensaciones", learning: "Aprendizajes", reflection: "Reflexión", perceived_difficulty: "Dificultad percibida", perceived_effort: "Esfuerzo percibido", training_plan: "Trabajo de la sesión", content_worked: "Contenido trabajado", exercises_performed: "Ejercicios realizados", participation: "Participación", performance_perception: "Percepción del rendimiento", needs_improvement: "Aspectos a mejorar", session_number: "Sesión", week_number: "Semana", duration_minutes: "Duración (min)", rpe: "Esfuerzo percibido (RPE)", completion_percent: "Realización declarada (%)", modifications: "Adaptaciones", period: "Toma", value: "Marca", quiz_score: "Mejor resultado (%)", completed: "Lectura completada", focus_habit: "Hábito", initial_reflection: "Reflexión inicial", action_plan: "Acciones", barrier_strategy: "Dificultades y respuesta", final_reflection: "Reflexión final", sleep_routine: "Rutina de sueño", daily_movement: "Movimiento diario", sedentary_breaks: "Pausas activas", hydration: "Hidratación", balanced_eating: "Alimentación", goal_completion: "Cumplimiento del objetivo", next_adjustment: "Próximo ajuste", event_name: "Evento", purpose: "Propósito", target_audience: "Destinatarios", activity_type: "Actividad", event_format: "Formato", venue: "Lugar", event_date: "Fecha", participants_estimate: "Participantes previstos", team_name: "Equipo", personal_role: "Rol personal", team_roles: "Roles", rules: "Normas", inclusion_measures: "Inclusión", safety_measures: "Seguridad", materials: "Materiales", budget_items: "Presupuesto", timeline: "Calendario", communication_plan: "Comunicación", sustainability_measures: "Sostenibilidad", evaluation_plan: "Evaluación", instrument_code: "Cuestionario", assessment_phase: "Momento", total_score: "Puntuación", attempt_number: "Intento", status: "Estado",
-};
-
-labels.results_analysis = "Evolución de mis resultados físicos";
-labels.goal_review = "Revisión de objetivos";
-labels.personal_learning = "Aprendizajes y sensaciones";
-labels.future_motivation = "Motivaciones y acciones de futuro";
-labels.course_year = "Curso de Bachillerato";
-labels.sa_code = "Situación de aprendizaje";
-
-labels.teacher_score = "Calificación del profesor (0–10)";
-labels.teacher_absent = "AUSENCIA";
-labels.teacher_comment = "Comentario del profesor";
-labels.teacher_evaluated_at = "Fecha de calificación";
-
-labels.success_indicator = "Cómo comprobaré mi objetivo principal";
-labels.rounds = "Series";
-labels.roundRecovery = "Descanso entre series (minutos)";
-
-function planText(value: unknown, fallback = "Sin completar") {
-  return typeof value === "string" && value.trim() ? value.trim() : fallback;
-}
-
-function formatPlanSessionDate(value: string) {
-  if (!value) return "fecha pendiente";
-  const date = new Date(`${value}T12:00:00`);
-  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long" }).format(date);
-}
-
 function exportStudentPlan(row: TeacherActivity, student: TeacherActivityData["students"][number], year: 1 | 2) {
-  const plan = row.details;
-  const items = normalizeItems(plan.plan_items);
-  const dates = [...new Set(items.map((item) => item.sessionDate || ""))];
-  const taskLines = dates.length ? dates.flatMap((date, index) => items.filter((item) => (item.sessionDate || "") === date).flatMap((item) => [
-    `• Sesión ${index + 1} - ${formatPlanSessionDate(date)} - ${item.activity || "Tarea"} - ${methodologyLabels[item.methodology]} - ${item.rounds} serie(s)${item.roundRecovery ? ` - descanso entre series: ${item.roundRecovery} min` : ""}`,
-    ...(item.materials.length || item.customMaterials.trim() ? [`  Materiales: ${[...item.materials, item.customMaterials.trim()].filter(Boolean).join(", ")}`] : []),
-    ...item.exercises.map((exercise, exerciseIndex) => `  ${exerciseIndex + 1}. ${exercise.activity || "Ejercicio por concretar"}${exercise.dose ? ` - ${exercise.dose}` : ""}${exercise.recovery ? ` - descanso ${exercise.recovery}` : ""}`),
-  ])) : ["• Sin sesiones planificadas"];
-  const status = plan.status === "completed" ? "Finalizado" : plan.status === "active" ? "En marcha" : "Borrador";
-  const capacity = planText(plan.priority_capacity, "condicion-fisica-general").replaceAll("-", " ");
-  const duration = plan.duration_weeks ?? (year === 2 ? 3 : 4);
-  const frequency = plan.weekly_frequency ?? (year === 2 ? 4 : 2);
-  downloadPersonalPlanPdf({
-    studentName: student.name,
-    courseLabel: `${year}º Bachillerato`,
-    group: student.group,
-    status,
-    capacity,
-    sections: [
-      { title: "1. Punto de partida", lines: [planText(plan.initial_analysis)] },
-      { title: "2. Objetivos y temporalización", lines: [`Objetivo principal: ${planText(plan.objective)}`, `Cómo comprobaré mi objetivo principal: ${planText(plan.success_indicator)}`, ...(planText(plan.secondary_objective, "") ? [`Segundo objetivo: ${planText(plan.secondary_objective)}`, `Indicador del segundo objetivo: ${planText(plan.secondary_success_indicator)}`] : []), `${duration} semanas - ${frequency} sesiones/semana - ${plan.session_duration_minutes ?? 55} min por sesión`] },
-      { title: "3. Calendario, tareas y cargas", lines: taskLines },
-      { title: "4. Progresión y recuperación", lines: [`Progresión: ${planText(plan.progression_strategy)}`, `Recuperación: ${planText(plan.recovery_strategy)}`] },
-      { title: "5. Reflexión final", lines: [`Conclusiones: ${planText(plan.final_conclusions, "Pendiente al finalizar el plan")}`, `Qué quiero seguir trabajando: ${planText(plan.future_work, "Pendiente al finalizar el plan")}`] },
-    ],
-  });
-}
-
-
-function reportDate(value: string) {
-  if (!value) return "Sin fecha";
-  const date = new Date(`${value.slice(0, 10)}T12:00:00`);
-  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long", year: "numeric" }).format(date);
-}
-
-function reportDetailLines(value: unknown, prefix = "", depth = 0): string[] {
-  if (value === null || value === undefined || value === "" || depth > 4) return [];
-  if (Array.isArray(value)) return value.flatMap((entry, index) => reportDetailLines(entry, prefix ? `${prefix} · ${index + 1}` : `Elemento ${index + 1}`, depth + 1));
-  if (typeof value === "object") {
-    return Object.entries(value)
-      .filter(([key]) => key !== "id" && !key.endsWith("_id") && !["created_at", "updated_at", "recorded_at", "started_at", "submitted_at", "read_at", "topic_slug"].includes(key))
-      .flatMap(([key, entry]) => reportDetailLines(entry, prefix ? `${prefix} · ${labels[key] ?? key.replaceAll("_", " ")}` : labels[key] ?? key.replaceAll("_", " "), depth + 1));
-  }
-  const printable = typeof value === "boolean" ? (value ? "Sí" : "No") : String(value);
-  return [prefix ? `${prefix}: ${printable}` : printable];
+  downloadPersonalPlanPdf(savedPlanPdfData(row.details, student, year));
 }
 
 function exportStudentResultsPdf(
@@ -167,15 +93,6 @@ function exportStudentResultsPdf(
   });
 }
 
-function DetailValue({ value }: { value: unknown }) {
-  if (value === null || value === undefined || value === "") return <span className="text-slate-400">Sin completar</span>;
-  if (Array.isArray(value)) return <ol className="list-inside list-decimal space-y-3">{value.map((entry, index) => <li key={index} className="rounded-lg bg-white p-3"><DetailValue value={entry}/></li>)}</ol>;
-  if (typeof value === "object") return <dl className="space-y-2">{Object.entries(value).filter(([key]) => !key.startsWith("_") && key !== "id" && !key.endsWith("_id") && key !== "exerciseId" && !["created_at", "updated_at", "recorded_at", "started_at", "submitted_at", "read_at", "topic_slug"].includes(key)).map(([key, entry]) => <div key={key}><dt className="text-xs font-bold text-slate-500">{labels[key] ?? key.replaceAll("_", " ")}</dt><dd className="mt-1 whitespace-pre-wrap break-words"><DetailValue value={entry}/></dd></div>)}</dl>;
-  if (typeof value === "boolean") return <>{value ? "Sí" : "No"}</>;
-  const word = String(value);
-  return <>{statuses[word] ?? ({ september: "Septiembre", december: "Diciembre", initial: "Inicial", final: "Final", circuit: "Circuit training", total: "Total training", custom: "Trabajo específico" } as Record<string, string>)[word] ?? word}</>;
-}
-
 function Value({ label, value, suffix = "" }: { label: string; value: number | null; suffix?: string }) {
   return <div className="rounded-xl bg-slate-50 p-3"><p className="text-[11px] leading-4 text-slate-500">{label}</p><p className="mt-1 text-lg font-black text-slate-950">{fmt(value)}{value !== null ? ` ${suffix}` : ""}</p></div>;
 }
@@ -227,7 +144,7 @@ export function TeacherActivityDashboard({ data: initialData, year, initialSitua
   function chooseStudent(id: string) { setStudentId(id); setView("individual"); setSa(""); }
 
   function renderRecord(row: TeacherActivity) {
-    return <><p className="mb-3 text-xs text-slate-500">Última actualización: {row.date ? new Date(row.date).toLocaleDateString("es-ES") : "Sin fecha"}{row.status ? ` · ${statuses[row.status] ?? row.status}` : ""}</p>{row.category === "plans" && selected && <button type="button" onClick={() => exportStudentPlan(row, selected, year)} className="mb-4 inline-flex items-center gap-2 rounded-xl bg-[#1e6b4f] px-4 py-2.5 text-sm font-bold text-white"><FileDown size={16}/>Descargar plan en PDF</button>}<DetailValue value={row.details}/>{isPlanSessionLog(row, year) && <TeacherSessionEvaluationForm courseYear={year} key={row.id} studentId={row.studentId} sessionNumber={Number(row.details.session_number)} initialScore={row.details.teacher_score == null ? null : Number(row.details.teacher_score)} initialComment={String(row.details.teacher_comment ?? "")} initialAbsent={row.details.teacher_absent === true} onSaved={(evaluation) => updateSessionEvaluation(row.studentId, Number(row.details.session_number), evaluation)}/>}</>;
+    return <><p className="mb-3 text-xs text-slate-500">Última actualización: {row.date ? new Date(row.date).toLocaleDateString("es-ES") : "Sin fecha"}{row.status ? ` · ${statuses[row.status] ?? row.status}` : ""}</p>{row.category === "plans" && selected && <button type="button" onClick={() => exportStudentPlan(row, selected, year)} className="mb-4 inline-flex items-center gap-2 rounded-xl bg-[#1e6b4f] px-4 py-2.5 text-sm font-bold text-white"><FileDown size={16}/>Descargar plan en PDF</button>}<TeacherActivityDetail value={row.details}/>{isPlanSessionLog(row, year) && <TeacherSessionEvaluationForm courseYear={year} key={row.id} studentId={row.studentId} sessionNumber={Number(row.details.session_number)} initialScore={row.details.teacher_score == null ? null : Number(row.details.teacher_score)} initialComment={String(row.details.teacher_comment ?? "")} initialAbsent={row.details.teacher_absent === true} onSaved={(evaluation) => updateSessionEvaluation(row.studentId, Number(row.details.session_number), evaluation)}/>}</>;
   }
 
   const physicalRadar = ["Fuerza", "Resistencia", "Velocidad", "Flexibilidad / movilidad", "Otras pruebas"].flatMap((capacity) => {
@@ -287,7 +204,7 @@ export function TeacherActivityDashboard({ data: initialData, year, initialSitua
 
       <details className="card p-5 sm:p-7"><summary className="cursor-pointer text-lg font-extrabold">Archivo de registros guardados</summary><p className="mt-3 text-sm text-slate-500">Consulta también el historial y los registros adicionales conservados en la plataforma.</p><div className="mt-4 space-y-3">{categories.map(([category,label]) => {
         const rows = details.filter((row) => row.category===category).sort((a,b) => b.date.localeCompare(a.date));
-        return rows.length ? <details key={category} className="rounded-xl border p-4"><summary className="cursor-pointer text-sm font-bold">{label} · {rows.length}</summary><div className="mt-3 space-y-3">{rows.map((row) => <details key={row.id} className="rounded-lg bg-slate-50 p-3"><summary className="cursor-pointer text-sm font-semibold">{view === "group" ? `${students.find((student) => student.id===row.studentId)?.name} · ` : ""}{row.sa} · {row.title}</summary><div className="mt-3">{view === "group" && row.category==="plans" ? <><button type="button" onClick={() => {const student=students.find((entry) => entry.id===row.studentId);if(student)exportStudentPlan(row,student,year);}} className="mb-3 rounded-lg border px-3 py-2 text-xs font-bold">Descargar plan en PDF</button><DetailValue value={row.details}/></> : renderRecord(row)}</div></details>)}</div></details> : null;
+        return rows.length ? <details key={category} className="rounded-xl border p-4"><summary className="cursor-pointer text-sm font-bold">{label} · {rows.length}</summary><div className="mt-3 space-y-3">{rows.map((row) => <details key={row.id} className="rounded-lg bg-slate-50 p-3"><summary className="cursor-pointer text-sm font-semibold">{view === "group" ? `${students.find((student) => student.id===row.studentId)?.name} · ` : ""}{row.sa} · {row.title}</summary><div className="mt-3">{view === "group" && row.category==="plans" ? <><button type="button" onClick={() => {const student=students.find((entry) => entry.id===row.studentId);if(student)exportStudentPlan(row,student,year);}} className="mb-3 rounded-lg border px-3 py-2 text-xs font-bold">Descargar plan en PDF</button><TeacherActivityDetail value={row.details}/></> : renderRecord(row)}</div></details>)}</div></details> : null;
       })}</div></details>
       {(!sa || sa === "SA1" || (year===2 && sa==="SA2")) && <details className="card p-5 sm:p-7"><summary className="cursor-pointer text-lg font-extrabold">Informes psicológicos · inicial y final</summary><div className="mt-5"><TeacherPsychologicalReports key={`${year}-${group}-${selected?.id}-${data.loadedAt}`} initialYear={year} initialStudentId={view==="individual"?selected?.id:undefined} initialGroup={view === "individual" ? selected?.group : group || undefined}/></div></details>}
     </>}

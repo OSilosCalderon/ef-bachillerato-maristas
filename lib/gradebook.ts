@@ -1,3 +1,5 @@
+import type { SecondYearWorkSummary } from "./second-year-work";
+
 export type AssessmentGradeItem = { id: string; course_id: string; sa_code: string; item_key: string; title: string; position: number };
 export type PublishedAssessmentGrade = { id: string; student_id: string; item_id: string; score: number; comment: string; published_at: string };
 export type GradebookStudent = { id: string; courseId: string; name: string; group: string };
@@ -18,8 +20,9 @@ export type StudentGradebookData = {
   situations: { code: string; title: string }[];
   sessionGrades: StudentSessionGrade[];
 };
-export type TeacherGradesOverviewData = GradebookData & {
+export type TeacherGradesOverviewData = Omit<GradebookData, "situations"> & {
   sessionGrades: (StudentSessionGrade & { studentId: string })[];
+  work: Record<string, SecondYearWorkSummary>;
 };
 export const formatGrade = (value: number) => new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1 }).format(value);
 export const formatPublication = (value: string) => new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", dateStyle: "short", timeStyle: "short" }).format(new Date(value));

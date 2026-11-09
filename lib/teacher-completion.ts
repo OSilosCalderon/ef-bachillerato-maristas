@@ -6,6 +6,7 @@ export type CompletionItem = {
   state: CompletionState; records: TeacherActivity[]; requested: boolean;
   evaluation?: TeacherSessionEvaluation;
   sessionNumber?: number;
+  phase?: ExpectedTeacherInstrument["phase"];
 };
 export function completionOf(row: TeacherActivity, rule?: ExpectedTeacherInstrument["completion"]): CompletionState {
   if (rule === "reflection") {
@@ -30,13 +31,15 @@ export function studentCompletion(data: Pick<TeacherActivityData, "students" | "
   if (!student) return [];
   const records = data.activities.filter((row) => row.studentId === studentId && (!sa || row.sa === sa));
   const used = new Set<string>();
-  const result: CompletionItem[] = (data.expectedInstruments ?? []).filter((item) => (!sa || item.sa === sa) && (!item.group || item.group === student.group)).map((item) => {
+  const result: CompletionItem[] = (data.expectedInstruments ?? []).filter((item) =>
+    (!sa || item.sa === sa) && (!item.group || item.group === student.group) && (!item.courseId || item.courseId === student.courseId),
+  ).map((item) => {
     const own = records.filter((row) => matches(row, item)).sort((a, b) => b.date.localeCompare(a.date));
     own.forEach((row) => used.add(row.id));
     const states = own.map((row) => completionOf(row, item.completion));
     const number = (item.sa === "SA2" || item.filters?._kind === "plan-session") && item.category === "journals" ? Number(item.filters?.session_number) : NaN;
     const evaluation = Number.isInteger(number) ? data.sessionEvaluations?.find((row) => row.studentId === studentId && row.number === number) : undefined;
-    return { key: item.key ?? evaluationInstrumentKey(item), sa: item.sa, category: item.category, title: item.title, state: item.tracking === "unavailable" && !own.length ? "untracked" : states.includes("completed") ? "completed" : states.includes("in_progress") ? "in_progress" : "pending", records: own, requested: true, evaluation, sessionNumber: Number.isInteger(number) ? number : undefined };
+    return { key: item.key ?? evaluationInstrumentKey(item), sa: item.sa, category: item.category, title: item.title, state: item.tracking === "unavailable" && !own.length ? "untracked" : states.includes("completed") ? "completed" : states.includes("in_progress") ? "in_progress" : "pending", records: own, requested: true, evaluation, sessionNumber: Number.isInteger(number) ? number : undefined, phase: item.phase };
   });
   // Keep every older or additional saved entry accessible without turning it into a new requirement.
   const additional = new Map<string, TeacherActivity[]>();
