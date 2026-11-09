@@ -110,7 +110,7 @@ const baseTopics: Omit<SecondYearTheoryTopic, "foundation" | "sourceLinks">[] = 
         paragraphs: [
           "La hidratación depende de duración, intensidad, temperatura y características individuales. Evitamos cifras universales rígidas y aprendemos a anticipar necesidades básicas.",
           "En alimentación trabajamos variedad, regularidad y organización alrededor de la actividad física. No usamos dietas restrictivas, conteo obligatorio de calorías ni objetivos de peso.",
-          "En la bitácora, calcula la energía de una cantidad multiplicando la cifra de la etiqueta por la cantidad y dividiendo entre 100. Usa g o ml según la unidad de la etiqueta. El mapa cuenta entradas por grupo. Si faltan datos sobre los ingredientes de un producto, puedes marcar su procesamiento como «Por identificar».",
+          "En el diario, escribe un alimento o plato y su cantidad para estimar kcal, proteínas, hidratos y grasas. En un plato mixto puedes ajustar las cantidades de cada ingrediente. Con una etiqueta, multiplica el valor por 100 g o ml por la cantidad en esa misma unidad y divide entre 100. El mapa cuenta entradas por grupo y un plato puede aparecer en varios grupos. Si faltan datos sobre el procesamiento, elige «Por identificar».",
         ],
       },
     ],

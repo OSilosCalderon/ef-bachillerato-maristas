@@ -20,35 +20,79 @@ export const processingGroups = [
 ] as const;
 
 export const meals = ["Desayuno", "Media mañana", "Comida", "Merienda", "Cena", "Otro momento"] as const;
+export const maxFoodQuantity = 10000;
+export const maxRecipeIngredients = 15;
+
+export type FoodGroup = (typeof foodGroups)[number]["id"];
+export type FoodProcessing = (typeof processingGroups)[number]["id"];
+export type FoodUnit = "g" | "ml";
+export type FoodValues = { kcal: number; protein: number; carbs: number; fat: number };
+export type FoodPart = {
+  ingredientId: string;
+  name: string;
+  group: FoodGroup;
+  quantity: number;
+  unit: FoodUnit;
+  grams: number;
+  values: FoodValues;
+};
+export type FoodEstimate = { catalogId?: string; parts: FoodPart[] };
 
 export type FoodEntry = {
   id: string;
   day: string;
   meal: (typeof meals)[number];
   name: string;
-  group: (typeof foodGroups)[number]["id"];
-  processing: (typeof processingGroups)[number]["id"];
+  group: FoodGroup;
+  processing: FoodProcessing;
   quantity: number | null;
-  unit: "g" | "ml";
+  unit: FoodUnit;
   kcalPer100: number | null;
+  estimate?: FoodEstimate;
 };
+
+export type FoodEntryDraft = Omit<FoodEntry, "id" | "day">;
 
 export function parseFoodDecimal(input: string) {
   const value = input.trim().replace(",", ".");
-  return /^\d{1,5}(?:\.\d{1,3})?$/.test(value) ? Number(value) : null;
+  return /^\d{1,5}(?:\.\d{1,6})?$/.test(value) ? Number(value) : null;
 }
 
 export function foodEnergy(quantity: number | null, kcalPer100: number | null) {
   if (quantity == null || kcalPer100 == null) return null;
-  if (!Number.isFinite(quantity) || quantity <= 0 || quantity > 10000) return null;
+  if (!Number.isFinite(quantity) || quantity <= 0 || quantity > maxFoodQuantity) return null;
   if (!Number.isFinite(kcalPer100) || kcalPer100 < 0 || kcalPer100 > 1000) return null;
   return quantity * kcalPer100 / 100;
 }
 
+export function sumFoodValues(values: FoodValues[]): FoodValues {
+  return values.reduce((total, value) => ({
+    kcal: total.kcal + value.kcal,
+    protein: total.protein + value.protein,
+    carbs: total.carbs + value.carbs,
+    fat: total.fat + value.fat,
+  }), { kcal: 0, protein: 0, carbs: 0, fat: 0 });
+}
+
+export function foodEntryGroups(entry: FoodEntry) {
+  return new Set(entry.estimate?.parts.map((part) => part.group) ?? [entry.group]);
+}
+
+function foodEntryValues(entry: FoodEntry) {
+  return entry.estimate
+    ? sumFoodValues(entry.estimate.parts.map((part) => part.values))
+    : null;
+}
+
+export function foodEntryEnergy(entry: FoodEntry) {
+  return foodEntryValues(entry)?.kcal ?? foodEnergy(entry.quantity, entry.kcalPer100);
+}
+
 export function summarizeFoodDay(entries: FoodEntry[]) {
+  const groupsPerEntry = entries.map(foodEntryGroups);
   const groups = foodGroups.map((group) => ({
     ...group,
-    count: entries.filter((entry) => entry.group === group.id).length,
+    count: groupsPerEntry.filter((entry) => entry.has(group.id)).length,
   }));
   const processing = processingGroups.map((group) => ({
     ...group,
@@ -56,12 +100,15 @@ export function summarizeFoodDay(entries: FoodEntry[]) {
   }));
   let known = 0;
   let energy = 0;
+  const macroValues: FoodValues[] = [];
   for (const entry of entries) {
-    const estimate = foodEnergy(entry.quantity, entry.kcalPer100);
+    const values = foodEntryValues(entry);
+    const estimate = values?.kcal ?? foodEnergy(entry.quantity, entry.kcalPer100);
     if (estimate != null) {
       known++;
       energy += estimate;
     }
+    if (values) macroValues.push(values);
   }
   return {
     groups,
@@ -69,6 +116,8 @@ export function summarizeFoodDay(entries: FoodEntry[]) {
     distinctGroups: groups.filter((group) => group.count > 0 && !["duda", "agua", "otros"].includes(group.id)).length,
     known,
     energy: known ? energy : null,
+    macros: macroValues.length ? sumFoodValues(macroValues) : null,
+    macroEntries: macroValues.length,
   };
 }
 
@@ -86,8 +135,7 @@ export const displayFoodDay = (day: string) => new Intl.DateTimeFormat("es-ES", 
   day: "numeric", month: "short", timeZone: "Europe/Madrid",
 }).format(new Date(day + "T12:00:00Z"));
 
-type ExampleFood = Omit<FoodEntry, "id" | "day">;
-const classroomDays: ExampleFood[][] = [
+const classroomDays: FoodEntryDraft[][] = [
   [
     { meal: "Desayuno", name: "Pan integral", group: "cereales", processing: "nova3", quantity: 60, unit: "g", kcalPer100: 250 },
     { meal: "Comida", name: "Tortilla francesa", group: "proteinas", processing: "duda", quantity: null, unit: "g", kcalPer100: null },
@@ -120,6 +168,22 @@ export function classroomFoodDiary(day: string): FoodEntry[] {
   })));
 }
 
+function isFoodEstimate(value: unknown): value is FoodEstimate {
+  if (value == null || typeof value !== "object") return false;
+  const { catalogId, parts } = value as Partial<FoodEstimate>;
+  return (catalogId === undefined || typeof catalogId === "string") &&
+    Array.isArray(parts) && parts.length > 0 && parts.length <= maxRecipeIngredients && parts.every((part) =>
+      part && typeof part.ingredientId === "string" && typeof part.name === "string" &&
+      foodGroups.some((group) => group.id === part.group) &&
+      (part.unit === "g" || part.unit === "ml") &&
+      Number.isFinite(part.quantity) && part.quantity > 0 && part.quantity <= maxFoodQuantity &&
+      Number.isFinite(part.grams) && part.grams > 0 &&
+      part.values && [part.values.kcal, part.values.protein, part.values.carbs, part.values.fat].every(
+        (nutrient) => Number.isFinite(nutrient) && nutrient >= 0,
+      ),
+    );
+}
+
 export function readFoodDiary(raw: string): FoodEntry[] {
   const entries: unknown = JSON.parse(raw);
   if (!Array.isArray(entries)) throw new Error("El diario no tiene un formato válido.");
@@ -131,7 +195,9 @@ export function readFoodDiary(raw: string): FoodEntry[] {
       foodGroups.some((group) => group.id === entry.group) &&
       processingGroups.some((group) => group.id === entry.processing) &&
       (entry.unit === "g" || entry.unit === "ml") &&
-      (entry.quantity === null || (Number.isFinite(entry.quantity) && entry.quantity > 0 && entry.quantity <= 10000)) &&
+      (entry.quantity === null || (Number.isFinite(entry.quantity) && entry.quantity > 0 && entry.quantity <= maxFoodQuantity)) &&
       (entry.kcalPer100 === null || (Number.isFinite(entry.kcalPer100) && entry.kcalPer100 >= 0 && entry.kcalPer100 <= 1000));
-  });
+  }).map((entry) => entry.estimate === undefined || isFoodEstimate(entry.estimate)
+    ? entry
+    : { ...entry, estimate: undefined });
 }
