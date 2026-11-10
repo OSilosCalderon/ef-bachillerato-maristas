@@ -7,6 +7,8 @@ import { Award, BookMarked, BookOpenCheck, BrainCircuit, CheckCircle2, Circle, L
 import { BasicCapacitiesVisual } from "@/components/basic-capacities-visual";
 import { SecondYearLoadRecoveryGuide } from "@/components/second-year-load-recovery-guide";
 import { SecondYearTheoryVisual } from "@/components/second-year-theory-visual";
+import { createClient } from "@/lib/supabase/client";
+import { secondYearWorkClosureMessage } from "@/lib/second-year-work-closure";
 import { loadStudentVisibleSituations } from "@/lib/situation-visibility";
 import { secondYearTheoryTopics as allTopics } from "@/lib/second-year-theory-topics";
 import { loadTheoryTopicProgress, saveTheoryTopicProgress, type TheoryTopicProgress } from "@/lib/training-theory-data";
@@ -14,45 +16,61 @@ import { loadTheoryTopicProgress, saveTheoryTopicProgress, type TheoryTopicProgr
 import { SECOND_YEAR_PASS_SCORE as PASS_SCORE, secondYearMastery, secondYearQuizScore } from "@/lib/second-year-theory-assessment";
 
 type Props = { initialSlug?: string; compactHeader?: boolean };
+const emptyAnswers: Record<number, number> = {};
 
 export function SecondYearTheoryReader({ initialSlug, compactHeader = false }: Props) {
   const [secondYearTheoryTopics, setTopics] = useState(allTopics);
-  const [selectedSlug, setSelectedSlug] = useState(initialSlug ?? secondYearTheoryTopics[0].slug);
+  const [selection, setSelection] = useState({ initialSlug, slug: initialSlug });
+  const selectedSlug = selection.initialSlug === initialSlug ? selection.slug : initialSlug;
   const [studentId, setStudentId] = useState<string | null>(null);
   const [progress, setProgress] = useState<Record<string, TheoryTopicProgress>>({});
   const [answers, setAnswers] = useState<Record<string, Record<number, number>>>({});
   const [submitted, setSubmitted] = useState<Record<string, number>>({});
+  const [workClosed, setWorkClosed] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   const topic = secondYearTheoryTopics.find((item) => item.slug === selectedSlug) ?? secondYearTheoryTopics[0] ?? allTopics[0];
+  const readOnly = (topic.sa === "SA1" || topic.sa === "SA2") && workClosed !== false;
   const topicProgress = progress[topic.slug];
-  const topicAnswers = answers[topic.slug] ?? {};
+  const topicAnswers = answers[topic.slug] ?? emptyAnswers;
   const allAnswered = Object.keys(topicAnswers).length === topic.quiz.length;
   const topicPassed = (topicProgress?.quizScore ?? 0) >= PASS_SCORE;
   const readCount = secondYearTheoryTopics.filter((item) => progress[item.slug]?.completed).length;
   const passedCount = secondYearTheoryTopics.filter((item) => (progress[item.slug]?.quizScore ?? 0) >= PASS_SCORE).length;
   const mastery = secondYearMastery(secondYearTheoryTopics.map((item) => item.slug), progress);
 
-  useEffect(() => { void load(); }, []);
-  useEffect(() => { if (initialSlug) setSelectedSlug(initialSlug); }, [initialSlug]);
+  useEffect(() => {
+    let active = true;
 
-  async function load() {
-    setLoading(true);
-    setError("");
-    try {
-      const [result, visible] = await Promise.all([loadTheoryTopicProgress(), loadStudentVisibleSituations()]);
-      const available = allTopics.filter((topic) => visible.includes(topic.sa));
-      setTopics(available);
-      if (!available.some((topic) => topic.slug === initialSlug)) setSelectedSlug(available[0]?.slug ?? "");
-      setStudentId(result.studentId);
-      setProgress(Object.fromEntries(result.progress.map((item) => [item.topicSlug, item])));
-    } catch (cause) {
-      setTopics([]);
-      setError(cause instanceof Error ? cause.message : "No se ha podido cargar tu progreso.");
-    } finally { setLoading(false); }
+    async function load() {
+      try {
+        const [result, visible, closure] = await Promise.all([
+          loadTheoryTopicProgress(), loadStudentVisibleSituations(), createClient().rpc("second_year_sa1_sa2_work_closed"),
+        ]);
+        if (!active) return;
+        setWorkClosed(closure.error || typeof closure.data !== "boolean" ? null : closure.data);
+        setTopics(allTopics.filter((topic) => visible.includes(topic.sa)));
+        setStudentId(result.studentId);
+        setProgress(Object.fromEntries(result.progress.map((item) => [item.topicSlug, item])));
+      } catch (cause) {
+        if (!active) return;
+        setTopics([]);
+        setError(cause instanceof Error ? cause.message : "No se ha podido cargar tu progreso.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    void load();
+    return () => { active = false; };
+  }, []);
+
+  function chooseTopic(slug: string) {
+    setSelection({ initialSlug, slug });
+    setMessage("");
   }
 
   const scorePreview = useMemo(() => {
@@ -62,6 +80,7 @@ export function SecondYearTheoryReader({ initialSlug, compactHeader = false }: P
   }, [allAnswered, topic.quiz, topicAnswers]);
 
   async function persist(nextRead: boolean, nextScore: number | null, successMessage: string) {
+    if (readOnly) return;
     if (!studentId) { setError("Recarga la página para identificar tu perfil antes de guardar."); return; }
     setSaving(true); setError(""); setMessage("");
     try {
@@ -74,7 +93,7 @@ export function SecondYearTheoryReader({ initialSlug, compactHeader = false }: P
   }
 
   async function submitQuiz() {
-    if (scorePreview === null) return;
+    if (readOnly || scorePreview === null) return;
     const bestScore = Math.max(topicProgress?.quizScore ?? 0, scorePreview);
     setSubmitted((current) => ({ ...current, [topic.slug]: scorePreview }));
     await persist(topicProgress?.completed ?? false, bestScore, scorePreview >= PASS_SCORE ? "¡Test superado! Tu mejor puntuación queda guardada." : "Resultado guardado. Repasa el módulo y vuelve a intentarlo.");
@@ -95,12 +114,13 @@ export function SecondYearTheoryReader({ initialSlug, compactHeader = false }: P
 
     {(error || message) && <div role="status" className={`rounded-2xl border p-4 text-sm font-semibold ${error ? "border-red-200 bg-red-50 text-red-700" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}>{error || message}</div>}
 
-    <div className="lg:hidden"><label htmlFor="second-year-topic" className="mb-2 block text-xs font-black uppercase tracking-[.14em] text-slate-500">Módulos de 2º</label><select id="second-year-topic" disabled={saving} value={topic.slug} onChange={(event) => { setSelectedSlug(event.target.value); setMessage(""); }} className="min-w-0 max-w-full w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-800 shadow-sm">{secondYearTheoryTopics.map((item) => <option key={item.slug} value={item.slug}>{item.sa} · {item.title}</option>)}</select></div>
+    <div className="lg:hidden"><label htmlFor="second-year-topic" className="mb-2 block text-xs font-black uppercase tracking-[.14em] text-slate-500">Módulos de 2º</label><select id="second-year-topic" disabled={saving} value={topic.slug} onChange={(event) => chooseTopic(event.target.value)} className="min-w-0 max-w-full w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-800 shadow-sm">{secondYearTheoryTopics.map((item) => <option key={item.slug} value={item.slug}>{item.sa} · {item.title}</option>)}</select></div>
 
     <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
-      <aside className="hidden lg:block lg:sticky lg:top-5 lg:self-start"><nav aria-label="Módulos teóricos de 2º" className="card p-3"><p className="px-2 pb-2 text-xs font-black uppercase tracking-[.14em] text-slate-400">Módulos</p><div className="space-y-1">{secondYearTheoryTopics.map((item) => { const active=item.slug===topic.slug; const read=Boolean(progress[item.slug]?.completed); const passed=(progress[item.slug]?.quizScore??0)>=PASS_SCORE; return <button key={item.slug} type="button" aria-current={active ? "page" : undefined} disabled={saving} onClick={()=>{setSelectedSlug(item.slug);setMessage("");}} className={`w-full rounded-xl px-3 py-3 text-left transition ${active?"bg-[#e7f2ed] text-[#164c3a]":"text-slate-600 hover:bg-slate-50"}`}><div className="flex items-start gap-3"><span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg text-xs font-black ${active?"bg-[#1e6b4f] text-white":"bg-slate-100 text-slate-600"}`}>{item.number}</span><div className="min-w-0 flex-1"><p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{item.sa}</p><p className="text-sm font-extrabold leading-5">{item.title}</p><p className="mt-1 text-[10px] font-bold text-slate-400">{read?"Leído":"Pendiente"} · {passed?"Test superado":"Test pendiente"}</p></div></div></button>})}</div></nav></aside>
+      <aside className="hidden lg:block lg:sticky lg:top-5 lg:self-start"><nav aria-label="Módulos teóricos de 2º" className="card p-3"><p className="px-2 pb-2 text-xs font-black uppercase tracking-[.14em] text-slate-400">Módulos</p><div className="space-y-1">{secondYearTheoryTopics.map((item) => { const active=item.slug===topic.slug; const read=Boolean(progress[item.slug]?.completed); const passed=(progress[item.slug]?.quizScore??0)>=PASS_SCORE; return <button key={item.slug} type="button" aria-current={active ? "page" : undefined} disabled={saving} onClick={() => chooseTopic(item.slug)} className={`w-full rounded-xl px-3 py-3 text-left transition ${active?"bg-[#e7f2ed] text-[#164c3a]":"text-slate-600 hover:bg-slate-50"}`}><div className="flex items-start gap-3"><span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg text-xs font-black ${active?"bg-[#1e6b4f] text-white":"bg-slate-100 text-slate-600"}`}>{item.number}</span><div className="min-w-0 flex-1"><p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{item.sa}</p><p className="text-sm font-extrabold leading-5">{item.title}</p><p className="mt-1 text-[10px] font-bold text-slate-400">{read?"Leído":"Pendiente"} · {passed?"Test superado":"Test pendiente"}</p></div></div></button>})}</div></nav></aside>
 
       <article className="min-w-0 space-y-6">
+        {readOnly && <p role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">{secondYearWorkClosureMessage(workClosed)}</p>}
         <section className="card overflow-hidden"><div className="bg-gradient-to-br from-[#edf7f2] to-white p-6 sm:p-8"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.18em] text-[#1e6b4f]">{topic.sa} · Módulo {topic.number}</p><h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">{topic.title}</h1><p className="mt-2 text-base font-semibold text-slate-500">{topic.subtitle}</p></div><div className="flex flex-wrap gap-2"><Badge ok={Boolean(topicProgress?.completed)} label="Leído"/><Badge ok={topicPassed} label="Test superado"/></div></div><p className="mt-5 max-w-4xl text-sm font-medium leading-7 text-slate-700">{topic.summary}</p></div></section>
 
         <section className="card p-6 sm:p-8"><h2 className="text-xl font-extrabold">Fundamentación · ¿Para qué sirve?</h2><p className="mt-3 text-sm leading-7 text-slate-600">{topic.foundation}</p></section>
@@ -119,9 +139,33 @@ export function SecondYearTheoryReader({ initialSlug, compactHeader = false }: P
 
         <section className="grid gap-4 md:grid-cols-2"><div className="rounded-3xl border border-violet-200 bg-violet-50 p-6"><Target className="text-violet-700"/><p className="mt-3 text-xs font-black uppercase tracking-wide text-violet-700">Reto de aplicación</p><p className="mt-2 text-sm font-semibold leading-7 text-violet-950">{topic.challenge}</p><TheoryChallengeResponse key={topic.slug} topicSlug={topic.slug}/></div><div className="rounded-3xl border border-sky-200 bg-sky-50 p-6"><BrainCircuit className="text-sky-700"/><p className="mt-3 text-xs font-black uppercase tracking-wide text-sky-700">Piensa como alumno/a de 2º</p><p className="mt-2 text-sm font-semibold leading-7 text-sky-950">{topic.extension}</p></div></section>
 
-        <section className="card p-6 sm:p-8"><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-3"><BookMarked className="text-[#1e6b4f]"/><div><h2 className="text-xl font-extrabold">Registra tu lectura</h2><p className="text-sm text-slate-500">Marca el módulo cuando hayas estudiado todas sus secciones.</p></div></div><button disabled={saving || !studentId} onClick={()=>void persist(!(topicProgress?.completed??false),topicProgress?.quizScore??null,topicProgress?.completed?"Módulo marcado como pendiente.":"Módulo marcado como leído.")} className={`rounded-xl px-5 py-3 text-sm font-bold text-white ${topicProgress?.completed?"bg-slate-500":"bg-[#1e6b4f]"}`}>{saving?"Guardando…":topicProgress?.completed?"Marcar como pendiente":"He leído este módulo"}</button></div></section>
+        <section className="card p-6 sm:p-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3"><BookMarked className="text-[#1e6b4f]"/><div>
+              <h2 className="text-xl font-extrabold">{readOnly ? "Registro de lectura" : "Registra tu lectura"}</h2>
+              <p className="text-sm text-slate-500">{readOnly ? topicProgress?.completed ? "Lectura registrada" : "Sin lectura registrada" : "Marca el módulo cuando hayas estudiado todas sus secciones."}</p>
+            </div></div>
+            {!readOnly && <button disabled={saving || !studentId} onClick={()=>void persist(!(topicProgress?.completed??false),topicProgress?.quizScore??null,topicProgress?.completed?"Módulo marcado como pendiente.":"Módulo marcado como leído.")} className={`rounded-xl px-5 py-3 text-sm font-bold text-white ${topicProgress?.completed?"bg-slate-500":"bg-[#1e6b4f]"}`}>{saving?"Guardando…":topicProgress?.completed?"Marcar como pendiente":"He leído este módulo"}</button>}
+          </div>
+        </section>
 
-        <section className="card overflow-hidden"><div className="bg-slate-950 p-6 text-white sm:p-8"><div className="flex items-center gap-3"><BookOpenCheck className="text-emerald-300"/><div><p className="text-xs font-bold uppercase tracking-wide text-emerald-300">Autoevaluación</p><h2 className="text-2xl font-extrabold">Comprueba lo aprendido</h2><p className="mt-1 text-sm text-slate-300">{topic.quiz.length} preguntas · necesitas al menos 67%. Se guarda la mejor puntuación.</p></div></div></div><div className="space-y-7 p-6 sm:p-8">{topic.quiz.map((question,index)=><fieldset key={question.question}><legend className="font-extrabold text-slate-900">{index+1}. {question.question}</legend><div className="mt-3 grid gap-2">{question.options.map((option,optionIndex)=><label key={option} className={`cursor-pointer rounded-xl border p-3 text-sm transition ${topicAnswers[index]===optionIndex?"border-[#1e6b4f] bg-[#f4faf7]":"border-slate-200 bg-white"}`}><input type="radio" disabled={saving || submitted[topic.slug]!=null} className="mr-2" name={`${topic.slug}-${index}`} checked={topicAnswers[index]===optionIndex} onChange={()=>setAnswers((current)=>({...current,[topic.slug]:{...(current[topic.slug]??{}),[index]:optionIndex}}))}/>{option}</label>)}</div>{submitted[topic.slug]!=null&&<p className="mt-2 text-sm leading-6 text-slate-600">{topicAnswers[index] === question.correct ? "✓ Correcta. " : `Revisa tu respuesta. Respuesta correcta: ${question.options[question.correct]}. `}{question.feedback}</p>}</fieldset>)}<div className="flex flex-wrap items-center gap-3"><button disabled={!allAnswered||saving||!studentId} onClick={()=>void submitQuiz()} className="rounded-xl bg-[#1e6b4f] px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">Corregir y guardar</button>{submitted[topic.slug]!=null&&<button type="button" disabled={saving} onClick={retryQuiz} className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold disabled:opacity-40">Repetir test</button>}{submitted[topic.slug]!=null&&<span role="status" className={`rounded-full px-3 py-1.5 text-sm font-black ${submitted[topic.slug]>=PASS_SCORE?"bg-emerald-100 text-emerald-800":"bg-amber-100 text-amber-800"}`}>{submitted[topic.slug]}%</span>}{topicProgress?.quizScore!=null&&<span className="text-xs font-semibold text-slate-500">Mejor resultado: {topicProgress.quizScore}%</span>}</div></div></section>
+        <section className="card overflow-hidden">
+          <div className="bg-slate-950 p-6 text-white sm:p-8"><div className="flex items-center gap-3">
+            <BookOpenCheck className="text-emerald-300"/><div>
+              <p className="text-xs font-bold uppercase tracking-wide text-emerald-300">Autoevaluación</p>
+              <h2 className="text-2xl font-extrabold">{readOnly ? "Resultado de la autoevaluación" : "Comprueba lo aprendido"}</h2>
+              {!readOnly && <p className="mt-1 text-sm text-slate-300">{topic.quiz.length} preguntas · necesitas al menos 67%. Se guarda la mejor puntuación.</p>}
+            </div>
+          </div></div>
+          <div className="space-y-7 p-6 sm:p-8">
+            {!readOnly && <>
+              {topic.quiz.map((question,index)=><fieldset key={question.question}><legend className="font-extrabold text-slate-900">{index+1}. {question.question}</legend><div className="mt-3 grid gap-2">{question.options.map((option,optionIndex)=><label key={option} className={`cursor-pointer rounded-xl border p-3 text-sm transition ${topicAnswers[index]===optionIndex?"border-[#1e6b4f] bg-[#f4faf7]":"border-slate-200 bg-white"}`}><input type="radio" disabled={saving || submitted[topic.slug]!=null} className="mr-2" name={`${topic.slug}-${index}`} checked={topicAnswers[index]===optionIndex} onChange={()=>setAnswers((current)=>({...current,[topic.slug]:{...(current[topic.slug]??{}),[index]:optionIndex}}))}/>{option}</label>)}</div>{submitted[topic.slug]!=null&&<p className="mt-2 text-sm leading-6 text-slate-600">{topicAnswers[index] === question.correct ? "✓ Correcta. " : `Revisa tu respuesta. Respuesta correcta: ${question.options[question.correct]}. `}{question.feedback}</p>}</fieldset>)}
+              <div className="flex flex-wrap items-center gap-3"><button disabled={!allAnswered||saving||!studentId} onClick={()=>void submitQuiz()} className="rounded-xl bg-[#1e6b4f] px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">Corregir y guardar</button>{submitted[topic.slug]!=null&&<button type="button" disabled={saving} onClick={retryQuiz} className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold disabled:opacity-40">Repetir test</button>}{submitted[topic.slug]!=null&&<span role="status" className={`rounded-full px-3 py-1.5 text-sm font-black ${submitted[topic.slug]>=PASS_SCORE?"bg-emerald-100 text-emerald-800":"bg-amber-100 text-amber-800"}`}>{submitted[topic.slug]}%</span>}</div>
+            </>}
+            {topicProgress?.quizScore != null ? <p className="text-sm font-semibold text-slate-600">Mejor resultado guardado · {topicProgress.quizScore}%</p>
+              : readOnly && <p className="text-sm text-slate-500">Sin resultado guardado.</p>}
+          </div>
+        </section>
 
         <section className="card p-6 sm:p-8"><p className="text-xs font-black uppercase tracking-wide text-slate-400">Referencias bibliográficas</p><h2 className="mt-1 text-xl font-extrabold">Para profundizar</h2><ul className="mt-4 space-y-2">{topic.sourceLinks.map((source)=><li key={source.url}><a href={source.url} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#1e6b4f] underline">{source.title}</a></li>)}{topic.sources.map((source)=><li key={source} className="rounded-xl bg-slate-50 p-3 text-sm font-semibold text-slate-600">{source}</li>)}</ul></section>
       </article>

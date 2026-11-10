@@ -14,6 +14,7 @@ import { loadPhysicalTestsForCurrentStudent } from "@/lib/sa1-physical-data";
 import { secondYearPhysicalComparison } from "@/lib/second-year-progress";
 import type { FitnessReference, PhysicalTest } from "@/lib/sa1-types";
 import { downloadPersonalPlanPdf } from "@/lib/personal-plan-pdf";
+import { secondYearWorkClosureMessage } from "@/lib/second-year-work-closure";
 
 type PlanForm = {
   initialAnalysis: string;
@@ -67,6 +68,9 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
   const [studentName, setStudentName] = useState("Alumno/a");
   const [tests, setTests] = useState<PhysicalTest[]>([]);
   const [reference, setReference] = useState<FitnessReference | null>(null);
+  const [workClosed, setWorkClosed] = useState<boolean | null>(null);
+  const [hasSavedPlan, setHasSavedPlan] = useState(false);
+  const readOnly = courseYear === 2 && workClosed !== false;
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -104,7 +108,7 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
       setStudentId(student.id as string);
       setCourseId(student.course_id as string);
 
-      const [planResult, physicalData] = await Promise.all([
+      const [planResult, physicalData, closure] = await Promise.all([
         supabase
           .from("personal_training_plans")
           .select("initial_analysis,objective,secondary_objective,secondary_success_indicator,priority_capacity,duration_weeks,weekly_frequency,session_duration_minutes,progression_strategy,recovery_strategy,success_indicator,final_conclusions,future_work,plan_items,status")
@@ -113,12 +117,15 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
           .eq("sa_code", "SA1")
           .maybeSingle(),
         loadPhysicalTestsForCurrentStudent(),
+        courseYear === 2 ? supabase.rpc("second_year_sa1_sa2_work_closed") : null,
       ]);
 
       if (planResult.error) throw planResult.error;
 
       setTests(physicalData.tests);
       setReference(physicalData.fitnessReference);
+      setWorkClosed(closure?.error || typeof closure?.data !== "boolean" ? null : closure.data);
+      setHasSavedPlan(Boolean(planResult.data));
 
       if (planResult.data) {
         const row = planResult.data;
@@ -163,6 +170,7 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
   const planSessions = courseYear === 1 ? FIRST_YEAR_PLAN_SESSIONS[classGroup] ?? [] : SECOND_YEAR_PLAN_SESSIONS;
 
   function updateField<K extends keyof PlanForm>(key: K, value: PlanForm[K]) {
+    if (readOnly) return;
     setForm((current) => ({ ...current, [key]: value }));
     setMessage("");
   }
@@ -198,7 +206,7 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
   }
 
   async function save() {
-    if (!studentId || !courseId) return;
+    if (readOnly || !studentId || !courseId) return;
     setSaving(true);
     setError("");
     setMessage("");
@@ -241,6 +249,7 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
 
       if (saveError) throw saveError;
       if (!data) throw new Error("Supabase no ha confirmado el guardado del plan.");
+      setHasSavedPlan(true);
       setForm((current) => ({ ...current, items: cleanItems }));
       setMessage("Plan personal guardado.");
     } catch (cause) {
@@ -275,7 +284,9 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
   if (loadFailed) return <div role="alert" className="card p-6 text-red-700"><p>{error}</p><button type="button" onClick={() => window.location.reload()} className="mt-3 rounded-xl border px-4 py-2 font-bold">Volver a cargar el plan</button></div>;
 
   return (
-    <fieldset disabled={saving} className="space-y-6">
+    <div className="space-y-6">
+    {readOnly && <p role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">{secondYearWorkClosureMessage(workClosed)} {!hasSavedPlan && "No hay un plan guardado."}</p>}
+    <fieldset disabled={saving || readOnly} className="space-y-6">
       <PrintablePlan courseYear={courseYear} classGroup={classGroup} studentName={studentName} form={form} sessions={planSessions}/>
       <section className="grid gap-4 sm:grid-cols-3">
         <article className="card p-5">
@@ -290,17 +301,17 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
         </article>
         <article className="card p-5">
           <p className="text-sm text-slate-500">Estado del plan</p>
-          <p className="mt-2 text-2xl font-extrabold">{form.status === "draft" ? "Borrador" : form.status === "active" ? "En marcha" : "Finalizado"}</p>
-          <p className="mt-1 text-xs text-slate-400">Puedes revisarlo cuando cambien tus datos o sensaciones</p>
+          <p className="mt-2 text-2xl font-extrabold">{readOnly && !hasSavedPlan ? "Sin registro" : form.status === "draft" ? "Borrador" : form.status === "active" ? "En marcha" : "Finalizado"}</p>
+          <p className="mt-1 text-xs text-slate-400">{readOnly ? "Estado del último registro" : "Puedes revisarlo cuando cambien tus datos o sensaciones"}</p>
         </article>
       </section>
 
       <section className="card p-6 sm:p-8">
-        <div className="flex items-start gap-3"><CalendarDays className="mt-1 text-[#1e6b4f]"/><div><p className="text-xs font-bold uppercase tracking-[.18em] text-[#1e6b4f]">{courseYear === 1 ? `${classGroup} · 8 sesiones` : "2º Bachillerato · 10 sesiones"}</p><h2 className="mt-2 text-xl font-extrabold">Calendario del plan personal</h2><Link href={courseYear === 1 ? "/alumno/sa1/seguimiento" : "/alumno/2bach/sa2/seguimiento"} className="mt-3 inline-block text-sm font-bold text-[#1e6b4f] underline">Registrar mis sesiones y ver la valoración del profesor</Link></div></div>
+        <div className="flex items-start gap-3"><CalendarDays className="mt-1 text-[#1e6b4f]"/><div><p className="text-xs font-bold uppercase tracking-[.18em] text-[#1e6b4f]">{courseYear === 1 ? `${classGroup} · 8 sesiones` : "2º Bachillerato · 10 sesiones"}</p><h2 className="mt-2 text-xl font-extrabold">Calendario del plan personal</h2><Link href={courseYear === 1 ? "/alumno/sa1/seguimiento" : "/alumno/2bach/sa2/seguimiento"} className="mt-3 inline-block text-sm font-bold text-[#1e6b4f] underline">{readOnly ? "Consultar mis sesiones y la valoración del profesor" : "Registrar mis sesiones y ver la valoración del profesor"}</Link></div></div>
         <p className="mt-3 text-sm leading-6 text-slate-600">{courseYear === 1 ? "El trabajo comienza en la última semana de octubre y termina el 23 de noviembre." : `El periodo comienza el ${formatPlanDate(SECOND_YEAR_PLAN_START)}. Al ser festivo, la primera sesión lectiva es el 13 de octubre y la décima termina el 28 de octubre.`} Las tareas que añadas abajo aparecerán automáticamente en la sesión elegida.</p>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{planSessions.map((session, index) => {
           const assigned = form.items.filter((item) => item.sessionDate === session.date);
-          return <article key={session.date} className={`rounded-xl border p-4 ${assigned.length ? "border-emerald-300 bg-emerald-50" : "border-slate-200"}`}><p className="text-xs font-bold text-[#1e6b4f]">Sesión {index + 1}</p><p className="mt-1 text-sm font-extrabold">{formatPlanDate(session.date)}</p><p className="mt-1 text-xs text-slate-500">{session.day} · {session.start}–{session.end}</p><div className="mt-3 space-y-2">{assigned.map((item) => <div key={item.id} className="rounded-lg bg-white px-3 py-2 text-xs text-slate-700"><p className="font-bold">{item.activity.trim() || "Tarea en preparación"}</p><p className="mt-1">{methodologyLabels[item.methodology]} · {item.rounds} serie(s)</p>{(item.materials.length > 0 || item.customMaterials.trim()) && <p className="mt-2"><span className="font-semibold">Materiales:</span> {[...item.materials, item.customMaterials.trim()].filter(Boolean).join(", ")}</p>}<ol className="mt-2 list-inside list-decimal space-y-1">{item.exercises.map((exercise) => <li key={exercise.id}>{exercise.activity || "Ejercicio por elegir"}{exercise.dose ? ` · ${exercise.dose}` : ""}</li>)}</ol></div>)}{!assigned.length && <p className="text-xs text-slate-400">Sin tareas asignadas</p>}</div><button type="button" onClick={() => addItem(session.date)} className="mt-3 text-xs font-bold text-[#1e6b4f] underline">Añadir tarea a esta sesión</button></article>;
+          return <article key={session.date} className={`rounded-xl border p-4 ${assigned.length ? "border-emerald-300 bg-emerald-50" : "border-slate-200"}`}><p className="text-xs font-bold text-[#1e6b4f]">Sesión {index + 1}</p><p className="mt-1 text-sm font-extrabold">{formatPlanDate(session.date)}</p><p className="mt-1 text-xs text-slate-500">{session.day} · {session.start}–{session.end}</p><div className="mt-3 space-y-2">{assigned.map((item) => <div key={item.id} className="rounded-lg bg-white px-3 py-2 text-xs text-slate-700"><p className="font-bold">{item.activity.trim() || "Tarea en preparación"}</p><p className="mt-1">{methodologyLabels[item.methodology]} · {item.rounds} serie(s)</p>{(item.materials.length > 0 || item.customMaterials.trim()) && <p className="mt-2"><span className="font-semibold">Materiales:</span> {[...item.materials, item.customMaterials.trim()].filter(Boolean).join(", ")}</p>}<ol className="mt-2 list-inside list-decimal space-y-1">{item.exercises.map((exercise) => <li key={exercise.id}>{exercise.activity || "Ejercicio por elegir"}{exercise.dose ? ` · ${exercise.dose}` : ""}</li>)}</ol></div>)}{!assigned.length && <p className="text-xs text-slate-400">Sin tareas asignadas</p>}</div>{!readOnly && <button type="button" onClick={() => addItem(session.date)} className="mt-3 text-xs font-bold text-[#1e6b4f] underline">Añadir tarea a esta sesión</button>}</article>;
         })}</div>
         {form.items.some((item) => !planSessions.some((session) => session.date === item.sessionDate)) && <div className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900"><p className="font-bold">Tareas pendientes de fecha</p><p className="mt-1">Conservamos tus tareas anteriores. Elige su sesión en el apartado 3 para verlas en el calendario.</p><ul className="mt-2 list-inside list-disc">{form.items.filter((item) => !planSessions.some((session) => session.date === item.sessionDate)).map((item) => <li key={item.id}>{item.activity || "Tarea en preparación"}{item.day ? ` · ${item.day}` : ""}</li>)}</ul></div>}
       </section>
@@ -366,7 +377,7 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
       <section className="card p-6 sm:p-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div><h2 className="text-xl font-extrabold">3. Selecciona tareas y concreta la carga</h2><p className="mt-1 text-sm text-slate-500">Crea una tarea de circuit training o total training y añade todos sus ejercicios. Asigna la tarea a una sesión y adapta las cargas con el profesor.</p></div>
-          <button type="button" onClick={() => addItem()} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white"><Plus size={17}/>Añadir tarea</button>
+          {!readOnly && <button type="button" onClick={() => addItem()} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white"><Plus size={17}/>Añadir tarea</button>}
         </div>
         <div className="mt-5 space-y-3">
           {form.items.length === 0 && <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">Añade las tareas principales de tu plan. Para resistencia puedes escribir, por ejemplo, “3 × 6 min”; para fuerza, “3 × 10 repeticiones”.</div>}
@@ -376,7 +387,7 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
               <label className="text-xs font-bold text-slate-500">Objetivo al que contribuye<select value={item.goal} onChange={(event) => updateItem(item.id, "goal", event.target.value)} className="mt-2 w-full rounded-xl border p-3 text-sm"><option value="1">Principal</option><option value="2" disabled={!form.secondaryObjective.trim()}>Segundo objetivo</option><option value="both" disabled={!form.secondaryObjective.trim()}>Ambos</option></select></label>
               <PersonalPlanTaskEditor item={item} onChange={(updated) => updateField("items", form.items.map((entry) => entry.id === item.id ? updated : entry))}/>
               {courseYear === 1 && <CopyPlanTask item={item} sessions={planSessions} onCopy={addCopiedItem}/>}
-              <button type="button" onClick={() => removeItem(item.id)} aria-label={`Eliminar tarea ${index + 1}`} className="rounded-xl border border-slate-200 p-3 text-slate-500 hover:bg-red-50 hover:text-red-600"><Trash2 className="mr-2 inline" size={18}/>Eliminar tarea completa</button>
+              {!readOnly && <button type="button" onClick={() => removeItem(item.id)} aria-label={`Eliminar tarea ${index + 1}`} className="rounded-xl border border-slate-200 p-3 text-slate-500 hover:bg-red-50 hover:text-red-600"><Trash2 className="mr-2 inline" size={18}/>Eliminar tarea completa</button>}
             </div>
           ))}
         </div>
@@ -413,11 +424,12 @@ export function SecondYearPersonalPlan({ courseYear = 2 }: { courseYear?: 1 | 2 
         </div>
       </section>
 
-      <section className="plan-actions flex flex-col gap-3 rounded-2xl bg-slate-950 p-5 text-white sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3"><CheckCircle2 className="mt-0.5 text-emerald-300" size={20}/><div><p className="font-extrabold">Justifica el plan con tus datos y con la teoría</p><p className="mt-1 text-xs leading-5 text-slate-300">Tu objetivo, carga, progresión y recuperación deben poder explicarse usando los principios de entrenamiento estudiados.</p></div></div>
-        <div className="flex flex-col gap-2 sm:flex-row"><button type="button" onClick={exportPdf} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-white/25 px-4 py-2.5 text-sm font-extrabold text-white" title="Descargar el plan visible en formato PDF"><FileDown size={17}/>Descargar PDF</button><button type="button" disabled={saving} onClick={() => void save()} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-extrabold text-slate-950 disabled:opacity-50">{saving ? <Loader2 className="animate-spin" size={17}/> : <Save size={17}/>}Guardar plan</button></div>
-      </section>
     </fieldset>
+    {(!readOnly || hasSavedPlan) && <section className="plan-actions flex flex-col gap-3 rounded-2xl bg-slate-950 p-5 text-white sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3"><CheckCircle2 className="mt-0.5 text-emerald-300" size={20}/><div><p className="font-extrabold">Justifica el plan con tus datos y con la teoría</p><p className="mt-1 text-xs leading-5 text-slate-300">Tu objetivo, carga, progresión y recuperación deben poder explicarse usando los principios de entrenamiento estudiados.</p></div></div>
+        <div className="flex flex-col gap-2 sm:flex-row"><button type="button" disabled={saving} onClick={exportPdf} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-white/25 px-4 py-2.5 text-sm font-extrabold text-white" title="Descargar el plan visible en formato PDF"><FileDown size={17}/>Descargar PDF</button>{!readOnly && <button type="button" disabled={saving} onClick={() => void save()} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-extrabold text-slate-950 disabled:opacity-50">{saving ? <Loader2 className="animate-spin" size={17}/> : <Save size={17}/>}Guardar plan</button>}</div>
+    </section>}
+    </div>
   );
 }
 
