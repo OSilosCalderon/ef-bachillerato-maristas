@@ -91,8 +91,14 @@ export function TeacherSessionGrading({ data, initialStudentId, initialGroup, co
   }
   const sa = courseYear === 1 ? "SA1" : "SA2";
   const count = courseYear === 1 ? 8 : 10;
-  const scoreFor = (slot: (typeof slots)[number]) => saved[`${activeStudentId}:${slot.number}`]?.score ?? slot.evaluation?.score ?? teacherSessionScore(slot.record?.details.teacher_score);
-  const absentFor = (slot: (typeof slots)[number]) => saved[`${activeStudentId}:${slot.number}`]?.absent ?? slot.evaluation?.absent ?? (slot.record?.details.teacher_absent === true);
+  const evaluationFor = (slot: (typeof slots)[number]) => {
+    const local = saved[`${activeStudentId}:${slot.number}`];
+    const received = slot.evaluation;
+    if (!local || (received && Date.parse(received.updatedAt) > Date.parse(local.updatedAt))) return received;
+    return local;
+  };
+  const scoreFor = (slot: (typeof slots)[number]) => evaluationFor(slot)?.score ?? teacherSessionScore(slot.record?.details.teacher_score);
+  const absentFor = (slot: (typeof slots)[number]) => evaluationFor(slot)?.absent ?? (slot.record?.details.teacher_absent === true);
   const absences = slots.filter(absentFor).length;
   const registered = slots.filter((slot) => slot.record).length;
   const graded = slots.filter((slot) => scoreFor(slot) !== null).length;
@@ -121,7 +127,7 @@ export function TeacherSessionGrading({ data, initialStudentId, initialGroup, co
     {!student ? <p className="card p-5">No hay alumnado activo {group ? `en ${group}` : `de ${courseYear}º de Bachillerato`}.</p> : !slots.length ? <p role="alert" className="card p-5">Este alumno necesita tener asignado el grupo 1ºA o 1ºB para mostrar su calendario.</p> : <div className="grid gap-4 xl:grid-cols-2">{slots.map((slot) => {
       const { number, planned, record } = slot;
       const key = `${student.id}:${number}`;
-      const evaluation = saved[key] ?? slot.evaluation;
+      const evaluation = evaluationFor(slot);
       const score = scoreFor(slot);
       const absent = absentFor(slot);
       const comment = evaluation?.comment ?? String(record?.details.teacher_comment ?? "");

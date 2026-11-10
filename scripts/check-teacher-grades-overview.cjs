@@ -303,6 +303,52 @@ const links = { 'next/link': { __esModule: true, default: ({ href, children, pre
   sessionForm.props.onSaved({ score: 0, absent: true, comment: 'Ausencia corregida', updatedAt: date });
   assert.equal(shared().data.sessionGrades[0].score, 0);
   assert.equal(shared().data.sessionGrades[0].absent, true);
+
+  let gradingData = {
+    ...overview,
+    situations: [{ courseId: c2, code: 'SA1', title: 'Inicio' }, { courseId: c2, code: 'SA2', title: 'Seguimiento' }],
+    items: [{ ...overview.items[0], sa_code: 'SA2' }],
+  };
+  const gradebookPage = load('app/profesor/calificaciones/page.tsx', {
+    '@/components/teacher-gradebook': { TeacherGradebook: 'teacher-gradebook' },
+    '@/lib/gradebook-server': { loadTeacherGradebook: async () => gradingData },
+  }).default;
+  const sessionPage = load('app/profesor/calificar-sesiones/page.tsx', {
+    ...links, '@/components/teacher-session-grading': { TeacherSessionGrading: 'session-grading' },
+    '@/lib/teacher-activity-server': { loadTeacherActivity: async () => ({ ...gradingData, activities: [] }) },
+    '@/lib/teacher-session-grading': grading,
+  }).default;
+  const renderPage = (page, params) => page({ searchParams: Promise.resolve(params) });
+  const gradebookKey = (await renderPage(gradebookPage, { curso: '2', alumno: a })).props.children.key;
+  const sessionsKey = (await renderPage(sessionPage, { curso: '2', alumno: a })).props.children.at(-1).key;
+  gradingData = { ...gradingData, loadedAt: '2026-11-02T10:01:00Z' };
+  assert.equal((await renderPage(gradebookPage, { curso: '2', alumno: a })).props.children.key, gradebookKey, 'Publishing must preserve the grading component and its current selection.');
+  assert.notEqual((await renderPage(gradebookPage, { curso: '2', alumno: b })).props.children.key, gradebookKey, 'Opening a new grading link must select the pupil requested in the URL.');
+  assert.equal((await renderPage(sessionPage, { curso: '2', alumno: b })).props.children.at(-1).key, sessionsKey, 'Session revalidation must retain the instance even after the pupil changes the URL.');
+  assert.notEqual((await renderPage(sessionPage, { curso: '1' })).props.children.at(-1).key, sessionsKey);
+
+  state = [];
+  let refreshes = 0;
+  const gradingUi = load('components/teacher-gradebook.tsx', {
+    ...hooks, '@/lib/gradebook': grades, '@/lib/teacher-session-grading': grading, '@/app/profesor/calificaciones/actions': actions,
+    'next/navigation': { useRouter: () => ({ refresh: () => refreshes++ }) },
+  });
+  const renderGrading = () => { cursor = 0; return nodes(gradingUi.TeacherGradebook({ data: gradingData, year: 2, initialStudentId: a })); };
+  const gradingSelects = () => renderGrading().filter(node => node.type === 'select');
+  gradingSelects()[1].props.onChange({ target: { value: '2ºB' } });
+  gradingSelects()[2].props.onChange({ target: { value: b } });
+  gradingSelects()[3].props.onChange({ target: { value: 'SA2' } });
+  const publication = () => renderGrading().find(node => typeof node.props?.onPublished === 'function');
+  const savedMark = { ...gradingData.grades.find(grade => grade.student_id === b), score: 9, published_at: '2026-11-02T10:02:00Z' };
+  assert.equal(publication().props.studentId, b);
+  publication().props.onPublished(savedMark);
+  assert.equal(publication().props.grade.score, 9);
+  gradingData = { ...gradingData, grades: [...gradingData.grades.filter(grade => grade.student_id !== b), { ...savedMark, score: 9.5, published_at: '2026-11-02T10:03:00Z' }] };
+  assert.deepEqual(gradingSelects().slice(1).map(node => node.props.value), ['2ºB', b, 'SA2']);
+  assert.equal(publication().props.grade.score, 9.5, 'A newer grade must be shown after refreshing the server data.');
+  renderGrading().find(node => node.type === 'button' && node.props.children === 'Actualizar calificaciones').props.onClick();
+  assert.equal(refreshes, 1, 'Manual refresh must update data in the current view.');
+  console.log('Grading revalidation: stable pupil and session views, direct links, preserved filters and fresh publications passed.');
   assert.ok(!editRender().some(node => node.type === 'session-form'), 'A confirmed update closes its editor.');
   console.log('Second-year grades: role/course isolation, shared pupil view, existing-mark and session corrections, peer preservation, cache invalidation and read/write failures passed.');
   console.log('Teacher UI handlers: group/accent-insensitive name filters, published values, cancellation and confirmed instrument/session updates passed.');

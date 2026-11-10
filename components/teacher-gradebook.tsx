@@ -1,14 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { addAssessmentGradeItem, publishAssessmentGrade } from "@/app/profesor/calificaciones/actions";
 import { formatGrade, formatPublication, gradesForStudent, type AssessmentGradeItem, type GradebookData, type PublishedAssessmentGrade } from "@/lib/gradebook";
 import { parseTeacherSessionScore } from "@/lib/teacher-session-grading";
 
 export function GradePublicationForm({item,studentId,grade,onPublished,embedded=false,onCancel}:{item:AssessmentGradeItem;studentId:string;grade:PublishedAssessmentGrade|null;onPublished:(grade:PublishedAssessmentGrade)=>void;embedded?:boolean;onCancel?:()=>void}) {
-  const [score,setScore]=useState(grade?String(grade.score).replace(".",","):"");
-  const [comment,setComment]=useState(grade?.comment ?? "");
+  const [scoreDraft,setScore]=useState<string | null>(null);
+  const [commentDraft,setComment]=useState<string | null>(null);
+  const score=scoreDraft ?? (grade ? String(grade.score).replace(".",",") : "");
+  const comment=commentDraft ?? grade?.comment ?? "";
   const [saving,setSaving]=useState(false);
   const [message,setMessage]=useState("");
   const [error,setError]=useState("");
@@ -17,7 +20,7 @@ export function GradePublicationForm({item,studentId,grade,onPublished,embedded=
     const number=parseTeacherSessionScore(score);
     if(number===null){setError("Introduce una nota entre 0 y 10. Puedes usar décimas, por ejemplo 8,5.");return;}
     setSaving(true);
-    try {const result=await publishAssessmentGrade({studentId,itemId:item.id,score:number,comment});onPublished(result);setScore(String(result.score).replace(".",","));setComment(result.comment);setMessage("Calificación publicada. El alumno ya puede consultarla en Mis calificaciones.");}
+    try {const result=await publishAssessmentGrade({studentId,itemId:item.id,score:number,comment});onPublished(result);setScore(null);setComment(null);setMessage("Calificación publicada. El alumno ya puede consultarla en Mis calificaciones.");}
     catch(cause){setError(cause instanceof Error?cause.message:"No se ha podido publicar la calificación.");}
     finally{setSaving(false);}
   }
@@ -39,11 +42,12 @@ export function GradePublicationForm({item,studentId,grade,onPublished,embedded=
 }
 
 export function TeacherGradebook({data,year,initialStudentId,initialSituation}:{data:GradebookData;year:1|2;initialStudentId?:string;initialSituation?:string}) {
+  const router=useRouter();
   const [studentId,setStudentId]=useState(initialStudentId ?? "");
   const [group,setGroup]=useState("");
   const [sa,setSa]=useState(initialSituation && data.situations.some((entry)=>entry.code===initialSituation)?initialSituation:"SA1");
-  const [items,setItems]=useState(data.items);
-  const [grades,setGrades]=useState(data.grades);
+  const [addedItems,setAddedItems]=useState<AssessmentGradeItem[]>([]);
+  const [savedGrades,setSavedGrades]=useState<PublishedAssessmentGrade[]>([]);
   const [newTitle,setNewTitle]=useState("");
   const [adding,setAdding]=useState(false);
   const [itemError,setItemError]=useState("");
@@ -51,18 +55,26 @@ export function TeacherGradebook({data,year,initialStudentId,initialSituation}:{
   const students=data.students.filter((student)=>!group || student.group===group);
   const student=students.find((entry)=>entry.id===studentId) ?? students[0];
   const situations=data.situations.filter((entry)=>entry.courseId===student?.courseId);
-  const entries=student?gradesForStudent(items,grades,student.id,student.courseId).filter((entry)=>entry.item.sa_code===sa):[];
+  const items=[...data.items, ...addedItems.filter((item) => !data.items.some((entry) => entry.id === item.id))];
+  const grades=data.grades.filter((grade) => grade.student_id === student?.id);
+  const receivedGrades=new Map(grades.map((grade) => [grade.item_id, grade]));
+  for (const saved of savedGrades) {
+    if (saved.student_id !== student?.id) continue;
+    const received = receivedGrades.get(saved.item_id);
+    if (!received || Date.parse(saved.published_at) >= Date.parse(received.published_at)) receivedGrades.set(saved.item_id, saved);
+  }
+  const entries=student?gradesForStudent(items,[...receivedGrades.values()],student.id,student.courseId).filter((entry)=>entry.item.sa_code===sa):[];
   const published=entries.filter((entry)=>entry.grade).length;
   async function addItem(event:FormEvent<HTMLFormElement>) {
     event.preventDefault();if(!student)return;setAdding(true);setItemError("");
-    try{const item=await addAssessmentGradeItem({courseId:student.courseId,saCode:sa,title:newTitle});setItems((current)=>[...current,item]);setNewTitle("");}
+    try{const item=await addAssessmentGradeItem({courseId:student.courseId,saCode:sa,title:newTitle});setAddedItems((current)=>[...current,item]);setNewTitle("");}
     catch(cause){setItemError(cause instanceof Error?cause.message:"No se ha podido añadir el instrumento.");}
     finally{setAdding(false);}
   }
   return <div className="space-y-5">
-    <section className="card p-5 sm:p-7"><div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-extrabold">Publicar calificaciones</h1><p className="mt-2 text-sm text-slate-600">Valora los instrumentos de cada situación y comparte con cada alumno su nota y tu comentario.</p></div><button type="button" onClick={()=>window.location.assign(`/profesor/calificaciones?curso=${year}&sa=${sa}${student?`&alumno=${student.id}`:""}`)} className="rounded-xl border px-4 py-2 text-sm font-bold">Actualizar calificaciones</button></div>
+    <section className="card p-5 sm:p-7"><div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-extrabold">Publicar calificaciones</h1><p className="mt-2 text-sm text-slate-600">Valora los instrumentos de cada situación y comparte con cada alumno su nota y tu comentario.</p></div><button type="button" onClick={()=>router.refresh()} className="rounded-xl border px-4 py-2 text-sm font-bold">Actualizar calificaciones</button></div>
       <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <label className="text-sm font-bold">Curso<select value={year} onChange={(event)=>window.location.assign(`/profesor/calificaciones?curso=${event.target.value}`)} className="mt-2 w-full rounded-xl border bg-white p-3"><option value="1">1º Bachillerato</option><option value="2">2º Bachillerato</option></select></label>
+        <label className="text-sm font-bold">Curso<select value={year} onChange={(event)=>router.push(`/profesor/calificaciones?curso=${event.target.value}`)} className="mt-2 w-full rounded-xl border bg-white p-3"><option value="1">1º Bachillerato</option><option value="2">2º Bachillerato</option></select></label>
         <label className="text-sm font-bold">Grupo<select value={group} onChange={(event)=>{setGroup(event.target.value);setStudentId("");}} className="mt-2 w-full rounded-xl border bg-white p-3"><option value="">Todos los grupos</option>{groups.map((value)=><option key={value}>{value}</option>)}</select></label>
         <label className="text-sm font-bold">Alumno para calificar<select value={student?.id ?? ""} onChange={(event)=>setStudentId(event.target.value)} className="mt-2 w-full rounded-xl border border-emerald-600 bg-emerald-50 p-3">{students.map((entry)=><option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
         <label className="text-sm font-bold">Situación de aprendizaje<select value={sa} onChange={(event)=>{setSa(event.target.value);setItemError("");}} className="mt-2 w-full rounded-xl border bg-white p-3">{situations.map((entry)=><option key={`${entry.courseId}-${entry.code}`} value={entry.code}>{entry.code} · {entry.title}</option>)}</select></label>
@@ -70,7 +82,7 @@ export function TeacherGradebook({data,year,initialStudentId,initialSituation}:{
       {student && <p className="mt-4 text-sm font-semibold text-[#164c3a]">{student.name} · {sa} · {published}/{entries.length} calificaciones publicadas</p>}
       {((year===2 && sa==="SA2") || (year===1 && sa==="SA1")) && <Link href={`/profesor/calificar-sesiones?curso=${year}${student?`&alumno=${student.id}`:""}`} className="mt-4 inline-block rounded-xl border border-emerald-600 px-4 py-2 text-sm font-bold text-[#164c3a]">Abrir calificaciones de cada sesión</Link>}
     </section>
-    <section aria-label="Instrumentos para calificar" className="grid gap-4 xl:grid-cols-2">{student && entries.map(({item,grade})=><GradePublicationForm key={`${student.id}-${item.id}`} item={item} studentId={student.id} grade={grade} onPublished={(value)=>setGrades((current)=>[...current.filter((entry)=>!(entry.student_id===value.student_id && entry.item_id===value.item_id)),value])}/>)}</section>
+    <section aria-label="Instrumentos para calificar" className="grid gap-4 xl:grid-cols-2">{student && entries.map(({item,grade})=><GradePublicationForm key={`${student.id}-${item.id}`} item={item} studentId={student.id} grade={grade} onPublished={(value)=>setSavedGrades((current)=>[...current.filter((entry)=>!(entry.student_id===value.student_id && entry.item_id===value.item_id)),value])}/>)}</section>
     {student && !entries.length && <p className="card p-5 text-sm text-slate-600">Todavía no hay instrumentos de calificación configurados en esta situación. Puedes añadirlos a continuación.</p>}
     {student && <details className="card p-5"><summary className="cursor-pointer font-bold">Añadir instrumento de evaluación a {sa}</summary><form onSubmit={(event)=>void addItem(event)} className="mt-4 flex flex-wrap items-end gap-3"><label className="min-w-0 flex-1 text-sm font-bold">Nombre del instrumento<input required maxLength={120} value={newTitle} onChange={(event)=>setNewTitle(event.target.value)} className="mt-2 w-full rounded-xl border p-3 font-normal" placeholder="Nombre del trabajo o prueba"/></label><button type="submit" disabled={adding} className="rounded-xl bg-[#1e6b4f] px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{adding?"Añadiendo…":"Añadir instrumento"}</button></form><p className="mt-2 text-xs text-slate-500">El instrumento estará disponible para todo el alumnado de este curso y situación. Cada nota se publica de forma individual.</p>{itemError && <p role="alert" className="mt-2 text-sm text-red-700">{itemError}</p>}</details>}
   </div>;
