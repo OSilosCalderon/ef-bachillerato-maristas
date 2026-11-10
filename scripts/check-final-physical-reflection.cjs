@@ -16,7 +16,7 @@ assert.throws(() => pure.validateReflection({ ...complete, results_analysis: 'x'
 assert.equal(pure.validateReflection({ ...pure.emptyReflection, results_analysis: ' Primer dato ' }).results_analysis, 'Primer dato');
 assert.equal(pure.validateReflection({ ...complete, student_id: 'peer' }).student_id, undefined);
 
-let year = 1, role = 'student', active = true, published = true, failWrite = false, writes = 0;
+let year = 1, role = 'student', active = true, published = true, closed = false, failWrite = false, writes = 0;
 let storage = null;
 const client = { from(table) {
   let filters = [], payload;
@@ -30,7 +30,7 @@ const client = { from(table) {
       return { data: storage, error: null };
     }
     const rows = table === 'students' ? [{ id: 'own', profile_id: 'own-profile', course_id: 'c' + year, active }]
-      : table === 'courses' ? [{ id: 'c' + year, bachillerato_year: year, is_active: true }]
+      : table === 'courses' ? [{ id: 'c' + year, bachillerato_year: year, is_active: true, sa1_sa2_student_work_closed: closed }]
       : table === 'learning_situations' ? [{ id: 'sa', course_id: 'c' + year, code: year === 1 ? 'SA1' : 'SA2', published }]
       : storage ? [storage] : [];
     return { data: rows.filter(row => filters.every(fn => fn(row)))[0] ?? null, error: null };
@@ -43,6 +43,7 @@ const server = load('lib/final-physical-reflection-server.ts', {
   'server-only': {}, 'next/cache': { revalidatePath: path => invalidations.push(path) },
   '@/lib/auth/guards': { requireRole: async expected => { if (role !== expected) throw Object.assign(new Error('Denied'), { digest: 'NEXT_REDIRECT;replace;/auth/login' }); return { id: 'own-profile' }; } },
   '@/lib/supabase/server': { createClient: async () => client }, '@/lib/final-physical-reflection': pure,
+  '@/lib/second-year-work-closure': load('lib/second-year-work-closure.ts'),
 });
 const route = load('app/api/reflexion-fisica-final/route.ts', {
   '@/lib/final-physical-reflection-server': server, '@/lib/final-physical-reflection': pure,
@@ -64,6 +65,16 @@ const post = (body, origin = 'https://school.example') => route.POST(new Request
   failWrite = true; const before = JSON.stringify(storage); assert.equal((await post({ ...complete, goal_review: 'Cambio' })).status, 400); assert.equal(JSON.stringify(storage), before); failWrite = false;
   year = 2; assert.equal(await server.loadFinalPhysicalReflection(2), null, 'Do not reuse a response from another course.');
   assert.equal((await post(complete)).status, 200); assert.equal(storage.course_year, 2); assert.equal(storage.sa_code, 'SA2');
+  closed = true;
+  const closedWrites = writes;
+  for (const status of ['draft', 'submitted']) {
+    const denied = await post({ ...complete, status, goal_review: 'Intento después del cierre' });
+    assert.equal(denied.status, 400);
+    assert.match((await denied.json()).error, /edición.*cerrada/);
+  }
+  assert.equal(writes, closedWrites);
+  assert.equal((await server.loadFinalPhysicalReflection(2)).goal_review, complete.goal_review);
+  closed = false;
   assert.ok(invalidations.includes('/profesor')); assert.ok(invalidations.includes('/alumno/sa1/progreso')); assert.ok(invalidations.includes('/alumno/2bach/sa2/seguimiento'));
   const activity = load('lib/teacher-activity.ts');
   const completion = load('lib/teacher-completion.ts', { './teacher-activity': activity });

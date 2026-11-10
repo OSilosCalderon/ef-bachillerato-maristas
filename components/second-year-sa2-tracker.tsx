@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { planSessionsForYear } from "@/lib/teacher-session-grading";
 import { firstYearCalendarGroup } from "@/lib/class-groups";
 import { normalizeItems, methodologyLabels, type PlanItem } from "@/lib/personal-plan-tasks";
+import { secondYearWorkClosureMessage } from "@/lib/second-year-work-closure";
 
 type PlanSummary = {
   objective: string;
@@ -83,6 +84,8 @@ export function SecondYearSa2Tracker({ courseYear = 2 }: { courseYear?: 1 | 2 })
   const [logs, setLogs] = useState<SessionLog[]>([]);
   const [evaluations, setEvaluations] = useState<SessionEvaluation[]>([]);
   const [form, setForm] = useState<SessionForm>(emptyForm());
+  const [workClosed, setWorkClosed] = useState<boolean | null>(null);
+  const readOnly = courseYear === 2 && workClosed !== false;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -111,10 +114,11 @@ export function SecondYearSa2Tracker({ courseYear = 2 }: { courseYear?: 1 | 2 })
       const currentStudentId = student.id as string;
       const currentCourseId = student.course_id as string;
       const [courseResult, profileResult] = await Promise.all([
-        supabase.from("courses").select("bachillerato_year").eq("id", currentCourseId).single(),
+        supabase.from("courses").select("bachillerato_year,sa1_sa2_student_work_closed").eq("id", currentCourseId).single(),
         supabase.from("profiles").select("class_group").eq("id", auth.user.id).single(),
       ]);
       if (courseResult.error || courseResult.data?.bachillerato_year !== courseYear) throw new Error("Este seguimiento no corresponde a tu curso.");
+      setWorkClosed(courseYear === 2 && courseResult.data.sa1_sa2_student_work_closed === true);
       const group = firstYearCalendarGroup(profileResult.data?.class_group);
       if (courseYear === 1 && (profileResult.error || !group)) throw new Error("Tu cuenta necesita tener asignado el grupo 1ºA o 1ºB. Consulta con el profesor.");
       setClassGroup(group ?? "");
@@ -211,6 +215,7 @@ export function SecondYearSa2Tracker({ courseYear = 2 }: { courseYear?: 1 | 2 })
   }
 
   function startEdit(log: SessionLog) {
+    if (readOnly) return;
     if (!getPlanSession(log.session_number)) {
       setError("Este registro pertenece al formato anterior y se conserva en el historial.");
       return;
@@ -228,7 +233,7 @@ export function SecondYearSa2Tracker({ courseYear = 2 }: { courseYear?: 1 | 2 })
   }
 
   async function save() {
-    if (!studentId || !courseId) return;
+    if (readOnly || !studentId || !courseId) return;
     const selectedSession = getPlanSession(form.sessionNumber);
     if (!selectedSession) {
       setError(`Selecciona una de las ${courseYear === 1 ? "ocho" : "diez"} sesiones del plan personal.`);
@@ -287,17 +292,20 @@ export function SecondYearSa2Tracker({ courseYear = 2 }: { courseYear?: 1 | 2 })
   }
 
   async function remove(log: SessionLog) {
-    if (!studentId) return;
+    if (readOnly || !studentId) return;
     setError("");
     setMessage("");
     try {
       const supabase = createClient();
-      const { error: deleteError } = await supabase
+      const { data: deleted, error: deleteError } = await supabase
         .from(logTable)
         .delete()
         .eq("id", log.id)
-        .eq("student_id", studentId);
+        .eq("student_id", studentId)
+        .select("id")
+        .maybeSingle();
       if (deleteError) throw deleteError;
+      if (!deleted) throw new Error("No se ha podido confirmar la eliminación de la sesión.");
       setMessage(`Sesión ${log.session_number} eliminada.`);
       await load();
     } catch (cause) {
@@ -311,9 +319,10 @@ export function SecondYearSa2Tracker({ courseYear = 2 }: { courseYear?: 1 | 2 })
 
   return (
     <div className="space-y-6">
+      {readOnly && <p role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">{secondYearWorkClosureMessage(workClosed)}</p>}
       {!plan && (
         <section className="card border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
-          Todavía no has guardado tu plan personal de SA1. Puedes registrar sesiones, pero será más útil si primero defines el objetivo y la progresión. <Link className="font-bold underline" href={courseYear === 1 ? "/alumno/sa1/plan" : "/alumno/2bach/sa1/plan"}>Abrir mi plan de SA1</Link>.
+          Todavía no has guardado tu plan personal de SA1. {!readOnly && "Puedes registrar sesiones, pero será más útil si primero defines el objetivo y la progresión."} <Link className="font-bold underline" href={courseYear === 1 ? "/alumno/sa1/plan" : "/alumno/2bach/sa1/plan"}>Abrir mi plan de SA1</Link>.
         </section>
       )}
 
@@ -337,7 +346,7 @@ export function SecondYearSa2Tracker({ courseYear = 2 }: { courseYear?: 1 | 2 })
 
       {(error || message) && <div className={`rounded-2xl border p-4 text-sm font-semibold ${error ? "border-red-200 bg-red-50 text-red-700" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}>{error || message}</div>}
 
-      <section className="card p-6 sm:p-8">
+      {!readOnly && <section className="card p-6 sm:p-8">
         <div className="flex items-start gap-3"><Save className="mt-1 text-[#1e6b4f]"/><div><h2 className="text-xl font-extrabold">Registrar o editar una sesión</h2><p className="mt-1 text-sm leading-6 text-slate-500">Guarda lo que realmente has hecho. Si cambias el plan, explica por qué.</p></div></div>
         {(() => {
           const selectedPlanSession = getPlanSession(form.sessionNumber);
@@ -451,7 +460,7 @@ export function SecondYearSa2Tracker({ courseYear = 2 }: { courseYear?: 1 | 2 })
         </div>
 
         <button type="button" onClick={() => void save()} disabled={saving || form.sessionNumber === 0} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#1e6b4f] px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{saving ? <Loader2 className="animate-spin" size={17}/> : <Save size={17}/>}Guardar sesión</button>
-      </section>
+      </section>}
 
       <section className="card p-6 sm:p-8">
         <div className="flex items-start gap-3"><BarChart3 className="mt-1 text-[#1e6b4f]"/><div><h2 className="text-xl font-extrabold">Carga y cumplimiento por semana</h2><p className="mt-1 text-sm leading-6 text-slate-500">La carga es un índice sencillo de minutos × RPE. Úsalo para observar tendencias, no como diagnóstico ni como objetivo de “hacer más”.</p></div></div>
@@ -468,7 +477,7 @@ export function SecondYearSa2Tracker({ courseYear = 2 }: { courseYear?: 1 | 2 })
 
       {evaluationsWithoutLog.length > 0 && <section className="card p-5 sm:p-6">
         <h2 className="text-xl font-extrabold">Valoraciones del profesor · seguimientos pendientes</h2>
-        <p className="mt-2 text-sm text-slate-500">Estas sesiones ya tienen calificación, pero todavía no has registrado su seguimiento. La nota se conservará cuando lo completes.</p>
+        <p className="mt-2 text-sm text-slate-500">Estas sesiones ya tienen calificación y figuran sin seguimiento registrado. {!readOnly && "La nota se conservará cuando lo completes."}</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {evaluationsWithoutLog.map((item) => <article key={item.session_number} className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
             <h3 className="font-bold">Sesión {item.session_number} · {formatDate(getPlanSession(item.session_number)?.date ?? null)}</h3>
@@ -481,7 +490,7 @@ export function SecondYearSa2Tracker({ courseYear = 2 }: { courseYear?: 1 | 2 })
       </section>}
 
       <section className="card overflow-hidden">
-        <div className="border-b border-slate-200 p-5 sm:p-6"><h2 className="text-xl font-extrabold">Historial de sesiones</h2><p className="mt-1 text-sm text-slate-500">Edita un registro cuando necesites completar o corregir la información.</p></div>
+        <div className="border-b border-slate-200 p-5 sm:p-6"><h2 className="text-xl font-extrabold">Historial de sesiones</h2><p className="mt-1 text-sm text-slate-500">{readOnly ? "Consulta tus registros y las valoraciones del profesor." : "Edita un registro cuando necesites completar o corregir la información."}</p></div>
         <div className="divide-y divide-slate-100">
           {logs.length === 0 ? <p className="p-6 text-sm text-slate-500">Todavía no hay sesiones registradas.</p> : logs.map((log) => {
             const load = (log.duration_minutes ?? 0) * (log.rpe ?? 0);
@@ -489,7 +498,7 @@ export function SecondYearSa2Tracker({ courseYear = 2 }: { courseYear?: 1 | 2 })
               <div><p className="font-extrabold">Sesión {log.session_number}{getPlanSession(log.session_number) ? " del plan" : " · anterior"}</p><p className="mt-1 text-xs text-slate-500">{formatDate(log.session_date)}</p></div>
               <div><p className="text-sm font-semibold text-slate-800">{log.objective || "Sin objetivo escrito"}</p><p className="mt-1 line-clamp-2 text-xs text-slate-500">{log.activities || "Sin actividades registradas"}</p></div>
               <div className="text-xs text-slate-500"><p>RPE: <strong>{log.rpe ?? "—"}</strong> · {log.duration_minutes ?? "—"} min</p><p className="mt-1">Carga: <strong>{load || "—"}</strong> · Cumplimiento: <strong>{log.completion_percent}%</strong></p></div>
-              <div className="flex gap-2"><button type="button" onClick={() => startEdit(log)} className="rounded-xl border border-slate-200 p-2 text-slate-600" aria-label={`Editar sesión ${log.session_number}`}><Pencil size={16}/></button>{courseYear === 2 && <button type="button" onClick={() => void remove(log)} className="rounded-xl border border-red-100 p-2 text-red-600" aria-label={`Eliminar sesión ${log.session_number}`}><Trash2 size={16}/></button>}</div>
+              {!readOnly && <div className="flex gap-2"><button type="button" onClick={() => startEdit(log)} className="rounded-xl border border-slate-200 p-2 text-slate-600" aria-label={`Editar sesión ${log.session_number}`}><Pencil size={16}/></button>{courseYear === 2 && <button type="button" onClick={() => void remove(log)} className="rounded-xl border border-red-100 p-2 text-red-600" aria-label={`Eliminar sesión ${log.session_number}`}><Trash2 size={16}/></button>}</div>}
               <dl className="md:col-span-full grid gap-3 text-sm sm:grid-cols-2"><div><dt className="font-bold text-slate-600">Modificaciones respecto al plan</dt><dd className="mt-1 whitespace-pre-wrap break-words">{log.modifications || "Sin modificaciones indicadas"}</dd></div><div><dt className="font-bold text-slate-600">Mi reflexión</dt><dd className="mt-1 whitespace-pre-wrap break-words">{log.reflection || "Sin reflexión escrita"}</dd></div></dl>
               <div className="md:col-span-full rounded-xl border border-[#c6e1d6] bg-[#f2faf6] p-4">
                 <p className="text-xs font-bold uppercase tracking-wide text-[#1e6b4f]">Valoración del profesor</p>
