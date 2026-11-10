@@ -13,8 +13,23 @@ export const secondYearTheoryExtensions: Record<string, Extension> = {
     cases: [{ sport: "Pádel", capacity: "Progresión semanal", situation: "Una pareja quiere mejorar desplazamientos laterales y llega a la última serie perdiendo control de la frenada.", proposal: "Mantener las pausas y reducir la cantidad hasta completar desplazamientos con control. Registrar repeticiones de calidad y RPE.", why: "La cantidad prevista no justifica perder la técnica; carga externa y respuesta interna aportan información diferente.", progression: "Añadir una serie en una semana posterior solo si se mantiene control y recuperación; conservar las demás variables para poder interpretar el cambio." }], links: [],
   },
   "2bach-sa3-habitos-saludables": {
-    foundation: "Los hábitos hacen viable una vida activa más allá de una sesión. El objetivo educativo es reconocer relaciones entre organización, descanso, movimiento y bienestar, y elegir cambios pequeños. El seguimiento describe conductas y sensaciones sin convertirse en diagnóstico ni prescripción alimentaria.",
-    sections: [{ title: "Estrés, postura y una agenda que se pueda mantener", paragraphs: ["Una semana de exámenes modifica el tiempo disponible. Distribuye el estudio con pausas breves de movimiento, reserva descanso y ajusta el entrenamiento a esa agenda. Reorganizar una semana exigente puede ser una decisión responsable, no una falta de compromiso.", "En el trabajo sentado, cambia de postura y alterna tareas cuando sea posible; no existe una postura única que debas mantener inmóvil durante horas. El bienestar también incluye disfrutar, pedir apoyo y reconocer cuándo la organización supera tus recursos.", "Antes y después de la actividad, planifica oportunidades normales de alimentación variada y acceso a agua. El propósito es llegar preparado y recuperar dentro de la rutina cotidiana, sin suplementos obligatorios ni reglas de restricción. Si hay malestar persistente, comunícalo a una persona adulta de referencia." ] }], links: [who],
+    foundation: "El estudio, las comidas, el entrenamiento y el descanso compiten por tiempo en la misma agenda. En esta unidad aprenderás a reconocer qué condiciones te ayudan, elegir una acción a tu alcance y observarla en la bitácora. Para las actividades puedes usar tu propio registro o el caso de aula. Valoraremos la interpretación de los datos y cómo justificas tu ajuste.",
+    sections: [{
+      title: "Pedir apoyo cuando la agenda se complica",
+      paragraphs: [
+        "En una semana de exámenes, dibuja un día real con las horas de clase, desplazamientos, comidas, entrenamiento y descanso. Busca un momento que se te haga cuesta arriba y señala qué decisión puedes tomar tú y con qué apoyo contarías.",
+        "Si el horario familiar cambia a menudo, acordar dónde dejar la botella o qué merienda está disponible puede facilitar el plan. Si vuelves tarde de entrenar, habla con quien organiza la sesión para prever el regreso y el tiempo de descanso. Anota el acuerdo y comprueba si resuelve la dificultad que observaste.",
+      ],
+    }],
+    links: [
+      { title: "AESAN · Recomendaciones dietéticas saludables y sostenibles", url: "https://www.aesan.gob.es/es/nutricion/recomendaciones-dieteticas" },
+      { title: "Asociación Española de Pediatría · Nutrición en el adolescente", url: "https://www.aeped.es/sites/default/files/documentos/38_nutricion_adolescente.pdf" },
+      { title: "Reglamento (UE) 1169/2011 · Etiquetas y factores energéticos", url: "https://eur-lex.europa.eu/legal-content/ES/TXT/?uri=CELEX:32011R1169" },
+      { title: "American Academy of Sleep Medicine · Recomendaciones de sueño por edad", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC4877308/" },
+      { title: "CDC · Hábitos para dormir mejor", url: "https://www.cdc.gov/sleep/about/" },
+      { title: "Lally y colaboradores · Formación de hábitos en la vida cotidiana", url: "https://doi.org/10.1002/ejsp.674" },
+      who,
+    ],
   },
   "2bach-sa4-evento-deportivo": {
     foundation: "Organizar transforma una idea colectiva en una experiencia viable. El aprendizaje se demuestra al justificar decisiones y responder a incidencias, además de participar en el juego. La calidad del evento incluye seguridad, oportunidades de participación y uso responsable de recursos.",

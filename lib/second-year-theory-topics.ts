@@ -1,10 +1,12 @@
 import { capacitySections, capacitySources, capacityQuiz } from "@/lib/basic-physical-capacities";
+import { sa3RecommendedReading, sa3TheorySections } from "@/lib/sa3-theory-content";
 import { secondYearTheoryExtensions } from "@/lib/second-year-theory-extensions";
 
 export type SecondYearTheoryConcept = { name: string; definition: string; example: string };
-export type SecondYearTheorySection = { title: string; paragraphs: string[]; bullets?: string[] };
+export type SecondYearTheorySection = { title: string; paragraphs: string[]; bullets?: string[]; anchor?: { id: string; label: string } };
 export type SecondYearSportCase = { sport: string; capacity: string; situation: string; proposal: string; why: string; progression: string };
 export type SecondYearQuizQuestion = { question: string; options: string[]; correct: number; feedback: string };
+export type SecondYearTheoryReading = { title: string; author: string; description: string; url: string };
 export type SecondYearTheoryTopic = {
   slug: string;
   number: number;
@@ -23,6 +25,7 @@ export type SecondYearTheoryTopic = {
   challenge: string;
   extension: string;
   sources: string[];
+  recommendedReading?: SecondYearTheoryReading[];
   quiz: SecondYearQuizQuestion[];
 };
 
@@ -93,34 +96,27 @@ const baseTopics: Omit<SecondYearTheoryTopic, "foundation" | "sourceLinks">[] = 
   {
     slug: "2bach-sa3-habitos-saludables", number: 3, sa: "SA3",
     title: "Más que entrenar", subtitle: "Hábitos para una vida saludable y sostenible",
-    summary: "La condición física también depende de lo que ocurre fuera de la sesión: sueño, movimiento cotidiano, hidratación, alimentación variada, recuperación, organización y bienestar.",
-    visual: "habits", visualCaption: "Los hábitos se relacionan entre sí: mejorar uno puede facilitar otros y sostener mejor el entrenamiento.",
-    keyIdeas: ["Dormir y recuperar forman parte del entrenamiento", "Moverse a diario no es lo mismo que entrenar", "Los hábitos deben ser sostenibles", "No usamos peso, calorías ni diagnósticos como objetivo educativo"],
+    summary: "Aprende a organizar una alimentación variada, preparar el descanso y convertir una intención en un hábito que puedas repetir. Usa la bitácora para observar tu rutina, probar un cambio pequeño y explicar qué te ayudó a mantenerlo.",
+    visual: "habits", visualCaption: "La alimentación, el descanso y el movimiento se apoyan entre sí. Organizar una rutina facilita cuidar las otras.",
+    keyIdeas: ["Observa la alimentación de varios días y el contexto de cada comida", "El sueño y la recuperación sostienen el estudio y la actividad física", "Vincula una acción pequeña a una señal que ya ocurre", "Compara las oportunidades observadas para decidir qué ajustar"],
     concepts: [
       { name: "Regularidad", definition: "Capacidad de mantener un hábito de forma estable en el tiempo.", example: "Acostarse en horarios similares la mayoría de días." },
       { name: "Sedentarismo", definition: "Tiempo prolongado en actividades de muy bajo gasto energético, normalmente sentado o reclinado.", example: "Varias horas seguidas de estudio sin pausas de movimiento." },
       { name: "Recuperación", definition: "Conjunto de procesos y hábitos que permiten volver a estar preparado para nuevas demandas.", example: "Dormir, alternar cargas y organizar descansos." },
       { name: "Sostenibilidad del hábito", definition: "Posibilidad real de mantener una conducta sin depender de esfuerzos extremos.", example: "Caminar 20 minutos diarios puede ser más sostenible que un reto excesivo de una semana." },
+      { name: "Macronutrientes", definition: "Componentes de los alimentos que necesitamos en cantidades relativamente grandes. En el diario observamos proteínas, hidratos de carbono y grasas.", example: "Las lentejas aportan hidratos de carbono y proteínas, entre otros componentes." },
+      { name: "Señal del hábito", definition: "Momento, situación o acción que te recuerda qué vas a hacer.", example: "Al terminar de cenar preparo la fruta que llevaré al recreo." },
     ],
-    sections: [
-      { title: "Sueño y organización", paragraphs: ["La recuperación nocturna influye en las sensaciones, la atención y la capacidad para afrontar una sesión. En clase trabajamos regularidad y percepción del descanso, no diagnósticos médicos.", "Una agenda muy cargada puede hacer que el problema no sea falta de voluntad, sino una organización poco realista entre estudio, ocio, descanso y entrenamiento."] },
-      { title: "Movimiento cotidiano y sedentarismo", paragraphs: ["Entrenar dos o tres días no elimina automáticamente muchas horas seguidas de sedentarismo. Las pausas activas, caminar y desplazarse de forma activa aportan movimiento cotidiano.", "La propuesta debe adaptarse a las posibilidades reales de cada persona y no convertirse en una competición de pasos."] },
-      {
-        title: "Hidratación y alimentación variada",
-        paragraphs: [
-          "La hidratación depende de duración, intensidad, temperatura y características individuales. Evitamos cifras universales rígidas y aprendemos a anticipar necesidades básicas.",
-          "En alimentación trabajamos variedad, regularidad y organización alrededor de la actividad física. No usamos dietas restrictivas, conteo obligatorio de calorías ni objetivos de peso.",
-          "En el diario, escribe un alimento o plato y su cantidad para estimar kcal, proteínas, hidratos y grasas. En un plato mixto puedes ajustar las cantidades de cada ingrediente. Con una etiqueta, multiplica el valor por 100 g o ml por la cantidad en esa misma unidad y divide entre 100. El mapa cuenta entradas por grupo y un plato puede aparecer en varios grupos. Si faltan datos sobre el procesamiento, elige «Por identificar».",
-        ],
-      },
-    ],
+    sections: sa3TheorySections,
     cases: [
-      { sport: "Voleibol", capacity: "Recuperación", situation: "Una jugadora entrena bien pero llega fatigada tras varias noches de sueño irregular.", proposal: "Revisar horarios de estudio y descanso antes de añadir más volumen de entrenamiento.", why: "Más carga no corrige una recuperación insuficiente.", progression: "Buscar una mejora pequeña y sostenible de regularidad durante varias semanas." },
+      { sport: "Baloncesto", capacity: "Organizar la merienda", situation: "Los martes y jueves, una alumna pasa del centro al entrenamiento y le cuesta encontrar tiempo para merendar.", proposal: "Preparar la tarde anterior una opción fácil de llevar, como pan con queso y fruta, y dejar la botella junto a la bolsa.", why: "Preparar lo necesario en casa le permite aprovechar el tiempo entre el centro y la pista.", progression: "Registrar en cuántas tardes llevó la merienda y qué alternativa le funcionó cuando cambió el horario." },
+      { sport: "Voleibol", capacity: "Recuperación", situation: "Una jugadora llega fatigada tras varias noches de sueño irregular en época de exámenes.", proposal: "Revisar horarios de estudio y descanso antes de añadir más volumen de entrenamiento.", why: "La sensación de fatiga y el registro de descanso ayudan a valorar cómo llega a las sesiones.", progression: "Probar una rutina breve al terminar de estudiar y observar qué noches pudo repetirla." },
       { sport: "Pádel", capacity: "Hidratación y pausas", situation: "Un alumno juega al aire libre en días calurosos y empieza la sesión sin planificar pausas.", proposal: "Preparar agua, pausas razonables y una rutina sencilla antes y después de jugar.", why: "La organización reduce decisiones improvisadas cuando ya existe fatiga.", progression: "Ajustar la rutina según duración, temperatura y sensaciones." },
     ],
-    challenge: "Elige un hábito durante cuatro semanas. Describe situación inicial, cambio concreto, forma de seguimiento y qué reajuste harías si el plan no es sostenible.",
-    extension: "Explica por qué una persona puede entrenar con regularidad y seguir teniendo un estilo de vida sedentario durante buena parte del día.",
+    challenge: "Elige una acción de alimentación, descanso o movimiento para probar durante cuatro semanas. Escribe en la bitácora tu punto de partida, la señal, la acción y una alternativa. Compara cuántas veces la hiciste de las ocasiones observadas y explica qué ajuste te ayudó.",
+    extension: "Imagina una semana con dos exámenes y dos tardes de entrenamiento. Elige un ajuste que facilite comer con tiempo o descansar. Explica qué barrera resuelve y qué datos recogerías para valorar si funciona.",
     sources: ["Baechle & Earle · Principios del entrenamiento de la fuerza y del acondicionamiento físico", "Michael Boyle · El entrenamiento funcional aplicado a deportes", "Tudor O. Bompa · Teoría y metodología del entrenamiento"],
+    recommendedReading: sa3RecommendedReading,
     quiz: [
       { question: "¿Qué afirmación es correcta?", options: ["Entrenar varios días elimina cualquier sedentarismo", "Movimiento cotidiano y entrenamiento son conceptos relacionados pero distintos", "Dormir no influye en la recuperación"], correct: 1, feedback: "Una persona puede entrenar y, a la vez, acumular muchas horas sedentarias." },
       { question: "En esta SA evitamos usar como objetivo educativo…", options: ["La regularidad del sueño", "El peso y el conteo obligatorio de calorías", "Las pausas activas"], correct: 1, feedback: "La calculadora sirve para interpretar etiquetas. El reto se valora a partir de tus observaciones y los ajustes que pruebas." },
