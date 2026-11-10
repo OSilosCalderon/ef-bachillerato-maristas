@@ -2,7 +2,7 @@ import {
   catalogIngredients, catalogRecipes, type CatalogIngredient, type CatalogRecipe,
 } from "./sa3-food-composition";
 import {
-  foodGroups, maxFoodQuantity, maxRecipeIngredients, sumFoodValues, type FoodEstimate, type FoodPart, type FoodUnit,
+  classroomFoodDiary, foodGroups, maxFoodQuantity, maxRecipeIngredients, sumFoodValues, type FoodEstimate, type FoodPart, type FoodUnit,
 } from "./sa3-food-diary";
 
 export const catalogFoods = [...catalogRecipes, ...catalogIngredients];
@@ -86,6 +86,14 @@ export function estimateCatalogFood(food: CatalogIngredient | CatalogRecipe, qua
     : [{ ingredientId: food.id, quantity, unit }];
   const estimate = estimateIngredients(ingredients);
   return estimate ? { ...estimate, catalogId: food.id } : null;
+}
+
+export function estimatedClassroomDiary(day: string) {
+  return classroomFoodDiary(day).map((entry) => {
+    const food = findCatalogFood(entry.name);
+    const estimate = food && estimateCatalogFood(food, entry.quantity, entry.unit);
+    return estimate ? { ...entry, kcalPer100: null, estimate } : entry;
+  });
 }
 
 export function combinedFoodPortion(parts: FoodPart[]): { quantity: number; unit: FoodUnit } {

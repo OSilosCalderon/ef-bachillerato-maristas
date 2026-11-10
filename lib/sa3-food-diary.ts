@@ -27,6 +27,11 @@ export type FoodGroup = (typeof foodGroups)[number]["id"];
 export type FoodProcessing = (typeof processingGroups)[number]["id"];
 export type FoodUnit = "g" | "ml";
 export type FoodValues = { kcal: number; protein: number; carbs: number; fat: number };
+export const foodMacronutrients = [
+  { key: "protein", label: "Proteínas", kcalPerGram: 4 },
+  { key: "carbs", label: "Hidratos de carbono", kcalPerGram: 4 },
+  { key: "fat", label: "Grasas", kcalPerGram: 9 },
+] as const;
 export type FoodPart = {
   ingredientId: string;
   name: string;
@@ -74,11 +79,31 @@ export function sumFoodValues(values: FoodValues[]): FoodValues {
   }), { kcal: 0, protein: 0, carbs: 0, fat: 0 });
 }
 
+export function foodMacroEnergy(values: FoodValues | null) {
+  if (!values) return null;
+  const portions = foodMacronutrients.map((nutrient) => ({
+    ...nutrient,
+    grams: values[nutrient.key],
+    kcal: values[nutrient.key] * nutrient.kcalPerGram,
+  }));
+  const total = portions.reduce((sum, portion) => sum + portion.kcal, 0);
+  if (!Number.isFinite(total) || total <= 0 || portions.some((portion) => portion.kcal < 0)) return null;
+
+  const shares = portions.map((portion) => portion.kcal / total * 100);
+  const percentages = shares.map(Math.floor);
+  const remaining = 100 - percentages.reduce((sum, percent) => sum + percent, 0);
+  // Assign leftover points to the largest remainders so the displayed percentages add up to 100.
+  shares.map((share, index) => ({ index, remainder: share - percentages[index] }))
+    .sort((a, b) => b.remainder - a.remainder).slice(0, remaining)
+    .forEach(({ index }) => { percentages[index] += 1; });
+  return { total, portions: portions.map((portion, index) => ({ ...portion, percent: percentages[index] })) };
+}
+
 export function foodEntryGroups(entry: FoodEntry) {
   return new Set(entry.estimate?.parts.map((part) => part.group) ?? [entry.group]);
 }
 
-function foodEntryValues(entry: FoodEntry) {
+export function foodEntryValues(entry: FoodEntry) {
   return entry.estimate
     ? sumFoodValues(entry.estimate.parts.map((part) => part.values))
     : null;

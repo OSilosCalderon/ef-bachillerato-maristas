@@ -1,17 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarDays, CircleHelp, Pencil, Trash2 } from "lucide-react";
+import { CalendarDays, ChartPie, CircleHelp } from "lucide-react";
+import { Sa3FoodDiaryEntries } from "@/components/sa3-food-diary-entries";
+import { Sa3FoodEnergySummary } from "@/components/sa3-food-energy-summary";
 import { Sa3FoodEntryForm } from "@/components/sa3-food-entry-form";
-import { foodNumber as fmt, FoodMacros, Sa3FoodEstimateDetails } from "@/components/sa3-food-estimate";
 import {
-  classroomFoodDiary, displayFoodDay, foodEntryEnergy, foodEntryGroups, foodGroups, madridDay, meals,
-  readFoodDiary, summarizeFoodDay, type FoodEntry, type FoodEntryDraft,
+  displayFoodDay, madridDay, readFoodDiary, summarizeFoodDay, type FoodEntry, type FoodEntryDraft,
 } from "@/lib/sa3-food-diary";
+import { estimatedClassroomDiary } from "@/lib/sa3-food-nutrition";
 
 const control = "mt-1.5 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal";
 const label = "text-sm font-bold text-slate-700";
-const button = "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:border-emerald-500";
 type DiaryMode = "case" | "personal";
 
 function loadEntries(key: string, fallback: FoodEntry[]) {
@@ -51,7 +51,7 @@ export function Sa3FoodDiary({ storageKey }: { storageKey: string }) {
   const [day, setDay] = useState(today);
   const [mode, setMode] = useState<DiaryMode>("case");
   const [diaries, setDiaries] = useState(() => ({
-    case: loadEntries(storageKey + ":case", classroomFoodDiary(today)),
+    case: loadEntries(storageKey + ":case", estimatedClassroomDiary(today)),
     personal: loadEntries(storageKey + ":personal", []),
   }));
   const [formRevision, setFormRevision] = useState(0);
@@ -101,6 +101,16 @@ export function Sa3FoodDiary({ storageKey }: { storageKey: string }) {
     clearDraft();
   }
 
+  function editEntry(entry: FoodEntry) {
+    setEditing(entry.id);
+    setNotice("Editando " + entry.name + ".");
+  }
+
+  function deleteEntry(entry: FoodEntry) {
+    saveEntries(entries.filter((item) => item.id !== entry.id), "Entrada eliminada.");
+    if (editing === entry.id) clearDraft();
+  }
+
   return <div className="space-y-5">
     <section className="card p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -126,8 +136,11 @@ export function Sa3FoodDiary({ storageKey }: { storageKey: string }) {
         </div>
       </div>
       <p className="mt-3 text-xs leading-5 text-slate-600">
-        {mode === "case" ? "Caso editable con registros parciales y datos de etiqueta simulados." : "Tu diario se guarda en este navegador. Si compartes el equipo, puedes trabajar con el caso de aula."}
+        {mode === "case" ? "Caso editable con estimaciones del catálogo y datos de etiqueta simulados." : "Tu diario se guarda en este navegador. Si compartes el equipo, puedes trabajar con el caso de aula."}
       </p>
+      <a href="#reparto-energia-sa3" className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-[#164c3a] lg:hidden">
+        <ChartPie size={16} aria-hidden="true"/> Ver reparto de energía
+      </a>
     </section>
 
     <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
@@ -139,47 +152,11 @@ export function Sa3FoodDiary({ storageKey }: { storageKey: string }) {
           <p role="status" className="mt-3 text-sm font-semibold text-[#164c3a]">{notice}</p>
         </section>
 
-        <section className="card p-5 sm:p-6">
-          <h3 className="text-lg font-extrabold text-slate-950">Entradas del {displayFoodDay(day)}</h3>
-          {daily.length === 0 ? <p className="mt-3 text-sm leading-6 text-slate-600">Aún no hay alimentos en este día. Usa el formulario para añadir una entrada.</p> :
-            <ul className="mt-3 divide-y divide-slate-100">
-              {[...daily].sort((a, b) => meals.indexOf(a.meal) - meals.indexOf(b.meal)).map((entry) => {
-                const kcal = foodEntryEnergy(entry);
-                const groupIds = foodEntryGroups(entry);
-                const groups = foodGroups.filter((group) => groupIds.has(group.id)).map((group) => group.label).join(", ");
-                return <li key={entry.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="break-words text-sm font-bold text-slate-900">{entry.name}</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-600">{entry.meal} · {groups}{entry.quantity != null ? " · " + fmt.format(entry.quantity) + " " + entry.unit : ""}</p>
-                  </div>
-                  <span className="text-sm font-bold tabular-nums text-[#164c3a]">{kcal == null ? "Sin dato" : fmt.format(kcal) + " kcal"}</span>
-                  <div className="flex gap-1">
-                    <button type="button" aria-label={"Editar " + entry.name} onClick={() => { setEditing(entry.id); setNotice("Editando " + entry.name + "."); }} className={button}><Pencil size={16} aria-hidden="true"/></button>
-                    <button type="button" aria-label={"Eliminar " + entry.name} onClick={() => {
-                      saveEntries(entries.filter((item) => item.id !== entry.id), "Entrada eliminada.");
-                      if (editing === entry.id) clearDraft();
-                    }} className={button}><Trash2 size={16} aria-hidden="true"/></button>
-                  </div>
-                  {entry.estimate && <details className="w-full rounded-xl bg-emerald-50/60 p-3">
-                    <summary className="cursor-pointer text-xs font-bold text-[#164c3a]">Ver nutrientes e ingredientes</summary>
-                    <div className="mt-3"><Sa3FoodEstimateDetails estimate={entry.estimate}/></div>
-                  </details>}
-                </li>;
-              })}
-            </ul>}
-        </section>
+        <Sa3FoodDiaryEntries day={day} entries={daily} editing={editing} onEdit={editEntry} onDelete={deleteEntry}/>
       </div>
 
       <aside className="space-y-5" aria-label="Resumen de la alimentación registrada">
-        <section className="rounded-3xl bg-[#0c372e] p-5 text-white sm:p-6">
-          <p className="text-xs font-black uppercase tracking-widest text-emerald-200">Energía de las entradas</p>
-          <p className="mt-2 text-3xl font-black tabular-nums" aria-live="polite">{summary.energy == null ? "—" : fmt.format(summary.energy) + " kcal"}</p>
-          <p className="mt-2 text-sm leading-6 text-emerald-50">{summary.known} de {daily.length} entradas con cálculo de energía.</p>
-          {summary.macros && <div className="mt-4 border-t border-white/20 pt-4 text-emerald-50">
-            <FoodMacros values={summary.macros}/>
-            <p className="mt-2 text-xs">{summary.macroEntries} de {daily.length} entradas con datos de macronutrientes.</p>
-          </div>}
-        </section>
+        <Sa3FoodEnergySummary summary={summary} entryCount={daily.length}/>
         <section className="card space-y-5 p-5 sm:p-6">
           <div>
             <p className="text-xs font-black uppercase tracking-widest text-[#1e6b4f]">Medidor del día</p>
