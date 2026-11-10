@@ -2,6 +2,7 @@
 
 import { TheoryChallengeResponse } from "@/components/theory-challenge-response";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Award, BookMarked, BookOpenCheck, BrainCircuit, CheckCircle2, Circle, Loader2, Target } from "lucide-react";
 import { BasicCapacitiesVisual } from "@/components/basic-capacities-visual";
@@ -33,6 +34,9 @@ export function SecondYearTheoryReader({ initialSlug, compactHeader = false }: P
   const [error, setError] = useState("");
 
   const topic = secondYearTheoryTopics.find((item) => item.slug === selectedSlug) ?? secondYearTheoryTopics[0] ?? allTopics[0];
+  const sectionAnchors = topic.sections.flatMap((section) => section.anchor ? [section.anchor] : []);
+  const reading = topic.recommendedReading ?? [];
+  const readingId = `${topic.slug}-lecturas`;
   const readOnly = (topic.sa === "SA1" || topic.sa === "SA2") && workClosed !== false;
   const topicProgress = progress[topic.slug];
   const topicAnswers = answers[topic.slug] ?? emptyAnswers;
@@ -133,11 +137,40 @@ export function SecondYearTheoryReader({ initialSlug, compactHeader = false }: P
 
         <section className="card p-6 sm:p-8"><p className="text-xs font-black uppercase tracking-wide text-[#1e6b4f]">Conceptos</p><h2 className="mt-1 text-2xl font-black">Vocabulario para razonar</h2><div className="mt-5 grid gap-4 md:grid-cols-2">{topic.concepts.map((concept)=><div key={concept.name} className="rounded-2xl border border-slate-200 p-5"><h3 className="font-extrabold text-slate-950">{concept.name}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{concept.definition}</p><p className="mt-3 rounded-xl bg-[#e7f2ed] p-3 text-xs font-semibold text-[#164c3a]">Ejemplo · {concept.example}</p></div>)}</div></section>
 
-        <section className="card p-6 sm:p-8"><p className="text-xs font-black uppercase tracking-wide text-slate-400">Desarrollo teórico</p><div className="mt-5 space-y-8">{topic.sections.map((section,index)=><section key={section.title} className="relative pl-11"><span className="absolute left-0 top-0 grid h-8 w-8 place-items-center rounded-full bg-slate-950 text-xs font-black text-white">{index+1}</span><h2 className="text-xl font-extrabold text-slate-950">{section.title}</h2><div className="mt-3 space-y-3">{section.paragraphs.map((p)=><p key={p} className="text-sm leading-7 text-slate-600">{p}</p>)}</div>{section.bullets&&<ul className="mt-4 grid gap-2 sm:grid-cols-2">{section.bullets.map((bullet)=><li key={bullet} className="flex gap-2 rounded-xl bg-slate-50 p-3 text-sm text-slate-600"><Circle className="mt-1 shrink-0 fill-current text-[#1e6b4f]" size={8}/>{bullet}</li>)}</ul>}</section>)}</div></section>
+        <section className="card p-6 sm:p-8">
+          <p className="text-xs font-black uppercase tracking-wide text-slate-400">Desarrollo teórico</p>
+          {sectionAnchors.length > 0 && <nav aria-label="Índice de los apuntes" className="mt-4 flex flex-wrap gap-2">
+            {sectionAnchors.map(({ id, label }) => <a key={id} href={`#${id}`} className="inline-flex min-h-10 items-center rounded-xl bg-[#e7f2ed] px-3 py-2 text-sm font-bold text-[#164c3a] hover:bg-emerald-100">{label}</a>)}
+            {reading.length > 0 && <a href={`#${readingId}`} className="inline-flex min-h-10 items-center rounded-xl bg-[#e7f2ed] px-3 py-2 text-sm font-bold text-[#164c3a] hover:bg-emerald-100">Libros recomendados</a>}
+          </nav>}
+          <div className="mt-5 space-y-8">
+            {topic.sections.map((section, index) => <section key={section.title} id={section.anchor?.id} className="relative scroll-mt-6 pl-11">
+              <span className="absolute left-0 top-0 grid h-8 w-8 place-items-center rounded-full bg-slate-950 text-xs font-black text-white">{index + 1}</span>
+              <h2 className="text-xl font-extrabold text-slate-950">{section.title}</h2>
+              <div className="mt-3 space-y-3">
+                {section.paragraphs.map((paragraph) => <p key={paragraph} className="text-sm leading-7 text-slate-600">{paragraph}</p>)}
+              </div>
+              {section.bullets && <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+                {section.bullets.map((bullet) => <li key={bullet} className="flex gap-2 rounded-xl bg-slate-50 p-3 text-sm text-slate-600"><Circle className="mt-1 shrink-0 fill-current text-[#1e6b4f]" size={8} aria-hidden="true"/>{bullet}</li>)}
+              </ul>}
+            </section>)}
+          </div>
+        </section>
 
         <section><div className="mb-4"><p className="text-xs font-black uppercase tracking-wide text-[#1e6b4f]">Casos prácticos</p><h2 className="mt-1 text-2xl font-black">Del concepto a una decisión real</h2></div><div className="grid gap-4 xl:grid-cols-2">{topic.cases.map((item)=><article key={`${item.sport}-${item.capacity}`} className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"><div className="bg-slate-950 p-5 text-white"><p className="text-xs font-bold uppercase tracking-wide text-emerald-300">{item.sport}</p><h3 className="mt-1 text-lg font-black">{item.capacity}</h3></div><div className="space-y-4 p-5"><Case label="Situación" text={item.situation}/><div className="rounded-2xl bg-[#f4faf7] p-4"><Case label="Propuesta" text={item.proposal}/></div><Case label="Por qué" text={item.why}/><div className="rounded-2xl border border-amber-200 bg-amber-50 p-4"><Case label="Cómo progresaría" text={item.progression}/></div></div></article>)}</div></section>
 
-        <section className="grid gap-4 md:grid-cols-2"><div className="rounded-3xl border border-violet-200 bg-violet-50 p-6"><Target className="text-violet-700"/><p className="mt-3 text-xs font-black uppercase tracking-wide text-violet-700">Reto de aplicación</p><p className="mt-2 text-sm font-semibold leading-7 text-violet-950">{topic.challenge}</p><TheoryChallengeResponse key={topic.slug} topicSlug={topic.slug}/></div><div className="rounded-3xl border border-sky-200 bg-sky-50 p-6"><BrainCircuit className="text-sky-700"/><p className="mt-3 text-xs font-black uppercase tracking-wide text-sky-700">Piensa como alumno/a de 2º</p><p className="mt-2 text-sm font-semibold leading-7 text-sky-950">{topic.extension}</p></div></section>
+        <section className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-3xl border border-violet-200 bg-violet-50 p-6">
+            <Target className="text-violet-700"/>
+            <p className="mt-3 text-xs font-black uppercase tracking-wide text-violet-700">Reto de aplicación</p>
+            <p className="mt-2 text-sm font-semibold leading-7 text-violet-950">{topic.challenge}</p>
+            {topic.slug === "2bach-sa3-habitos-saludables" && <Link href="/alumno/2bach/sa3/habitos" className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl bg-white px-3 py-2 text-sm font-bold text-[#164c3a] hover:bg-emerald-50">
+              <BookMarked size={16} aria-hidden="true"/> Abrir la bitácora de SA3
+            </Link>}
+            <TheoryChallengeResponse key={topic.slug} topicSlug={topic.slug}/>
+          </div>
+          <div className="rounded-3xl border border-sky-200 bg-sky-50 p-6"><BrainCircuit className="text-sky-700"/><p className="mt-3 text-xs font-black uppercase tracking-wide text-sky-700">Piensa como alumno/a de 2º</p><p className="mt-2 text-sm font-semibold leading-7 text-sky-950">{topic.extension}</p></div>
+        </section>
 
         <section className="card p-6 sm:p-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -166,6 +199,19 @@ export function SecondYearTheoryReader({ initialSlug, compactHeader = false }: P
               : readOnly && <p className="text-sm text-slate-500">Sin resultado guardado.</p>}
           </div>
         </section>
+
+        {reading.length > 0 && <section id={readingId} className="card scroll-mt-6 p-6 sm:p-8">
+          <h2 className="flex items-center gap-2 text-xl font-extrabold text-slate-950"><BookMarked size={21} className="shrink-0 text-[#1e6b4f]" aria-hidden="true"/> Libros para crear hábitos</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">Elige una idea, pruébala en tu rutina y anota qué te ayudó a repetirla.</p>
+          <ul className="mt-5 grid gap-3 sm:grid-cols-2">
+            {reading.map((book) => <li key={book.url} className="flex flex-col rounded-2xl border border-emerald-100 bg-[#f4faf7] p-4">
+              <p className="text-xs font-bold text-[#1e6b4f]">{book.author}</p>
+              <h3 className="mt-1 font-extrabold text-slate-950">{book.title}</h3>
+              <p className="mt-2 flex-1 text-sm leading-6 text-slate-700">{book.description}</p>
+              <a href={book.url} target="_blank" rel="noopener noreferrer" aria-label={`Ficha editorial de ${book.title}`} className="mt-3 self-start text-sm font-bold text-[#164c3a] underline">Ficha editorial</a>
+            </li>)}
+          </ul>
+        </section>}
 
         <section className="card p-6 sm:p-8"><p className="text-xs font-black uppercase tracking-wide text-slate-400">Referencias bibliográficas</p><h2 className="mt-1 text-xl font-extrabold">Para profundizar</h2><ul className="mt-4 space-y-2">{topic.sourceLinks.map((source)=><li key={source.url}><a href={source.url} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#1e6b4f] underline">{source.title}</a></li>)}{topic.sources.map((source)=><li key={source} className="rounded-xl bg-slate-50 p-3 text-sm font-semibold text-slate-600">{source}</li>)}</ul></section>
       </article>
