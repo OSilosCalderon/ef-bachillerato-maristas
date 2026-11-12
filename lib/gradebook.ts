@@ -2,6 +2,7 @@ import type { SecondYearWorkSummary } from "./second-year-work";
 
 export type AssessmentGradeItem = { id: string; course_id: string; sa_code: string; item_key: string; title: string; position: number };
 export type PublishedAssessmentGrade = { id: string; student_id: string; item_id: string; score: number; comment: string; published_at: string };
+export type AssessmentScoreChange = { studentId: string; itemId: string; score: number };
 export type GradebookStudent = { id: string; courseId: string; name: string; group: string };
 export type GradebookData = {
   students: GradebookStudent[];
@@ -28,6 +29,18 @@ export const formatGrade = (value: number) => new Intl.NumberFormat("es-ES", { m
 export const formatPublication = (value: string) => new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", dateStyle: "short", timeStyle: "short" }).format(new Date(value));
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+export const assessmentGradeKey = (studentId: string, itemId: string) => `${studentId}:${itemId}`;
+
+export function indexAssessmentGrades(grades: PublishedAssessmentGrade[]) {
+  const byCell = new Map<string, PublishedAssessmentGrade>();
+  for (const grade of grades) {
+    const key = assessmentGradeKey(grade.student_id, grade.item_id);
+    const previous = byCell.get(key);
+    if (!previous || Date.parse(grade.published_at) >= Date.parse(previous.published_at)) byCell.set(key, grade);
+  }
+  return byCell;
+}
+
 export function validateGradePublication(input: { studentId: string; itemId: string; score: number; comment: string }) {
   if (!input || !uuid.test(input.studentId ?? "") || !uuid.test(input.itemId ?? "")) throw new Error("Selecciona un alumno y un instrumento válidos.");
   if (typeof input.score !== "number" || !Number.isFinite(input.score) || input.score < 0 || input.score > 10 || Math.abs(input.score * 10 - Math.round(input.score * 10)) > 1e-8) throw new Error("La nota debe estar entre 0 y 10 y puede tener una décima.");
@@ -44,10 +57,14 @@ export function displayAssessmentItem(item: AssessmentGradeItem): AssessmentGrad
   return item;
 }
 
+export function compareAssessmentItems(a: AssessmentGradeItem, b: AssessmentGradeItem) {
+  return a.sa_code.localeCompare(b.sa_code) || a.position - b.position || a.title.localeCompare(b.title, "es");
+}
+
 export function gradesForStudent(items: AssessmentGradeItem[], grades: PublishedAssessmentGrade[], studentId: string, courseId: string) {
   const ownGrades = new Map(grades.filter((grade) => grade.student_id === studentId).map((grade) => [grade.item_id, grade]));
   // Retired diaries are no longer pending work; keep every existing published grade.
   return items.filter((item) => item.course_id === courseId && (!isRetiredDiaryItem(item) || ownGrades.has(item.id)))
-    .sort((a,b) => a.sa_code.localeCompare(b.sa_code) || a.position-b.position || a.title.localeCompare(b.title,"es"))
+    .sort(compareAssessmentItems)
     .map((item) => ({ item: displayAssessmentItem(item), grade: ownGrades.get(item.id) ?? null }));
 }
