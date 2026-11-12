@@ -24,10 +24,18 @@ export function findCatalogFood(name: string) {
   return catalogNames.find(({ names }) => names.includes(key))?.item;
 }
 
-export function suggestCatalogFoods(name: string) {
+export function suggestCatalogFoods(name: string, selectedId?: string) {
   const key = normalizeFoodName(name);
   if (!key) return [];
-  return catalogNames.filter(({ names }) => names.some((alias) => alias.includes(key))).slice(0, 5).map(({ item }) => item);
+  const words = key.split(" ");
+  const prefixMatches: (CatalogIngredient | CatalogRecipe)[] = [];
+  const otherMatches: (CatalogIngredient | CatalogRecipe)[] = [];
+  for (const { item, names } of catalogNames) {
+    if (item.id === selectedId) continue;
+    if (names.some((alias) => alias.startsWith(key))) prefixMatches.push(item);
+    else if (names.some((alias) => words.every((word) => alias.includes(word)))) otherMatches.push(item);
+  }
+  return [...prefixMatches, ...otherMatches].slice(0, 5);
 }
 
 const amountFirst = /^(\d+(?:[.,]\d{1,3})?)\s*(kg|ml|l|g)\s+(?:de\s+)?(.+)$/i;

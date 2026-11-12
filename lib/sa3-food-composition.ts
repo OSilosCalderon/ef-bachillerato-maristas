@@ -1,4 +1,5 @@
 import type { FoodGroup, FoodProcessing, FoodUnit, FoodValues } from "./sa3-food-diary";
+import { actitudesCatalogIngredients } from "./sa3-food-actitudes";
 
 type NamedFood = { id: string; name: string; aliases?: string[] };
 
@@ -6,6 +7,7 @@ export type CatalogIngredient = NamedFood & {
   group: FoodGroup;
   processing: FoodProcessing;
   density?: number;
+  reference?: { title: string; url: string };
   per100g: FoodValues;
 };
 
@@ -22,7 +24,7 @@ export type CatalogRecipe = NamedFood & {
 export const catalogIngredients: CatalogIngredient[] = [
   { id: "17-833", name: "Café solo", group: "otros", processing: "nova1", aliases: ["café", "café preparado", "infusión de café"], density: 1, per100g: { kcal: 2, protein: 0.2, carbs: 0.3, fat: 0 } },
   { id: "12-313", name: "Leche semidesnatada", group: "lacteos", processing: "nova1", aliases: ["leche", "leche semi"], density: 1.03, per100g: { kcal: 46, protein: 3.5, carbs: 4.48, fat: 1.7 } },
-  { id: "12-596", name: "Leche entera", group: "lacteos", processing: "nova1", density: 1.03, per100g: { kcal: 63, protein: 3.4, carbs: 4.38, fat: 3.6 } },
+  { id: "12-596", name: "Leche entera", group: "lacteos", processing: "nova1", aliases: ["leche entera fresca"], density: 1.03, per100g: { kcal: 63, protein: 3.4, carbs: 4.38, fat: 3.6 } },
   { id: "12-307", name: "Leche desnatada", group: "lacteos", processing: "nova1", density: 1.03, per100g: { kcal: 34, protein: 3.5, carbs: 4.57, fat: 0.3 } },
   { id: "17-063", name: "Azúcar blanco", group: "otros", processing: "nova2", aliases: ["azúcar"], per100g: { kcal: 394, protein: 0, carbs: 100, fat: 0 } },
   { id: "17-377", name: "Agua", group: "agua", processing: "nova1", aliases: ["agua mineral", "agua del grifo"], density: 1, per100g: { kcal: 0, protein: 0, carbs: 0, fat: 0 } },
@@ -37,7 +39,7 @@ export const catalogIngredients: CatalogIngredient[] = [
   { id: "11-862", name: "Arroz blanco cocido", group: "cereales", processing: "nova1", aliases: ["arroz", "arroz blanco", "arroz cocido"], per100g: { kcal: 131, protein: 2.8, carbs: 28.27, fat: 0.4 } },
   { id: "11-869", name: "Arroz integral cocido", group: "cereales", processing: "nova1", aliases: ["arroz integral"], per100g: { kcal: 132, protein: 3.6, carbs: 26.56, fat: 0.9 } },
   { id: "11-788", name: "Copos de avena", group: "cereales", processing: "nova1", aliases: ["avena"], per100g: { kcal: 381, protein: 10.9, carbs: 64.29, fat: 8.1 } },
-  { id: "13-490", name: "Patata cocida", group: "cereales", processing: "nova1", aliases: ["patatas cocidas", "patata hervida"], per100g: { kcal: 74, protein: 1.8, carbs: 15.97, fat: 0.1 } },
+  { id: "13-490", name: "Patata cocida", group: "cereales", processing: "nova1", aliases: ["patata", "patatas cocidas", "patata hervida"], per100g: { kcal: 74, protein: 1.8, carbs: 15.97, fat: 0.1 } },
   { id: "18-323", name: "Pechuga de pollo a la plancha", group: "proteinas", processing: "nova1", aliases: ["pollo", "pechuga de pollo", "pollo a la plancha"], per100g: { kcal: 148, protein: 32, carbs: 0, fat: 2.2 } },
   { id: "12-940", name: "Huevo cocido", group: "proteinas", processing: "nova1", aliases: ["huevo duro"], per100g: { kcal: 143, protein: 14.1, carbs: 0, fat: 9.6 } },
   { id: "12-962", name: "Huevo cocinado sin aceite", group: "proteinas", processing: "nova1", aliases: ["huevo a la plancha sin aceite"], per100g: { kcal: 167, protein: 16, carbs: 0, fat: 11.4 } },
@@ -60,6 +62,7 @@ export const catalogIngredients: CatalogIngredient[] = [
   { id: "13-499", name: "Cebolla cruda", group: "hortalizas", processing: "nova1", aliases: ["cebolla"], per100g: { kcal: 35, protein: 1, carbs: 7.9, fat: 0.1 } },
   { id: "13-500", name: "Cebolla cocida", group: "hortalizas", processing: "nova1", per100g: { kcal: 25, protein: 0.7, carbs: 5.33, fat: 0.3 } },
   { id: "13-503", name: "Brócoli cocido", group: "hortalizas", processing: "nova1", aliases: ["brócoli"], per100g: { kcal: 28, protein: 3.3, carbs: 2.74, fat: 0.5 } },
+  ...actitudesCatalogIngredients,
 ];
 
 // Proporciones de ejemplo para el aula. Se aplican al peso cocinado o al volumen servido.
