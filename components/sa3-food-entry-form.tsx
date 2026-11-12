@@ -36,9 +36,10 @@ type IngredientRow = { id: string; ingredientId: string; quantity: string; unit:
 const emptyIngredient = { ingredientId: "", quantity: "", unit: "g" } as const;
 const ingredientGroups = foodGroups.map((group) => ({
   ...group,
-  ingredients: catalogIngredients.filter((ingredient) => ingredient.group === group.id),
+  ingredients: catalogIngredients.filter((ingredient) => ingredient.group === group.id)
+    .sort((a, b) => a.name.localeCompare(b.name, "es")),
 })).filter((group) => group.ingredients.length);
-const examples = ["Café con leche 250 ml", "Macarrones con carne 300 g"];
+const examples = ["Café con leche 250 ml", "Macarrones con carne 300 g", "Cuscús cocido 150 g"];
 
 const editableAmount = (quantity: number | null | undefined) => quantity == null
   ? ""
@@ -78,7 +79,8 @@ export function Sa3FoodEntryForm({ entry, onSave, onCancel }: {
 
   const query = mode === "search" ? parseFoodQuery(draft.name) : { name: draft.name };
   const match = mode === "search" ? findCatalogFood(query.name) : undefined;
-  const suggestions = mode === "search" && !match ? suggestCatalogFoods(query.name) : [];
+  const suggestions = mode === "search" ? suggestCatalogFoods(query.name, match?.id) : [];
+  const reference = match && "reference" in match ? match.reference : undefined;
   const units = match ? unitsForFood(match) : ["g", "ml"] as const;
   const quantityText = query.quantity ?? draft.quantity;
   const quantity = parseFoodDecimal(quantityText);
@@ -156,14 +158,15 @@ export function Sa3FoodEntryForm({ entry, onSave, onCancel }: {
     </label>
     {mode === "search" && <>
       <p id="sa3-food-search-help" className="-mt-2 text-xs leading-5 text-slate-600">
-        Escribe el nombre y la cantidad en g o ml. También puedes elegir un ejemplo.
+        Escribe el nombre y la cantidad en g o ml. Elige la preparación que has pesado, como arroz seco o cocido.
       </p>
       {!draft.name.trim() && <div className="flex flex-wrap gap-2" aria-label="Ejemplos para probar">
         {examples.map((example) => <button type="button" key={example} className={button} onClick={() => update({ name: example, quantity: "", unit: null })}>{example}</button>)}
       </div>}
+      {match && match.name.localeCompare(query.name, "es", { sensitivity: "base" }) !== 0 && <p className="text-xs leading-5 text-slate-600">Ficha seleccionada · <strong>{match.name}</strong></p>}
       {!!suggestions.length && <div className="flex flex-wrap gap-2" aria-label="Coincidencias del catálogo">
         {suggestions.map((food) => <button type="button" key={food.id} className={button} onClick={() => update({
-          name: food.name, quantity: quantityText, unit: query.unit ?? null,
+          name: food.name, quantity: quantityText, unit: query.unit ?? draft.unit,
         })}>{food.name}</button>)}
       </div>}
       {!!query.name && !match && !suggestions.length && <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">
@@ -185,7 +188,7 @@ export function Sa3FoodEntryForm({ entry, onSave, onCancel }: {
     </>}
     {mode === "ingredients" && <fieldset className="min-w-0 space-y-3">
       <legend className={label}>Ingredientes de tu ración</legend>
-      <p className="text-xs leading-5 text-slate-600">Elige cada ingrediente y la cantidad servida. Si el alimento está cocinado, usa el peso cocinado.</p>
+      <p className="text-xs leading-5 text-slate-600">Elige cada ingrediente y la cantidad. Usa la ficha que corresponda al peso seco, crudo o cocinado.</p>
       {rows.map((row, index) => {
         const ingredient = getIngredient(row.ingredientId);
         const ingredientUnits = ingredient ? unitsForFood(ingredient) : ["g"];
@@ -228,6 +231,7 @@ export function Sa3FoodEntryForm({ entry, onSave, onCancel }: {
       <h4 className="flex items-center gap-2 text-sm font-black text-[#164c3a]"><Calculator size={16} aria-hidden="true"/> Estimación de tu ración</h4>
       {match && "ingredients" in match && <p className="text-xs leading-5 text-slate-600">Receta orientativa. Ajusta las proporciones según lo que hayas tomado.</p>}
       <Sa3FoodEstimateDetails estimate={estimate}/>
+      {reference && <p className="text-xs leading-5 text-slate-600">Referencia por 100 g. <a className="font-semibold text-[#164c3a] underline" href={reference.url} target="_blank" rel="noreferrer">{reference.title}</a></p>}
       {match && "ingredients" in match && <button type="button" className={button} onClick={() => chooseMode("ingredients")}>Ajustar ingredientes</button>}
     </section>}
     {mode === "label" && <>

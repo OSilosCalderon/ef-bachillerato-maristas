@@ -10,6 +10,11 @@ export const sa3FoodSources = [
     use: "Energía, proteínas, hidratos y grasas por 100 g de porción comestible. Datos de Public Health England, © Crown copyright 2021.",
   },
   {
+    title: "Anses · Tabla de composición nutricional Ciqual 2025",
+    url: "https://doi.org/10.57745/RDMHWY",
+    use: "Valores por 100 g para ampliar el catálogo a partir del listado del Grupo Actitudes, de José Luis Álvarez Sánchez y Ángel Pérez-Pueyo. Las fichas de productos concretos muestran su referencia de etiqueta.",
+  },
+  {
     title: "FAO/INFOODS · Base de densidades",
     url: "https://www.fao.org/4/ap815e/ap815e.pdf",
     use: "Conversión aproximada de ml a g para las bebidas y el aceite del catálogo.",
