@@ -8,7 +8,7 @@ const { renderToStaticMarkup } = require('react-dom/server');
 function load(file, imports = {}) {
   const module = { exports: {} };
   const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2020 } }).outputText;
-  vm.runInNewContext(code, { module, exports: module.exports, require: name => Object.hasOwn(imports, name) ? imports[name] : require(name), Intl, Date, Response, Uint8Array, atob, crypto: require('node:crypto').webcrypto });
+  vm.runInNewContext(code, { module, exports: module.exports, require: name => Object.hasOwn(imports, name) ? imports[name] : require(name), Intl, Date, Error, Response, Uint8Array, atob, crypto: require('node:crypto').webcrypto });
   return module.exports;
 }
 
@@ -87,10 +87,28 @@ const client = { from(table) {
     range(start, end) { range = [start, end]; return query; },
     single() { single = true; return query; },
     maybeSingle() { single = true; return query; },
-    upsert(value, options) { write = { value, keys: options.onConflict.split(',') }; return query; },
+    upsert(value, options) { write = { value, keys: options.onConflict.split(','), defaultToNull: options.defaultToNull }; return query; },
     then(resolve, reject) {
       if (failureTable === table) return Promise.resolve({ data: null, error: { message: 'Test read/write failure' } }).then(resolve, reject);
       if (write) {
+        if (Array.isArray(write.value)) {
+          assert.equal(write.defaultToNull, false, 'New grades use the comment column default.');
+          assert.ok(write.value.every(row => !Object.hasOwn(row, 'comment')), 'Score-only updates must leave existing comments intact.');
+          const allowed = write.value.every(row => {
+            const student = tables.students.find(value => value.id === row.student_id);
+            const gradeItem = tables.assessment_grade_items.find(value => value.id === row.item_id);
+            return student?.active && gradeItem?.course_id === student.course_id && tables.courses.some(course => course.id === student.course_id && course.is_active);
+          });
+          if (!allowed) return Promise.resolve({ data: null, error: { code: '42501' } }).then(resolve, reject);
+          const data = write.value.map(value => {
+            const existing = tables[table].find(row => write.keys.every(key => row[key] === value[key]));
+            if (existing) { Object.assign(existing, value); return { ...existing }; }
+            const added = { id: `new-grade-${tables[table].length}`, comment: '', ...value };
+            tables[table].push(added);
+            return added;
+          });
+          return Promise.resolve({ data, error: null }).then(resolve, reject);
+        }
         const existing = tables[table].find(row => write.keys.every(key => row[key] === write.value[key]));
         if (existing) Object.assign(existing, write.value);
         else tables[table].push({ id: 'new-grade', ...write.value });
@@ -198,6 +216,7 @@ const links = { 'next/link': { __esModule: true, default: ({ href, children, pre
   await assert.rejects(() => loaders.loadSecondYearStudentWork(a), /FORBIDDEN/);
   await assert.rejects(() => pdfFor(a), /FORBIDDEN/);
   await assert.rejects(() => actions.publishAssessmentGrade({ studentId: a, itemId: item, score: 8.5, comment: '' }), /FORBIDDEN/);
+  await assert.rejects(() => actions.publishAssessmentScores([{ studentId: a, itemId: item, score: 8.5 }]), /FORBIDDEN/);
   assert.equal(queries, beforeDenied, 'Role checks precede database access.');
 
   actor = { id: `profile-${first}`, role: 'student' };
@@ -331,6 +350,7 @@ const links = { 'next/link': { __esModule: true, default: ({ href, children, pre
   let refreshes = 0;
   const gradingUi = load('components/teacher-gradebook.tsx', {
     ...hooks, '@/lib/gradebook': grades, '@/lib/teacher-session-grading': grading, '@/app/profesor/calificaciones/actions': actions,
+    '@/components/teacher-grade-grid': { TeacherGradeGrid: 'teacher-grade-grid' },
     'next/navigation': { useRouter: () => ({ refresh: () => refreshes++ }) },
   });
   const renderGrading = () => { cursor = 0; return nodes(gradingUi.TeacherGradebook({ data: gradingData, year: 2, initialStudentId: a })); };
@@ -348,7 +368,37 @@ const links = { 'next/link': { __esModule: true, default: ({ href, children, pre
   assert.equal(publication().props.grade.score, 9.5, 'A newer grade must be shown after refreshing the server data.');
   renderGrading().find(node => node.type === 'button' && node.props.children === 'Actualizar calificaciones').props.onClick();
   assert.equal(refreshes, 1, 'Manual refresh must update data in the current view.');
+  renderGrading().find(node => node.type === 'button' && node.props.children === 'Cuaderno de notas').props.onClick();
+  const grid = renderGrading().find(node => node.type === 'teacher-grade-grid').props;
+  assert.deepEqual(Array.from(grid.students, student => student.id), [b], 'The table shares the group filter.');
+  assert.equal(grid.situation, '', 'The table initially includes all situations.');
+  assert.equal(grid.grades.get(grades.assessmentGradeKey(b, item)).score, 9.5);
+  assert.equal((await renderPage(gradebookPage, { curso: '1', vista: 'cuaderno' })).props.children.props.initialGrid, true);
   console.log('Grading revalidation: stable pupil and session views, direct links, preserved filters and fresh publications passed.');
+
+  actor = { id: teacher, role: 'teacher' };
+  const extraItem = id(19);
+  tables.assessment_grade_items.push({ id: extraItem, course_id: c2, sa_code: 'SA2', item_key: 'test-grid', title: 'Rúbrica de prueba', position: 2 });
+  const publishedGrid = await actions.publishAssessmentScores([
+    { studentId: a, itemId: item, score: 0 }, { studentId: b, itemId: extraItem, score: 8.5 },
+  ]);
+  assert.equal(publishedGrid.error, null);
+  assert.equal(publishedGrid.grades.length, 2);
+  assert.equal(publishedGrid.grades.find(grade => grade.student_id === a).comment, 'Nota corregida');
+  assert.equal(publishedGrid.grades.find(grade => grade.student_id === a).score, 0);
+  assert.equal(publishedGrid.grades.find(grade => grade.student_id === b).comment, '');
+  const beforeBulkFailure = JSON.stringify(tables.student_assessment_grades);
+  const mixed = await actions.publishAssessmentScores([
+    { studentId: a, itemId: item, score: 10 }, { studentId: first, itemId: item, score: 7 },
+  ]);
+  assert.match(mixed.error, /curso activo/);
+  assert.equal(mixed.grades.length, 0);
+  assert.equal(JSON.stringify(tables.student_assessment_grades), beforeBulkFailure, 'A rejected batch cannot update its other marks.');
+  const beforeBadInput = queries;
+  assert.match((await actions.publishAssessmentScores([{ studentId: a, itemId: item, score: 8.55 }])).error, /una décima/);
+  assert.match((await actions.publishAssessmentScores([{ studentId: a, itemId: item, score: 0 }, { studentId: a, itemId: item, score: 1 }])).error, /misma casilla/);
+  assert.equal(queries, beforeBadInput, 'Invalid and duplicate changes must be rejected before database access.');
+  console.log('Grade grid: scoped rows, all situations, atomic batch validation, decimals and published comments passed.');
   assert.ok(!editRender().some(node => node.type === 'session-form'), 'A confirmed update closes its editor.');
   console.log('Second-year grades: role/course isolation, shared pupil view, existing-mark and session corrections, peer preservation, cache invalidation and read/write failures passed.');
   console.log('Teacher UI handlers: group/accent-insensitive name filters, published values, cancellation and confirmed instrument/session updates passed.');

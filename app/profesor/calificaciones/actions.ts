@@ -3,7 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
-import { validateGradePublication, type AssessmentGradeItem, type PublishedAssessmentGrade } from "@/lib/gradebook";
+import {
+  assessmentGradeKey, validateGradePublication,
+  type AssessmentGradeItem, type AssessmentScoreChange, type PublishedAssessmentGrade,
+} from "@/lib/gradebook";
 
 export async function publishAssessmentGrade(input:{studentId:string;itemId:string;score:number;comment:string}):Promise<PublishedAssessmentGrade> {
   const teacher=await requireRole("teacher");
@@ -24,6 +27,64 @@ export async function publishAssessmentGrade(input:{studentId:string;itemId:stri
     revalidatePath("/alumno/calificaciones");
   }
   return {...data,score:Number(data.score)} as PublishedAssessmentGrade;
+}
+
+export async function publishAssessmentScores(input: AssessmentScoreChange[]): Promise<{ grades: PublishedAssessmentGrade[]; error: string | null }> {
+  const teacher = await requireRole("teacher");
+  if (!Array.isArray(input) || input.length === 0) return { grades: [], error: "Introduce alguna nota para publicar." };
+
+  const publishedAt = new Date().toISOString();
+  let scores;
+  try {
+    scores = input.map((change) => {
+      const value = validateGradePublication({ ...change, comment: "" });
+      return {
+        student_id: value.studentId.toLowerCase(), item_id: value.itemId.toLowerCase(),
+        score: value.score, teacher_id: teacher.id, published_at: publishedAt,
+      };
+    });
+  } catch (cause) {
+    return { grades: [], error: cause instanceof Error ? cause.message : "Revisa las notas introducidas." };
+  }
+  const keys = scores.map((score) => assessmentGradeKey(score.student_id, score.item_id));
+  if (new Set(keys).size !== scores.length) return { grades: [], error: "Hay más de un cambio para la misma casilla." };
+  scores.sort((a, b) => assessmentGradeKey(a.student_id, a.item_id).localeCompare(assessmentGradeKey(b.student_id, b.item_id)));
+
+  const supabase = await createClient();
+  const grades: PublishedAssessmentGrade[] = [];
+  let error: string | null = null;
+  // PostgREST caps returned rows. Keep the confirmed receipts even if a later batch fails.
+  const batchSize = 500;
+  for (let start = 0; start < scores.length; start += batchSize) {
+    const batch = scores.slice(start, start + batchSize);
+    try {
+      // Omit comment so updates preserve it and inserts use the column default. RLS checks the active course for each pair.
+      const result = await supabase.from("student_assessment_grades")
+        .upsert(batch, { onConflict: "student_id,item_id", defaultToNull: false })
+        .select("id,student_id,item_id,score,comment,published_at");
+      const received = new Map((result.data ?? []).map((grade) => [assessmentGradeKey(grade.student_id, grade.item_id), grade]));
+      if (result.error || received.size !== batch.length || batch.some((score) => {
+        const grade = received.get(assessmentGradeKey(score.student_id, score.item_id));
+        return !grade || Number(grade.score) !== score.score;
+      })) {
+        error = result.error?.code === "42501"
+          ? "Revisa que el alumnado y los instrumentos pertenezcan al mismo curso activo."
+          : "No se han podido confirmar todas las notas. Vuelve a publicar las pendientes.";
+        break;
+      }
+      grades.push(...[...received.values()].map((grade) => ({ ...grade, score: Number(grade.score) })));
+    } catch {
+      error = "No se han podido confirmar todas las notas. Vuelve a publicar las pendientes.";
+      break;
+    }
+  }
+
+  if (grades.length) {
+    revalidatePath("/alumno/calificaciones");
+    revalidatePath("/profesor/2bach/notas");
+    revalidatePath("/profesor/2bach/notas/[id]", "page");
+  }
+  return { grades, error };
 }
 
 export async function addAssessmentGradeItem(input:{courseId:string;saCode:string;title:string}):Promise<AssessmentGradeItem> {
