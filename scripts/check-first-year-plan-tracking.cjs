@@ -11,7 +11,7 @@ for (const group of ['1ºA','1ºB']) {
  const slots=helper.teacherSessionSlots([], 'a', [{studentId:'a',number:2,score:0,comment:'Ausencia de prueba',absent:true}],1,group);
  assert.equal(slots.length,8);assert.equal(slots[0].planned.date,'2026-10-26');assert.equal(slots[7].planned.date,'2026-11-23');
  assert.equal(slots[1].planned.date,group==='1ºA'?'2026-10-29':'2026-10-30');assert.equal(slots[1].evaluation.score,0);assert.equal(slots[1].record,null);
- const ui=load('components/teacher-session-grading.tsx',{'@/app/profesor/actions':{}});
+ const ui=load('components/teacher-session-grading.tsx',{'@/app/profesor/actions':{},'@/app/profesor/calificar-sesiones/actions':{}});
  const html=renderToStaticMarkup(React.createElement(ui.TeacherSessionGrading,{courseYear:1,data:{students:[{id:'a',name:'Alumno de prueba',group}],activities:[],sessionEvaluations:[{studentId:'a',number:2,score:0,comment:'Ausencia de prueba',absent:true}]}}));
  assert.equal((html.match(/aria-label="Calificar sesión \d+"/g)||[]).length,8);assert.ok(html.includes('0/8 sesiones registradas'));assert.ok(html.includes('1/8 calificadas'));assert.ok(html.includes('AUSENCIA'));assert.ok(!html.includes('sesion-9'));
 }
@@ -27,9 +27,9 @@ assert.equal(result[0].state,'pending');assert.equal(result[0].evaluation.score,
 {
  let state=[],cursor=0,url='',refreshUrl='';
  const browser={history:{replaceState(_a,_b,value){url=value;}},location:{assign(value){refreshUrl=value;}}};
- const hooks={useState(initial){const i=cursor++;if(!(i in state))state[i]=typeof initial==='function'?initial():initial;return [state[i],value=>{state[i]=typeof value==='function'?value(state[i]):value;}];}};
+ const hooks={useState(initial){const i=cursor++;if(!(i in state))state[i]=typeof initial==='function'?initial():initial;return [state[i],value=>{state[i]=typeof value==='function'?value(state[i]):value;}];},useMemo:fn=>fn()};
  const jsx={jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props}),Fragment:'fragment'};
- const ui=load('components/teacher-session-grading.tsx',{'react':hooks,'react/jsx-runtime':jsx,'@/app/profesor/actions':{}},browser);
+ const ui=load('components/teacher-session-grading.tsx',{'react':hooks,'react/jsx-runtime':jsx,'@/app/profesor/actions':{},'@/app/profesor/calificar-sesiones/actions':{}},browser);
  const data={students:[{id:'a',name:'Alumno A',group:'1ºA'},{id:'b',name:'Alumno B',group:'1ºB Bachillerato'}],activities:[],sessionEvaluations:[{studentId:'a',number:1,score:8,comment:'Comentario A'},{studentId:'b',number:1,score:5,comment:'Comentario B'}]};
  const original=JSON.stringify(data);
  const nodes=n=>Array.isArray(n)?n.flatMap(nodes):n&&typeof n==='object'?[n,...nodes(n.props?.children)]:[];
@@ -47,7 +47,7 @@ assert.equal(result[0].state,'pending');assert.equal(result[0].evaluation.score,
  select(tree,'Grupo para calificar').props.onChange({target:{value:'1ºA Bachillerato'}});tree=render();assert.equal(tree.find(n=>n.props?.sessionNumber===1&&typeof n.props.onSaved==='function').props.initialScore,8.5,'Switching back keeps the confirmed mark.');
  assert.equal(JSON.stringify(data),original,'Filtering must not mutate any pupil records.');
  state=[];tree=render({data:{...data,students:[data.students[0]]},initialGroup:'1ºB'});assert.equal(select(tree,'Alumno para calificar').props.disabled,true);assert.equal(tree.filter(n=>typeof n.props?.onSaved==='function').length,0,'An empty class must not show forms for another class.');
- state=[];tree=render({courseYear:2});assert.equal(select(tree,'Grupo para calificar'),undefined,'Second-year grading is unchanged.');
+ state=[];tree=render({courseYear:2,initialGroup:undefined,data:{...data,students:data.students.map(student=>({...student,group:'2º Bachillerato'}))}});assert.equal(select(tree,'Grupo para calificar'),undefined,'A course with one group does not need a group selector.');
  console.log('First-year grading filter: A/B isolation, actual grading target, retained marks, empty class and refresh URL passed.');
 }
 
