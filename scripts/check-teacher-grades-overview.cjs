@@ -351,6 +351,7 @@ const links = { 'next/link': { __esModule: true, default: ({ href, children, pre
   const gradingUi = load('components/teacher-gradebook.tsx', {
     ...hooks, '@/lib/gradebook': grades, '@/lib/teacher-session-grading': grading, '@/app/profesor/calificaciones/actions': actions,
     '@/components/teacher-grade-grid': { TeacherGradeGrid: 'teacher-grade-grid' },
+    '@/components/teacher-final-grade-table': { TeacherFinalGradeTable: 'final-grade-table' },
     'next/navigation': { useRouter: () => ({ refresh: () => refreshes++ }) },
   });
   const renderGrading = () => { cursor = 0; return nodes(gradingUi.TeacherGradebook({ data: gradingData, year: 2, initialStudentId: a })); };
@@ -373,7 +374,15 @@ const links = { 'next/link': { __esModule: true, default: ({ href, children, pre
   assert.deepEqual(Array.from(grid.students, student => student.id), [b], 'The table shares the group filter.');
   assert.equal(grid.situation, '', 'The table initially includes all situations.');
   assert.equal(grid.grades.get(grades.assessmentGradeKey(b, item)).score, 9.5);
-  assert.equal((await renderPage(gradebookPage, { curso: '1', vista: 'cuaderno' })).props.children.props.initialGrid, true);
+  assert.equal((await renderPage(gradebookPage, { curso: '1', vista: 'cuaderno' })).props.children.props.initialView, 'cuaderno');
+  assert.equal((await renderPage(gradebookPage, { curso: '2', vista: 'finales' })).props.children.props.initialView, 'finales');
+  assert.equal((await renderPage(gradebookPage, { curso: '1', vista: 'finales' })).props.children.props.initialView, 'alumno');
+  grid.onPublished([{ ...savedMark, score: 7.5, published_at: '2026-11-02T10:04:00Z' }]);
+  renderGrading().find(node => node.type === 'button' && node.props.children === 'Notas finales').props.onClick();
+  const finals = renderGrading().find(node => node.type === 'final-grade-table').props;
+  assert.deepEqual(Array.from(finals.students, student => student.id), [b], 'The final grades share the group filter.');
+  assert.equal(finals.grades.get(grades.assessmentGradeKey(b, item)).score, 7.5, 'The final grades use the last confirmed publication.');
+  assert.equal(gradingSelects().length, 2, 'Both situations contribute to the averages.');
   console.log('Grading revalidation: stable pupil and session views, direct links, preserved filters and fresh publications passed.');
 
   actor = { id: teacher, role: 'teacher' };
