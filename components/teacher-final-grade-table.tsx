@@ -13,14 +13,14 @@ export function TeacherFinalGradeTable({ students, items, grades }: {
 
   return <section className="card min-w-0 overflow-hidden" aria-labelledby="final-grade-heading">
     <div className="border-b border-slate-200 p-4 sm:p-5">
-      <h2 id="final-grade-heading" className="text-xl font-extrabold text-slate-950">Notas finales por bloques</h2>
+      <h2 id="final-grade-heading" className="text-xl font-extrabold text-slate-950">Notas finales por bloques del 1.º trimestre</h2>
       <p id="final-grade-help" className="mt-2 text-sm leading-6 text-slate-600">
         La media aparece cuando están publicadas todas las notas del bloque. Abre una casilla para ver el detalle.
         El cuestionario de SA2 queda fuera del cálculo.
       </p>
     </div>
     {rows.length > 0 ? (
-      <div role="region" aria-label="Tabla de notas finales" aria-describedby="final-grade-help" tabIndex={0}
+      <div role="region" aria-label="Tabla de notas finales del 1.º trimestre" aria-describedby="final-grade-help" tabIndex={0}
         className="max-h-[65vh] overflow-auto focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-emerald-700">
         <table className="w-full min-w-[44rem] border-separate border-spacing-0 text-left text-sm">
           <thead className="sticky top-0 z-20 bg-slate-50 text-slate-950">
