@@ -28,6 +28,41 @@ assert.throws(()=>validateGradePublication({...valid,itemId:''}));
 assert.throws(()=>validateGradePublication({...valid,comment:'a'.repeat(501)}));
 console.log('Gradebook: student/course isolation, private comments, pending versus zero, stable order, decimal limits and publication input passed.');
 
+const finalModule = { exports: {} };
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/second-year-final-grades.ts', 'utf8'), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS },
+}).outputText, {
+  module: finalModule, exports: finalModule.exports,
+  require: name => { assert.equal(name, './gradebook'); return moduleObject.exports; },
+});
+const { secondYearFinalGrades } = finalModule.exports;
+const { indexAssessmentGrades } = moduleObject.exports;
+const blockInstruments = [
+  ['SA1', 'initial-assessment', 0], ['SA2', 'final-physical-tests', 7.5],
+  ['SA1', 'questionnaire-completion', 7.4], ['SA1', 'theory-self-assessment', 8.5], ['SA2', 'theory-self-assessment', 6.5],
+  ['SA1', 'personal-plan', 9.3], ['SA2', 'session-follow-up', 5.5], ['SA2', 'final-physical-reflection', 8.4],
+  ['SA2', 'final-questionnaire-completion', 0],
+];
+const blockItems = blockInstruments.map(([sa_code, item_key], index) => ({ id: 'instrument-' + index, course_id: 'second', sa_code, item_key }));
+const blockGrades = blockInstruments.map(([, , score], index) => ({
+  student_id: studentId, item_id: blockItems[index].id, score, published_at: '2026-11-15T09:00:00Z',
+}));
+const resultsFor = (notes) => secondYearFinalGrades(
+  [{ id: studentId, courseId: 'second' }, { id: otherStudent, courseId: 'second' }],
+  [...blockItems, { ...blockItems[6], course_id: 'first', id: 'first-year-follow-up' }],
+  indexAssessmentGrades(notes),
+);
+const [complete, empty] = resultsFor([...blockGrades, { ...blockGrades[6], item_id: 'first-year-follow-up', score: 10 }]);
+assert.deepEqual(Array.from(complete.blocks, block => block.score.toFixed(2)), ['3.75', '7.47', '7.98']);
+assert.deepEqual(Array.from(complete.blocks, block => block.published), [2, 3, 3], 'Zero counts and the SA2 questionnaire is excluded.');
+assert.ok(empty.blocks.every(block => block.score === null && block.published === 0), 'Avoid borrowing another student’s notes.');
+const [pending] = resultsFor(blockGrades.filter(grade => grade.item_id !== blockItems[6].id));
+assert.equal(pending.blocks[2].score, null, 'A missing mark leaves the weighted block pending.');
+assert.equal(pending.blocks[2].published, 2);
+const [updatedBlock] = resultsFor([...blockGrades, { ...blockGrades[1], score: 10, published_at: '2026-11-15T10:00:00Z' }]);
+assert.equal(updatedBlock.blocks[0].score, 5);
+console.log('Final grade blocks: means, 50/30/20 weighting, course and student isolation, omitted SA2 questionnaire, zero and missing marks passed.');
+
 // Render the actual pupil page with controlled data, without storing real marks.
 const path=require('node:path');
 const Module=require('node:module');

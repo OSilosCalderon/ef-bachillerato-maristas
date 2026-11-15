@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { addAssessmentGradeItem, publishAssessmentGrade } from "@/app/profesor/calificaciones/actions";
+import { TeacherFinalGradeTable } from "@/components/teacher-final-grade-table";
 import { TeacherGradeGrid, type GradeGridDrafts } from "@/components/teacher-grade-grid";
 import { formatGrade, formatPublication, gradesForStudent, indexAssessmentGrades, type AssessmentGradeItem, type GradebookData, type PublishedAssessmentGrade } from "@/lib/gradebook";
 import { parseTeacherSessionScore } from "@/lib/teacher-session-grading";
@@ -42,9 +43,23 @@ export function GradePublicationForm({item,studentId,grade,onPublished,embedded=
   </article>;
 }
 
-export function TeacherGradebook({data,year,initialStudentId,initialSituation,initialGrid=false}:{data:GradebookData;year:1|2;initialStudentId?:string;initialSituation?:string;initialGrid?:boolean}) {
+const gradebookViews = [
+  { id: "alumno", label: "Por alumno" },
+  { id: "cuaderno", label: "Cuaderno de notas" },
+  { id: "finales", label: "Notas finales" },
+] as const;
+
+export function TeacherGradebook({ data, year, initialStudentId, initialSituation, initialView = "alumno" }: {
+  data: GradebookData;
+  year: 1 | 2;
+  initialStudentId?: string;
+  initialSituation?: string;
+  initialView?: typeof gradebookViews[number]["id"];
+}) {
   const router=useRouter();
-  const [grid,setGrid]=useState(initialGrid);
+  const [view, setView] = useState(initialView);
+  const grid = view === "cuaderno";
+  const individual = view === "alumno";
   const [gridSituation,setGridSituation]=useState("");
   const [drafts,setDrafts]=useState<GradeGridDrafts>({});
   const [gridSaving,setGridSaving]=useState(false);
@@ -68,7 +83,7 @@ export function TeacherGradebook({data,year,initialStudentId,initialSituation,in
 
   function chooseCourse(next: string) {
     if (Object.keys(drafts).length && !window.confirm("¿Cambiar de curso y descartar las notas pendientes de publicar?")) return;
-    router.push(`/profesor/calificaciones?curso=${next}${grid ? "&vista=cuaderno" : ""}`);
+    router.push(`/profesor/calificaciones?curso=${next}${individual ? "" : "&vista=cuaderno"}`);
   }
 
   function recordPublications(values: PublishedAssessmentGrade[]) {
@@ -87,28 +102,31 @@ export function TeacherGradebook({data,year,initialStudentId,initialSituation,in
         <button type="button" onClick={() => router.refresh()} disabled={gridSaving} className="rounded-xl border px-4 py-2 text-sm font-bold disabled:opacity-50">Actualizar calificaciones</button>
       </div>
       <div role="group" aria-label="Vista de calificaciones" className="mt-5 inline-flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1">
-        <button type="button" aria-pressed={!grid} disabled={gridSaving} onClick={() => setGrid(false)} className="min-h-10 rounded-lg px-4 py-2 text-sm font-bold text-slate-700 aria-pressed:bg-white aria-pressed:text-[#164c3a] aria-pressed:shadow-sm">Por alumno</button>
-        <button type="button" aria-pressed={grid} disabled={gridSaving} onClick={() => setGrid(true)} className="min-h-10 rounded-lg px-4 py-2 text-sm font-bold text-slate-700 aria-pressed:bg-white aria-pressed:text-[#164c3a] aria-pressed:shadow-sm">Cuaderno de notas</button>
+        {gradebookViews.filter(({ id }) => year === 2 || id !== "finales").map(({ id, label }) => <button
+          key={id} type="button" aria-pressed={view === id} disabled={gridSaving} onClick={() => setView(id)}
+          className="min-h-10 rounded-lg px-4 py-2 text-sm font-bold text-slate-700 aria-pressed:bg-white aria-pressed:text-[#164c3a] aria-pressed:shadow-sm">{label}</button>)}
       </div>
       <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <label className="text-sm font-bold">Curso<select value={year} disabled={gridSaving} onChange={(event) => chooseCourse(event.target.value)} className="mt-2 w-full rounded-xl border bg-white p-3"><option value="1">1º Bachillerato</option><option value="2">2º Bachillerato</option></select></label>
         <label className="text-sm font-bold">Grupo<select value={group} disabled={gridSaving} onChange={(event)=>{setGroup(event.target.value);setStudentId("");}} className="mt-2 w-full rounded-xl border bg-white p-3"><option value="">Todos los grupos</option>{groups.map((value)=><option key={value}>{value}</option>)}</select></label>
-        {grid ? <label className="text-sm font-bold">Situación de aprendizaje
+        {grid && <label className="text-sm font-bold">Situación de aprendizaje
           <select value={gridSituation} disabled={gridSaving} onChange={(event) => setGridSituation(event.target.value)} className="mt-2 w-full rounded-xl border bg-white p-3">
             <option value="">Todas las situaciones</option>
             {gridSituations.map((entry) => <option key={entry.code} value={entry.code}>{entry.code} · {entry.title}</option>)}
           </select>
-        </label> : <>
+        </label>}
+        {individual && <>
           <label className="text-sm font-bold">Alumno para calificar<select value={student?.id ?? ""} onChange={(event)=>setStudentId(event.target.value)} className="mt-2 w-full rounded-xl border border-emerald-600 bg-emerald-50 p-3">{students.map((entry)=><option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
           <label className="text-sm font-bold">Situación de aprendizaje<select value={sa} onChange={(event)=>{setSa(event.target.value);setItemError("");}} className="mt-2 w-full rounded-xl border bg-white p-3">{situations.map((entry)=><option key={`${entry.courseId}-${entry.code}`} value={entry.code}>{entry.code} · {entry.title}</option>)}</select></label>
         </>}
       </div>
-      {!grid && student && <p className="mt-4 text-sm font-semibold text-[#164c3a]">{student.name} · {sa} · {published}/{entries.length} calificaciones publicadas</p>}
-      {!grid && ((year===2 && sa==="SA2") || (year===1 && sa==="SA1")) && <Link href={`/profesor/calificar-sesiones?curso=${year}${student?`&alumno=${student.id}`:""}`} className="mt-4 inline-block rounded-xl border border-emerald-600 px-4 py-2 text-sm font-bold text-[#164c3a]">Abrir calificaciones de cada sesión</Link>}
+      {individual && student && <p className="mt-4 text-sm font-semibold text-[#164c3a]">{student.name} · {sa} · {published}/{entries.length} calificaciones publicadas</p>}
+      {individual && ((year===2 && sa==="SA2") || (year===1 && sa==="SA1")) && <Link href={`/profesor/calificar-sesiones?curso=${year}${student?`&alumno=${student.id}`:""}`} className="mt-4 inline-block rounded-xl border border-emerald-600 px-4 py-2 text-sm font-bold text-[#164c3a]">Abrir calificaciones de cada sesión</Link>}
     </section>
     {grid && <TeacherGradeGrid students={students} items={items} grades={grades} situation={gridSituation}
       drafts={drafts} setDrafts={setDrafts} saving={gridSaving} setSaving={setGridSaving} onPublished={recordPublications}/>}
-    <div hidden={grid} className="space-y-5">
+    {year === 2 && view === "finales" && <TeacherFinalGradeTable students={students} items={items} grades={grades}/>}
+    <div hidden={!individual} className="space-y-5">
       <section aria-label="Instrumentos para calificar" className="grid gap-4 xl:grid-cols-2">{student && entries.map(({item,grade})=><GradePublicationForm key={`${student.id}-${item.id}`} item={item} studentId={student.id} grade={grade} onPublished={(value)=>recordPublications([value])}/>)}</section>
       {student && !entries.length && <p className="card p-5 text-sm text-slate-600">Todavía no hay instrumentos de calificación configurados en esta situación. Puedes añadirlos a continuación.</p>}
       {student && <details className="card p-5"><summary className="cursor-pointer font-bold">Añadir instrumento de evaluación a {sa}</summary><form onSubmit={(event)=>void addItem(event)} className="mt-4 flex flex-wrap items-end gap-3"><label className="min-w-0 flex-1 text-sm font-bold">Nombre del instrumento<input required maxLength={120} value={newTitle} onChange={(event)=>setNewTitle(event.target.value)} className="mt-2 w-full rounded-xl border p-3 font-normal" placeholder="Nombre del trabajo o prueba"/></label><button type="submit" disabled={adding} className="rounded-xl bg-[#1e6b4f] px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{adding?"Añadiendo…":"Añadir instrumento"}</button></form><p className="mt-2 text-xs text-slate-500">El instrumento estará disponible para todo el alumnado de este curso y situación.</p>{itemError && <p role="alert" className="mt-2 text-sm text-red-700">{itemError}</p>}</details>}
