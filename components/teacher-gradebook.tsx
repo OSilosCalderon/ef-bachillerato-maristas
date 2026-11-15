@@ -46,7 +46,7 @@ export function GradePublicationForm({item,studentId,grade,onPublished,embedded=
 const gradebookViews = [
   { id: "alumno", label: "Por alumno" },
   { id: "cuaderno", label: "Cuaderno de notas" },
-  { id: "finales", label: "Notas finales" },
+  { id: "finales", label: "Notas finales · 1.º trimestre" },
 ] as const;
 
 export function TeacherGradebook({ data, year, initialStudentId, initialSituation, initialView = "alumno" }: {

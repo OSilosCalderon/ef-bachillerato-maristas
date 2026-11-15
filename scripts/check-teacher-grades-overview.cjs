@@ -378,7 +378,7 @@ const links = { 'next/link': { __esModule: true, default: ({ href, children, pre
   assert.equal((await renderPage(gradebookPage, { curso: '2', vista: 'finales' })).props.children.props.initialView, 'finales');
   assert.equal((await renderPage(gradebookPage, { curso: '1', vista: 'finales' })).props.children.props.initialView, 'alumno');
   grid.onPublished([{ ...savedMark, score: 7.5, published_at: '2026-11-02T10:04:00Z' }]);
-  renderGrading().find(node => node.type === 'button' && node.props.children === 'Notas finales').props.onClick();
+  renderGrading().find(node => node.type === 'button' && node.props.children === 'Notas finales · 1.º trimestre').props.onClick();
   const finals = renderGrading().find(node => node.type === 'final-grade-table').props;
   assert.deepEqual(Array.from(finals.students, student => student.id), [b], 'The final grades share the group filter.');
   assert.equal(finals.grades.get(grades.assessmentGradeKey(b, item)).score, 7.5, 'The final grades use the last confirmed publication.');
