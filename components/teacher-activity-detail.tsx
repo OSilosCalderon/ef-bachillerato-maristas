@@ -9,6 +9,8 @@ teacherActivityLabels.personal_learning = "Aprendizajes y sensaciones";
 teacherActivityLabels.future_motivation = "Motivaciones y acciones de futuro";
 teacherActivityLabels.course_year = "Curso de Bachillerato";
 teacherActivityLabels.sa_code = "Situación de aprendizaje";
+teacherActivityLabels.activity_high_days = "Días de mayor gasto";
+teacherActivityLabels.activity_low_days = "Días de menor gasto";
 
 teacherActivityLabels.teacher_score = "Calificación del profesor (0–10)";
 teacherActivityLabels.teacher_absent = "AUSENCIA";

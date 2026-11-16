@@ -7,6 +7,7 @@ import { flexibilityTheoryTopic } from "@/lib/training-theory-flexibility";
 import { secondYearTheoryTopics } from "@/lib/second-year-theory-topics";
 import { FIRST_YEAR_PLAN_SESSIONS } from "@/lib/first-year-personal-plan-calendar";
 import { SECOND_YEAR_PLAN_SESSIONS } from "@/lib/second-year-personal-plan-calendar";
+import { activityDayNames, foodHabitRecord, habitLabel, hasOtherHabitPlan, hasOtherHabitWeek, readActivityDays } from "@/lib/sa3-habits-types";
 import type { ExpectedTeacherInstrument, ActivityCategory, TeacherActivity, TeacherActivityData } from "@/lib/teacher-activity";
 
 type Row = Record<string, unknown>;
@@ -235,8 +236,32 @@ export async function loadTeacherActivity(year: 1 | 2, work?: SecondYearWorkView
     const content = contents.find((entry) => entry.id === row.content_id);
     if (content) add(row, "theory", str(content.title), saForStudent(row, content.learning_situation_id));
   }
-  for (const row of table.healthy_habit_plans) add({ ...row, _kind: "habit-plan" }, "habits", str(row.focus_habit) || "Plan de hábitos", str(row.sa_code));
-  for (const row of table.healthy_habit_weekly_logs) add({ ...row, _kind: "habit-week" }, "habits", `Seguimiento de hábitos · semana ${row.week_number}`, str(row.sa_code));
+  for (const row of table.healthy_habit_plans) {
+    const label = habitLabel(str(row.focus_habit));
+    const legacy: Row = { ...row, _kind: "habit-plan", focus_habit: label };
+    delete legacy.food_habit;
+    if (hasOtherHabitPlan(row)) add(legacy, "habits", label || "Plan de hábitos", str(row.sa_code));
+    const food = foodHabitRecord(row);
+    if (!food || row.course_id !== studentCourses.get(str(row.student_id))) continue;
+    const { activity_days, ...plan } = food;
+    const days = readActivityDays(activity_days);
+    add({
+      ...plan, id: str(row.id) + "-alimentacion", student_id: row.student_id, course_id: row.course_id,
+      _kind: "habit-plan", focus_habit: habitLabel(str(food.focus_habit)),
+      activity_high_days: activityDayNames(days, "mas"), activity_low_days: activityDayNames(days, "menos"),
+    }, "habits", "Reto de alimentación", str(row.sa_code));
+  }
+  for (const row of table.healthy_habit_weekly_logs) {
+    const legacy: Row = { ...row, _kind: "habit-week" };
+    delete legacy.food_habit;
+    if (hasOtherHabitWeek(row)) add(legacy, "habits", `Seguimiento de hábitos · semana ${row.week_number}`, str(row.sa_code));
+    const food = foodHabitRecord(row);
+    if (!food || row.course_id !== studentCourses.get(str(row.student_id))) continue;
+    add({
+      ...food, id: str(row.id) + "-alimentacion", student_id: row.student_id, course_id: row.course_id,
+      _kind: "habit-week", week_number: row.week_number,
+    }, "habits", `Seguimiento de alimentación · semana ${row.week_number}`, str(row.sa_code));
+  }
   for (const row of table.sports_event_projects) add(row, "projects", str(row.event_name) || "Proyecto deportivo", str(row.sa_code));
   const assessmentItems = assessmentItemRows.map((row) => ({id:str(row.id),course_id:str(row.course_id),sa_code:str(row.sa_code),item_key:str(row.item_key),title:str(row.title),position:Number(row.position)}));
   const itemIds = new Set(assessmentItems.map((item) => item.id));

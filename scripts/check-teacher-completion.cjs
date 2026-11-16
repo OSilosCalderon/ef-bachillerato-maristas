@@ -76,6 +76,10 @@ const tables={
   theory_challenge_topics:[{slug:'topic-2',title:'Cargas',sa_code:'SA2',course_year:2}],
   class_sessions:[],
   physical_final_reflections:[{id:'reflection-2',student_id:'a',course_id:'c2',course_year:2,sa_code:'SA2',status:'submitted',results_analysis:'Comparación propia',goal_review:'Objetivo logrado',personal_learning:'Conclusiones',future_motivation:'Seguir nadando'}],
+  healthy_habit_plans:[{id:'habit',student_id:'a',course_id:'c2',sa_code:'SA3',focus_habit:'sueno',status:'active',objective:'Preparar el descanso',
+    food_habit:{focus_habit:'alimentacion',status:'active',objective:'Preparar la merienda',activity_days:{lunes:'mas',sabado:'menos'}}}],
+  healthy_habit_weekly_logs:[{id:'week',student_id:'a',course_id:'c2',sa_code:'SA3',week_number:1,reflection:'',
+    food_habit:{reflection:'Preparé la merienda',goal_completion:80}}],
 };
 const client={from(table){let filters=[],start=0,end=999;const query={select(){return query;},order(){return query;},range(a,b){start=a;end=b;return query;},eq(key,value){filters.push(row=>row[key]===value);return query;},in(key,values){filters.push(row=>values.map(String).includes(String(row[key])));return query;},then(resolve,reject){return Promise.resolve({data:(tables[table]||[]).filter(row=>filters.every(filter=>filter(row))).slice(start,end+1),error:null}).then(resolve,reject);}};return query;}};
 const loader=load('lib/teacher-activity-server.ts',{
@@ -84,6 +88,7 @@ const loader=load('lib/teacher-activity-server.ts',{
   '@/lib/training-theory-topics':{trainingTheoryTopics:[{slug:'topic-1',title:'Primer tema'}]},'@/lib/training-theory-flexibility':{flexibilityTheoryTopic:{slug:'flex',title:'Flexibilidad'}},
   '@/lib/second-year-theory-topics':{secondYearTheoryTopics:[{slug:'topic-2',title:'Cargas',sa:'SA2'}]},
   '@/lib/first-year-personal-plan-calendar':load('lib/first-year-personal-plan-calendar.ts',{}),
+  '@/lib/sa3-habits-types':load('lib/sa3-habits-types.ts',{}),
   '@/lib/second-year-personal-plan-calendar':{SECOND_YEAR_PLAN_SESSIONS:Array.from({length:10},(_,index)=>({date:`2026-10-${13+index}`}))},
 });
 (async()=>{
@@ -93,6 +98,11 @@ const loader=load('lib/teacher-activity-server.ts',{
   assert.equal(second.activities.filter(row=>row.category==='reflections').length,1);
   assert.equal(second.activities.find(row=>row.category==='reflections').details.future_motivation,'Seguir nadando');
   assert.equal(second.activities.find(row=>row.category==='reflections').sa,'SA2');
+  const habits=second.activities.filter(row=>row.category==='habits');
+  assert.equal(habits.length,3,'The teacher sees both plans and only the saved type of weekly entry.');
+  assert.equal(habits.find(row=>row.title==='Reto de alimentación').details.activity_high_days,'lunes');
+  assert.equal(habits.find(row=>row.title==='Regularidad del sueño').details.food_habit,undefined);
+  assert.equal(habits.find(row=>row.details._kind==='habit-week').details.reflection,'Preparé la merienda');
   assert.equal(second.expectedInstruments.find(row=>row.category==='reflections').sa,'SA2');
   assert.equal(second.assessmentItems.length,1);assert.equal(second.assessmentItems[0].id,'block-2');
   assert.equal(second.assessmentGrades.length,1);assert.equal(second.assessmentGrades[0].score,0);assert.equal(second.assessmentGrades[0].comment,'Nota propia');

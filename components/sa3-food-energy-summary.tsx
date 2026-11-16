@@ -1,5 +1,6 @@
 import { foodMacroColors, foodNumber } from "@/components/sa3-food-estimate";
-import { foodMacroEnergy, foodMacronutrients, type summarizeFoodDay } from "@/lib/sa3-food-diary";
+import { foodMacroEnergy, foodMacronutrients } from "@/lib/sa3-food-diary";
+import type { summarizeFoodDay } from "@/lib/sa3-food-nutrition";
 
 type FoodDaySummary = ReturnType<typeof summarizeFoodDay>;
 
@@ -25,6 +26,9 @@ export function Sa3FoodEnergySummary({ summary, entryCount }: { summary: FoodDay
     <div className="p-5 sm:p-6">
       <h3 className="text-lg font-extrabold text-slate-950">Reparto de energía por macronutriente</h3>
       <p className="mt-1 text-sm text-slate-600">{summary.macroEntries} de {entryCount} entradas con datos de macronutrientes.</p>
+      {summary.manualEstimates > 0 && <p className="mt-1 text-xs text-slate-600">
+        {summary.manualEstimates === 1 ? "Incluye 1 registro manual estimado con el catálogo." : `Incluye ${summary.manualEstimates} registros manuales estimados con el catálogo.`}
+      </p>}
       {breakdown ? <div className="mt-4 flex flex-wrap items-center justify-center gap-4">
         <div className="relative grid h-32 w-32 shrink-0 place-items-center rounded-full bg-slate-100" style={{ background: ring }}>
           <div className="absolute inset-3.5 flex flex-col items-center justify-center rounded-full bg-white px-2 text-center">
@@ -42,13 +46,13 @@ export function Sa3FoodEnergySummary({ summary, entryCount }: { summary: FoodDay
           </div>)}
         </dl>
       </div> : <p className="mt-4 rounded-xl bg-slate-50 p-3 text-sm leading-6 text-slate-600">
-        {summary.macros ? "El reparto aparece cuando las entradas aportan energía de proteínas, hidratos o grasas." : "Añade una entrada del catálogo o por ingredientes para ver el reparto."}
+        {summary.macros ? "El reparto aparece cuando las entradas aportan energía de proteínas, hidratos o grasas." : "Añade un alimento del catálogo o completa una entrada manual con su ración y una referencia o los datos de la etiqueta."}
       </p>}
       <details className="mt-4 border-t border-slate-100 pt-3 text-xs leading-5 text-slate-600">
         <summary className="cursor-pointer font-bold text-[#164c3a]">Cómo se calcula el porcentaje</summary>
         <p className="mt-2">
           Multiplicamos los gramos por su aporte energético. {foodMacronutrients.map(({ label, kcalPerGram }) => label + " " + kcalPerGram + " kcal/g").join(" · ")}.
-          Cada porcentaje se calcula sobre la suma de esas tres aportaciones. El gráfico usa las entradas con los tres datos registrados.
+          Los porcentajes usan la suma de las tres aportaciones registradas o estimadas. El total de kcal de arriba conserva las cifras de las etiquetas cuando las has introducido.
         </p>
         <a href="https://eur-lex.europa.eu/legal-content/ES/TXT/?uri=CELEX:32011R1169" target="_blank" rel="noreferrer" className="mt-2 inline-block font-bold text-[#164c3a] underline">
           Reglamento (UE) 1169/2011 · Anexo XIV

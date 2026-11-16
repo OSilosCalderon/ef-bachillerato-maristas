@@ -145,6 +145,7 @@ const imports = {
 };
 imports['@/lib/teacher-activity-server'] = load('lib/teacher-activity-server.ts', {
   ...imports,
+  '@/lib/sa3-habits-types': load('lib/sa3-habits-types.ts'),
   '@/lib/class-groups': calendars['./class-groups'],
   '@/lib/first-year-personal-plan-calendar': calendars['./first-year-personal-plan-calendar'],
   '@/lib/second-year-personal-plan-calendar': calendars['./second-year-personal-plan-calendar'],

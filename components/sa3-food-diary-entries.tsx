@@ -1,8 +1,7 @@
 import { Apple, ChevronDown, Clock3, Coffee, Moon, Pencil, Sun, Trash2, Utensils } from "lucide-react";
 import { foodNumber, FoodMacros, Sa3FoodEstimateDetails } from "@/components/sa3-food-estimate";
-import {
-  displayFoodDay, foodEntryEnergy, foodEntryGroups, foodEntryValues, foodGroups, meals, type FoodEntry,
-} from "@/lib/sa3-food-diary";
+import { displayFoodDay, foodGroups, meals, type FoodEntry } from "@/lib/sa3-food-diary";
+import { foodEntryGroups, foodEntryNutrition } from "@/lib/sa3-food-nutrition";
 
 const mealIcons = {
   Desayuno: Coffee,
@@ -40,21 +39,20 @@ export function Sa3FoodDiaryEntries({ day, entries, editing, onEdit, onDelete }:
             </h4>
             <ul className="mt-2 space-y-2">
               {items.map((entry) => {
-                const values = foodEntryValues(entry);
-                const kcal = values?.kcal ?? foodEntryEnergy(entry);
-                const groupIds = foodEntryGroups(entry);
+                const { values, energy, quantity, unit, source, referenceName, estimate } = foodEntryNutrition(entry);
+                const groupIds = foodEntryGroups(entry, estimate);
                 const groups = foodGroups.filter((group) => groupIds.has(group.id));
                 return <li key={entry.id} className={`space-y-3 rounded-2xl border p-3.5 sm:p-4 ${editing === entry.id ? "border-emerald-400 bg-emerald-50/60" : "border-slate-200 bg-white"}`}>
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <p className="break-words text-base font-extrabold text-slate-950">{entry.name}</p>
                       <p className="mt-0.5 text-xs font-medium text-slate-600">
-                        {entry.quantity == null ? "Ración sin indicar" : foodNumber.format(entry.quantity) + " " + entry.unit}
+                        {quantity == null ? "Ración sin indicar" : foodNumber.format(quantity) + " " + unit}
                       </p>
                     </div>
                     <div className="rounded-xl bg-[#eaf4ef] px-3 py-1.5 text-right text-[#164c3a]">
-                      <p className="text-xs leading-4">{values ? "Energía estimada" : "Energía"}</p>
-                      <p className="font-black tabular-nums">{kcal == null ? "Sin dato" : foodNumber.format(kcal) + " kcal"}</p>
+                      <p className="text-xs leading-4">{entry.kcalPer100 != null ? "Energía de etiqueta" : "Energía estimada"}</p>
+                      <p className="font-black tabular-nums">{energy == null ? "Sin dato" : foodNumber.format(energy) + " kcal"}</p>
                     </div>
                   </div>
                   <ul className="flex flex-wrap gap-1.5" aria-label="Grupos de alimentos">
@@ -64,12 +62,15 @@ export function Sa3FoodDiaryEntries({ day, entries, editing, onEdit, onDelete }:
                   </ul>
                   {values && <FoodMacros values={values} highlight/>}
                   <div className="flex flex-wrap items-start justify-between gap-2 border-t border-slate-100 pt-2">
-                    {entry.estimate ? <details className="group min-w-0 grow rounded-lg text-xs text-slate-700">
+                    {estimate ? <details className="group min-w-0 grow rounded-lg text-xs text-slate-700">
                       <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1.5 font-bold text-[#164c3a] [&::-webkit-details-marker]:hidden">
-                        <ChevronDown size={16} aria-hidden="true" className="shrink-0 group-open:rotate-180"/>Ingredientes y aporte por grupo
+                        <ChevronDown size={16} aria-hidden="true" className="shrink-0 group-open:rotate-180"/>
+                        {source === "manual-reference" ? `Estimación por referencia · ${referenceName}` : "Ingredientes y aporte por grupo"}
                       </summary>
-                      <Sa3FoodEstimateDetails estimate={entry.estimate} showTotals={false}/>
-                    </details> : <p className="self-center text-xs leading-5 text-slate-600">Macronutrientes sin datos</p>}
+                      <Sa3FoodEstimateDetails estimate={estimate} showTotals={false}/>
+                    </details> : <p className="self-center text-xs leading-5 text-slate-600">
+                      {source === "label" ? "Macronutrientes de la etiqueta" : "Macronutrientes sin datos"}
+                    </p>}
                     <div className="ml-auto flex shrink-0 gap-1.5">
                       <button type="button" aria-label={"Editar " + entry.name} title="Editar" onClick={() => onEdit(entry)} className={action + " hover:border-emerald-300 hover:text-[#164c3a]"}><Pencil size={16} aria-hidden="true"/></button>
                       <button type="button" aria-label={"Eliminar " + entry.name} title="Eliminar" onClick={() => onDelete(entry)} className={action + " hover:border-rose-300 hover:text-rose-700"}><Trash2 size={16} aria-hidden="true"/></button>

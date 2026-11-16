@@ -26,7 +26,8 @@ export const maxRecipeIngredients = 15;
 export type FoodGroup = (typeof foodGroups)[number]["id"];
 export type FoodProcessing = (typeof processingGroups)[number]["id"];
 export type FoodUnit = "g" | "ml";
-export type FoodValues = { kcal: number; protein: number; carbs: number; fat: number };
+export type FoodMacroGrams = { protein: number; carbs: number; fat: number };
+export type FoodValues = FoodMacroGrams & { kcal: number };
 export const foodMacronutrients = [
   { key: "protein", label: "Proteínas", kcalPerGram: 4 },
   { key: "carbs", label: "Hidratos de carbono", kcalPerGram: 4 },
@@ -53,10 +54,14 @@ export type FoodEntry = {
   quantity: number | null;
   unit: FoodUnit;
   kcalPer100: number | null;
+  labelMacrosPer100?: FoodMacroGrams;
+  manualReferenceId?: string | null;
   estimate?: FoodEstimate;
 };
 
 export type FoodEntryDraft = Omit<FoodEntry, "id" | "day">;
+export type FoodDiaryMode = "case" | "personal";
+export type FoodDiaries = Record<FoodDiaryMode, FoodEntry[]>;
 
 export function parseFoodDecimal(input: string) {
   const value = input.trim().replace(",", ".");
@@ -79,7 +84,7 @@ export function sumFoodValues(values: FoodValues[]): FoodValues {
   }), { kcal: 0, protein: 0, carbs: 0, fat: 0 });
 }
 
-export function foodMacroEnergy(values: FoodValues | null) {
+export function foodMacroEnergy(values: FoodMacroGrams | null) {
   if (!values) return null;
   const portions = foodMacronutrients.map((nutrient) => ({
     ...nutrient,
@@ -99,51 +104,12 @@ export function foodMacroEnergy(values: FoodValues | null) {
   return { total, portions: portions.map((portion, index) => ({ ...portion, percent: percentages[index] })) };
 }
 
-export function foodEntryGroups(entry: FoodEntry) {
-  return new Set(entry.estimate?.parts.map((part) => part.group) ?? [entry.group]);
-}
-
-export function foodEntryValues(entry: FoodEntry) {
-  return entry.estimate
-    ? sumFoodValues(entry.estimate.parts.map((part) => part.values))
-    : null;
-}
-
-export function foodEntryEnergy(entry: FoodEntry) {
-  return foodEntryValues(entry)?.kcal ?? foodEnergy(entry.quantity, entry.kcalPer100);
-}
-
-export function summarizeFoodDay(entries: FoodEntry[]) {
-  const groupsPerEntry = entries.map(foodEntryGroups);
-  const groups = foodGroups.map((group) => ({
-    ...group,
-    count: groupsPerEntry.filter((entry) => entry.has(group.id)).length,
-  }));
-  const processing = processingGroups.map((group) => ({
-    ...group,
-    count: entries.filter((entry) => entry.processing === group.id).length,
-  }));
-  let known = 0;
-  let energy = 0;
-  const macroValues: FoodValues[] = [];
-  for (const entry of entries) {
-    const values = foodEntryValues(entry);
-    const estimate = values?.kcal ?? foodEnergy(entry.quantity, entry.kcalPer100);
-    if (estimate != null) {
-      known++;
-      energy += estimate;
-    }
-    if (values) macroValues.push(values);
-  }
-  return {
-    groups,
-    processing,
-    distinctGroups: groups.filter((group) => group.count > 0 && !["duda", "agua", "otros"].includes(group.id)).length,
-    known,
-    energy: known ? energy : null,
-    macros: macroValues.length ? sumFoodValues(macroValues) : null,
-    macroEntries: macroValues.length,
-  };
+export function isLabelMacroGrams(value: unknown, unit: FoodUnit): value is FoodMacroGrams {
+  if (value == null || typeof value !== "object") return false;
+  const { protein, carbs, fat } = value as FoodMacroGrams;
+  const limit = unit === "g" ? 102 : 150;
+  return [protein, carbs, fat].every((grams) => Number.isFinite(grams) && grams >= 0)
+    && protein + carbs + fat <= limit;
 }
 
 export const madridDay = () => new Intl.DateTimeFormat("sv-SE", {
@@ -222,7 +188,12 @@ export function readFoodDiary(raw: string): FoodEntry[] {
       (entry.unit === "g" || entry.unit === "ml") &&
       (entry.quantity === null || (Number.isFinite(entry.quantity) && entry.quantity > 0 && entry.quantity <= maxFoodQuantity)) &&
       (entry.kcalPer100 === null || (Number.isFinite(entry.kcalPer100) && entry.kcalPer100 >= 0 && entry.kcalPer100 <= 1000));
-  }).map((entry) => entry.estimate === undefined || isFoodEstimate(entry.estimate)
-    ? entry
-    : { ...entry, estimate: undefined });
+  }).map((entry) => ({
+    ...entry,
+    estimate: isFoodEstimate(entry.estimate) ? entry.estimate : undefined,
+    labelMacrosPer100: isLabelMacroGrams(entry.labelMacrosPer100, entry.unit) ? entry.labelMacrosPer100 : undefined,
+    manualReferenceId: typeof entry.manualReferenceId === "string" || entry.manualReferenceId === null
+      ? entry.manualReferenceId
+      : undefined,
+  }));
 }

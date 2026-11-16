@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
-import { createPortal } from "react-dom";
-import { BookOpenCheck, CalendarDays, ClipboardCheck, FileText, Loader2, NotebookPen, Save, Target } from "lucide-react";
-import { Sa3FoodDiary } from "@/components/sa3-food-diary";
+import { BookOpenCheck, CalendarDays, ClipboardCheck, Download, FileText, Loader2, NotebookPen, Save, Target } from "lucide-react";
+import { loadFoodDiaries, Sa3FoodDiary } from "@/components/sa3-food-diary";
+import { Sa3FoodHabitContext } from "@/components/sa3-food-habit-context";
 import { Sa3SessionGuide } from "@/components/sa3-session-guide";
+import { madridDay, type FoodDiaries } from "@/lib/sa3-food-diary";
+import { habitPdfData } from "@/lib/sa3-habit-pdf";
 import {
-  habitOptions, ratingFields, type HabitPlan, type HabitWorkspaceData,
+  activityDayNames, habitKinds, habitLabel, habitOptions, habitStatusLabels, ratingFields,
+  type ActivityLevel, type ActivityWeekday, type HabitChallengeData, type HabitKind, type HabitPlan, type HabitWorkspaceData,
   type HabitWorkspaceStore, type WeeklyLog,
 } from "@/lib/sa3-habits-types";
 
@@ -19,6 +22,8 @@ const views = [
 ] as const;
 
 type View = (typeof views)[number]["id"];
+type ChallengeView = Extract<View, "reto" | "seguimiento" | "balance">;
+const otherHabitOptions = habitOptions.filter(([key]) => key !== "alimentacion");
 const control = "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal leading-6 text-slate-900";
 const primary = "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#1e6b4f] px-4 py-2 text-sm font-bold text-white disabled:opacity-50";
 const secondary = "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 disabled:opacity-50";
@@ -51,17 +56,21 @@ function SavedButton({ busy, children, onClick }: { busy: boolean; children: Rea
 }
 
 function HabitReport({ plan, weeks }: { plan: HabitPlan; weeks: WeeklyLog[] }) {
-  const habit = habitOptions.find(([key]) => key === plan.focusHabit)?.[1] ?? plan.focusHabit;
+  const habit = habitLabel(plan.focusHabit);
   const first = weeks.find((week) => week.weekNumber === 1)?.goalCompletion;
   const last = weeks.find((week) => week.weekNumber === 4)?.goalCompletion;
   const difference = first != null && last != null ? last - first : null;
   return <section className="card p-5 sm:p-7" aria-label="Vista de la bitácora">
     <p className="text-xs font-black uppercase tracking-widest text-[#1e6b4f]">Maristas Badajoz · Educación Física · 2º Bachillerato</p>
     <h3 className="mt-2 text-xl font-black text-slate-950">Bitácora de un cambio sostenible</h3>
-    <p className="mt-1 text-sm font-semibold text-slate-600">{habit} · {plan.status === "completed" ? "Finalizada" : "En elaboración"}</p>
+    <p className="mt-1 text-sm font-semibold text-slate-600">{habit} · {habitStatusLabels[plan.status]}</p>
     <dl className="mt-5 grid gap-3 text-sm leading-6 text-slate-700 md:grid-cols-2">
       {[
         ["Punto de partida", plan.initialReflection],
+        ...(plan.activityDays ? [
+          ["Días de mayor gasto", activityDayNames(plan.activityDays, "mas")],
+          ["Días de menor gasto", activityDayNames(plan.activityDays, "menos")],
+        ] : []),
         ["Objetivo", plan.objective],
         ["Señal y acción", plan.actionPlan],
         ["Alternativa", plan.barrierStrategy],
@@ -89,18 +98,29 @@ function HabitReport({ plan, weeks }: { plan: HabitPlan; weeks: WeeklyLog[] }) {
   </section>;
 }
 
-function HabitNotebook({ data, store, view, preview }: {
-  data: HabitWorkspaceData; store: HabitWorkspaceStore; view: View; preview: boolean;
+function HabitChallenge({ data, kind, diaries, studentName, group, store, view, preview }: {
+  data: HabitChallengeData;
+  kind: HabitKind;
+  diaries: FoodDiaries;
+  studentName: string;
+  group: string;
+  store: HabitWorkspaceStore;
+  view: ChallengeView | null;
+  preview: boolean;
 }) {
   const [plan, setPlan] = useState(data.plan);
   const [weeks, setWeeks] = useState(data.weeks);
   const [savedPlan, setSavedPlan] = useState(data.plan);
+  const [hasSavedPlan, setHasSavedPlan] = useState(data.hasPlan);
   const [savedWeeks, setSavedWeeks] = useState(data.weeks.filter((week) => week.id));
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
-  const planReady = [plan.initialReflection, plan.objective, plan.actionPlan, plan.barrierStrategy, plan.successIndicator].every((value) => value.trim());
+  const isFood = kind === "alimentacion";
+  const habitChoice = habitOptions.some(([key]) => key === plan.focusHabit) ? plan.focusHabit : "otro";
+  const planReady = plan.focusHabit !== "otro" &&
+    [plan.initialReflection, plan.objective, plan.actionPlan, plan.barrierStrategy, plan.successIndicator].every((value) => value.trim());
   const completeWeeks = savedWeeks.filter((week) => week.reflection.trim()).length;
   const weeksHaveEdits = weeks.some((week) => {
     const saved = savedWeeks.find((item) => item.weekNumber === week.weekNumber);
@@ -109,7 +129,6 @@ function HabitNotebook({ data, store, view, preview }: {
   });
   const ready = planReady && completeWeeks === 4 && !weeksHaveEdits && Boolean(plan.finalReflection.trim());
   const planDirty = JSON.stringify(plan) !== JSON.stringify(savedPlan);
-  const statusLabels = { draft: "Borrador", active: "En marcha", completed: "Finalizada" };
 
   function updatePlan<K extends keyof HabitPlan>(key: K, value: HabitPlan[K]) {
     setPlan((current) => ({ ...current, [key]: value }));
@@ -121,20 +140,36 @@ function HabitNotebook({ data, store, view, preview }: {
     setNotice("");
   }
 
+  function updateActivityDay(day: ActivityWeekday, level: ActivityLevel | "") {
+    setPlan((current) => {
+      const activityDays = { ...current.activityDays };
+      if (level) activityDays[day] = level;
+      else delete activityDays[day];
+      return { ...current, activityDays };
+    });
+    setNotice("");
+  }
+
   async function savePlan(finalize = false) {
     if (busy || (finalize && !ready)) return;
+    if (plan.focusHabit === "otro") {
+      setError("Escribe el nombre del hábito que quieres trabajar en «Mi hábito».");
+      return;
+    }
     const next: HabitPlan = {
       ...plan,
+      focusHabit: plan.focusHabit.trim(),
       status: finalize ? "completed" : plan.status === "completed" && ready ? "completed" : plan.objective.trim() ? "active" : "draft",
     };
     setBusy(finalize ? "final" : "plan");
     setError("");
     setNotice("");
     try {
-      await store.savePlan(next);
+      await store.savePlan(kind, next);
       setPlan(next);
       setSavedPlan(next);
-      setNotice(finalize ? (preview ? "Bitácora de ejemplo finalizada." : "Bitácora finalizada y guardada para la revisión docente.") : "Bitácora guardada.");
+      setHasSavedPlan(true);
+      setNotice(finalize ? (preview ? "Bitácora de ejemplo finalizada." : "Bitácora finalizada y guardada para la revisión docente.") : "Reto guardado.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se ha podido guardar la bitácora.");
     } finally {
@@ -156,7 +191,7 @@ function HabitNotebook({ data, store, view, preview }: {
     setError("");
     setNotice("");
     try {
-      const id = await store.saveWeek(week);
+      const id = await store.saveWeek(kind, week);
       const saved = { ...week, id };
       setWeeks((current) => current.map((item) => item.weekNumber === week.weekNumber ? saved : item));
       setSavedWeeks((current) => [...current.filter((item) => item.weekNumber !== saved.weekNumber), saved]
@@ -169,35 +204,66 @@ function HabitNotebook({ data, store, view, preview }: {
     }
   }
 
+  async function exportPdf() {
+    if (busy || !hasSavedPlan || planDirty) return;
+    setBusy("pdf");
+    setError("");
+    setNotice("");
+    try {
+      const { downloadPersonalPlanPdf } = await import("@/lib/personal-plan-pdf");
+      downloadPersonalPlanPdf(
+        habitPdfData(kind, savedPlan, savedWeeks, studentName, group),
+        isFood ? "reto-alimentacion-sa3" : "reto-habito-sa3",
+      );
+      setNotice("PDF preparado. Ábrelo desde las descargas para imprimirlo.");
+    } catch {
+      setError("No se ha podido preparar el PDF. Vuelve a pulsar «Descargar PDF».");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const pdfButton = <button type="button" disabled={busy != null || !hasSavedPlan || planDirty}
+    onClick={() => void exportPdf()} className={secondary}>
+    <Download size={16} aria-hidden="true"/>{busy === "pdf" ? "Preparando PDF…" : "Descargar PDF"}
+  </button>;
+
   const message = error ? <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm font-bold text-rose-800">{error}</p>
     : notice ? <p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm font-bold text-[#164c3a]">{notice}</p> : null;
 
-  return <>
-    <div id="diario" hidden={view !== "diario"} className="scroll-mt-4">
-      <Sa3FoodDiary storageKey={data.diaryKey}/>
-    </div>
-
-    <section id="reto" hidden={view !== "reto"} className="card scroll-mt-4 p-5 sm:p-7">
+  if (view === "reto") return <section className="card p-5 sm:p-7">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-widest text-[#1e6b4f]">02 · Prueba</p>
-          <h2 className="mt-1 text-2xl font-black text-slate-950">Mi hábito a mejorar</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600">Elige una acción pequeña, una señal reconocible y una forma de observarla durante cuatro semanas.</p>
+          <h2 className="text-2xl font-black text-slate-950">{isFood ? "Mi reto de alimentación" : "Mi hábito a mejorar"}</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">{isFood
+            ? "Revisa tus anotaciones y elige una acción concreta que puedas repetir durante cuatro semanas."
+            : "Elige una acción pequeña, una señal reconocible y una forma de observarla durante cuatro semanas."}</p>
           <p className="mt-1 text-xs leading-5 text-slate-600">{preview ? "Trabajas con el reto de ejemplo." : "El profesorado puede revisar la plantilla, el seguimiento y la reflexión que guardes. El diario se queda en este navegador."}</p>
         </div>
-        <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-extrabold text-[#164c3a]">{statusLabels[savedPlan.status]}</span>
+        <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-extrabold text-[#164c3a]">{hasSavedPlan ? habitStatusLabels[savedPlan.status] : "Sin guardar"}</span>
       </div>
+      {isFood && <div className="mt-5">
+        <Sa3FoodHabitContext diaries={diaries} activityDays={plan.activityDays ?? {}}
+          onChangeDay={updateActivityDay} disabled={busy != null}/>
+      </div>}
       <fieldset disabled={busy != null} className="mt-5 grid min-w-0 gap-5 md:grid-cols-2">
-        <label className="text-sm font-bold text-slate-700">Hábito prioritario
-          <select value={plan.focusHabit} onChange={(event) => updatePlan("focusHabit", event.target.value)} className={control}>
-            {habitOptions.map(([value, title]) => <option key={value} value={value}>{title}</option>)}
-            {!habitOptions.some(([value]) => value === plan.focusHabit) && <option value={plan.focusHabit}>{plan.focusHabit}</option>}
+        {!isFood && <label className="text-sm font-bold text-slate-700">Hábito prioritario
+          <select value={habitChoice} onChange={(event) => updatePlan("focusHabit", event.target.value)} className={control}>
+            {otherHabitOptions.map(([value, title]) => <option key={value} value={value}>{title}</option>)}
+            {habitChoice === "alimentacion" && <option value={habitChoice}>{habitLabel(habitChoice)}</option>}
           </select>
-        </label>
-        <div className="rounded-xl bg-emerald-50 p-3 text-sm leading-6 text-[#164c3a]">
-          <strong>Ejemplo.</strong> Al cerrar el cuaderno de estudio, haré una pausa breve de movimiento. Contaré las ocasiones en que la hice.
+        </label>}
+        <div className={"rounded-xl bg-emerald-50 p-3 text-sm leading-6 text-[#164c3a]" + (isFood ? " md:col-span-2" : "")}>
+          {isFood
+            ? "Por ejemplo, al preparar la mochila para entrenar por la tarde, dejaré lista mi merienda. Anotaré los días que lo hice."
+            : "Por ejemplo, al cerrar el cuaderno de estudio haré una pausa breve para moverme. Contaré las ocasiones en que la hice."}
         </div>
-        <TextField title="Mi punto de partida" hint="Describe la conducta actual y en qué situaciones ocurre." value={plan.initialReflection} onChange={(value) => updatePlan("initialReflection", value)}/>
+        {!isFood && habitChoice === "otro" && <label className="text-sm font-bold text-slate-700 md:col-span-2">Nombre del hábito
+          <input maxLength={90} value={plan.focusHabit === "otro" ? "" : plan.focusHabit}
+            onChange={(event) => updatePlan("focusHabit", event.target.value.trim() ? event.target.value : "otro")}
+            placeholder="Ejemplo: preparar la mochila la noche anterior" className={control}/>
+        </label>}
+        <TextField title="Mi punto de partida" hint={isFood ? "Describe un patrón que observes en tus comidas y cómo influye tu horario." : "Describe la conducta actual y en qué situaciones ocurre."} value={plan.initialReflection} onChange={(value) => updatePlan("initialReflection", value)}/>
         <TextField title="Objetivo observable" hint="Qué acción quieres practicar y en qué ocasiones." value={plan.objective} onChange={(value) => updatePlan("objective", value)}/>
         <TextField title="Señal y acción" hint="Cuando ocurra…, haré… Define el contexto de tu acción." value={plan.actionPlan} onChange={(value) => updatePlan("actionPlan", value)}/>
         <TextField title="Obstáculo y alternativa" hint="Si aparece la dificultad…, entonces probaré…" value={plan.barrierStrategy} onChange={(value) => updatePlan("barrierStrategy", value)}/>
@@ -207,14 +273,15 @@ function HabitNotebook({ data, store, view, preview }: {
       </fieldset>
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <SavedButton busy={busy != null} onClick={() => void savePlan()}>{busy === "plan" ? "Guardando…" : "Guardar reto"}</SavedButton>
+        {pdfButton}
         {planDirty && <span className="text-xs font-bold text-amber-800">Cambios por guardar</span>}
       </div>
-      {message && view === "reto" && <div className="mt-4">{message}</div>}
-    </section>
+      {(!hasSavedPlan || planDirty) && <p className="mt-2 text-xs text-slate-600">Guarda el reto y sus cambios para descargar el PDF.</p>}
+      {message && <div className="mt-4">{message}</div>}
+    </section>;
 
-    <section id="seguimiento" hidden={view !== "seguimiento"} className="card scroll-mt-4 p-5 sm:p-7">
-      <p className="text-xs font-black uppercase tracking-widest text-[#1e6b4f]">02 · Prueba</p>
-      <h2 className="mt-1 text-2xl font-black text-slate-950">Seguimiento de cuatro semanas</h2>
+  if (view === "seguimiento") return <section className="card p-5 sm:p-7">
+      <h2 className="text-2xl font-black text-slate-950">Seguimiento de cuatro semanas</h2>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Anota cuántas ocasiones observaste y en cuántas hiciste la acción. Registra el contexto y el ajuste que probarás. Por ejemplo, 3 de 5 ocasiones equivalen al 60%.</p>
       <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-4" aria-label="Resumen de las semanas guardadas">
         {weeks.map((week) => {
@@ -261,13 +328,13 @@ function HabitNotebook({ data, store, view, preview }: {
           </div>
         </details>)}
       </div>
-      {message && view === "seguimiento" && <div className="mt-4">{message}</div>}
-    </section>
+      {message && <div className="mt-4">{message}</div>}
+    </section>;
 
-    <div id="balance" hidden={view !== "balance"} className="scroll-mt-4 space-y-5">
+  if (view !== "balance") return null;
+  return <div className="space-y-5">
       <section className="card p-5 sm:p-7">
-        <p className="text-xs font-black uppercase tracking-widest text-[#1e6b4f]">03 · Explica</p>
-        <h2 className="mt-1 text-2xl font-black text-slate-950">Informe final</h2>
+        <h2 className="text-2xl font-black text-slate-950">Informe final</h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Tu producto reúne el plan, las cuatro semanas y una interpretación de los datos. El profesorado revisará tu método, tus evidencias y el ajuste que propones.</p>
         <div className="my-5 rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-700">
           <p className="font-extrabold text-slate-950">Antes de finalizar</p>
@@ -279,7 +346,9 @@ function HabitNotebook({ data, store, view, preview }: {
         </div>
         <fieldset disabled={busy != null} className="min-w-0">
           <TextField title="Mi interpretación y próximo paso" rows={7}
-            hint="Compara semana 1 y 4 con datos. Describe un patrón de tres días del diario, muestra un cálculo de etiqueta y cita una fuente. Explica una limitación y la acción que mantendrás o ajustarás. Puedes usar evidencias del caso de aula."
+            hint={isFood
+              ? "Compara las semanas 1 y 4 con tus datos. Relaciona una observación del diario con los días de mayor o menor gasto. Explica una limitación y qué mantendrás o ajustarás."
+              : "Compara las semanas 1 y 4 con tus datos. Explica cuándo funcionó tu acción, una limitación y qué mantendrás o ajustarás."}
             value={plan.finalReflection} onChange={(value) => updatePlan("finalReflection", value)}/>
         </fieldset>
         <div className="mt-4 flex flex-wrap gap-2">
@@ -287,27 +356,37 @@ function HabitNotebook({ data, store, view, preview }: {
           <button type="button" disabled={busy != null || !ready} onClick={() => void savePlan(true)} className={primary}>
             <ClipboardCheck size={17} aria-hidden="true"/>{busy === "final" ? "Guardando…" : "Finalizar bitácora"}
           </button>
-          <button type="button" disabled={busy != null || planDirty || weeksHaveEdits || savedPlan.status !== "completed"} onClick={() => window.print()} className={secondary}>
-            Imprimir o guardar PDF
-          </button>
+          {pdfButton}
         </div>
-        {message && view === "balance" && <div className="mt-4">{message}</div>}
+        <p className="mt-2 text-xs text-slate-600">El PDF incluye el reto y las semanas que hayas guardado.</p>
+        {message && <div className="mt-4">{message}</div>}
       </section>
       <HabitReport plan={plan} weeks={savedWeeks}/>
-      {view === "balance" && createPortal(<div id="sa3-print-root">
-        <style>{`
-          #sa3-print-root { display: none; }
-          @media print {
-            @page { size: A4; margin: 14mm; }
-            body:has(> #sa3-print-root) > :not(#sa3-print-root) { display: none !important; }
-            #sa3-print-root { display: block !important; }
-            #sa3-print-root, #sa3-print-root * { visibility: visible !important; }
-            #sa3-print-root > section { padding: 0 !important; background: white !important; border: 0 !important; box-shadow: none !important; backdrop-filter: none !important; }
-            #sa3-print-root li, #sa3-print-root dl > div { break-inside: avoid; }
-          }
-        `}</style>
-        <HabitReport plan={savedPlan} weeks={savedWeeks}/>
-      </div>, document.body)}
+    </div>;
+}
+
+function HabitNotebook({ data, store, view, preview }: {
+  data: HabitWorkspaceData; store: HabitWorkspaceStore; view: View; preview: boolean;
+}) {
+  const [kind, setKind] = useState<HabitKind>(() =>
+    data.challenges.otro.hasPlan && !data.challenges.alimentacion.hasPlan ? "otro" : "alimentacion");
+  const [diaries, setDiaries] = useState(() => loadFoodDiaries(data.diaryKey, madridDay()));
+  const challengeView = view === "reto" || view === "seguimiento" || view === "balance" ? view : null;
+
+  return <>
+    <div id="diario" hidden={view !== "diario"} className="scroll-mt-4">
+      <Sa3FoodDiary storageKey={data.diaryKey} diaries={diaries}
+        onChange={(mode, entries) => setDiaries((current) => ({ ...current, [mode]: entries }))}/>
+    </div>
+    <div id={challengeView ?? undefined} hidden={!challengeView} className="scroll-mt-4 space-y-4">
+      <div role="group" aria-label="Tipo de reto" className="flex w-fit flex-wrap gap-1 rounded-xl bg-slate-100 p-1">
+        {habitKinds.map(([id, label]) => <button key={id} type="button" aria-pressed={kind === id} onClick={() => setKind(id)}
+          className="min-h-11 rounded-lg px-4 py-2 text-sm font-bold text-slate-600 aria-pressed:bg-white aria-pressed:text-[#164c3a] aria-pressed:shadow-sm">
+          {label}
+        </button>)}
+      </div>
+      {habitKinds.map(([id]) => <HabitChallenge key={id} data={data.challenges[id]} kind={id} diaries={diaries}
+        studentName={data.studentName} group={data.group} store={store} view={kind === id ? challengeView : null} preview={preview}/>)}
     </div>
   </>;
 }

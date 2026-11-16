@@ -278,14 +278,14 @@ export function buildPersonalPlanPdf(data: PlanPdfData) {
   return Uint8Array.from(pdf, (character) => character.charCodeAt(0));
 }
 
-export function downloadPersonalPlanPdf(data: PlanPdfData) {
+export function downloadPersonalPlanPdf(data: PlanPdfData, filenamePrefix = data.resultsReport ? "informe-resultados" : "plan-personal-sa1") {
   const bytes = buildPersonalPlanPdf(data);
   const blob = new Blob([bytes], { type: "application/pdf" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   const safeName = normalize(data.studentName).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
   link.href = url;
-  link.download = `${data.resultsReport ? "informe-resultados" : "plan-personal-sa1"}-${safeName || "alumno"}.pdf`;
+  link.download = `${filenamePrefix}-${safeName || "alumno"}.pdf`;
   document.body.appendChild(link);
   link.click();
   link.remove();
