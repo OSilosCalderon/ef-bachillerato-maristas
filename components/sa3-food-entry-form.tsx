@@ -2,15 +2,15 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Calculator, Plus, Search, Trash2 } from "lucide-react";
-import { foodNumber, Sa3FoodEstimateDetails } from "@/components/sa3-food-estimate";
+import { foodNumber, FoodMacros, Sa3FoodEstimateDetails } from "@/components/sa3-food-estimate";
 import { catalogIngredients } from "@/lib/sa3-food-composition";
 import {
-  foodEnergy, foodGroups, maxFoodQuantity, maxRecipeIngredients, meals, parseFoodDecimal, processingGroups,
-  type FoodEntry, type FoodEntryDraft, type FoodPart, type FoodProcessing, type FoodUnit,
+  foodGroups, foodMacronutrients, isLabelMacroGrams, maxFoodQuantity, maxRecipeIngredients, meals, parseFoodDecimal, processingGroups,
+  type FoodEntry, type FoodEntryDraft, type FoodMacroGrams, type FoodPart, type FoodProcessing, type FoodUnit,
 } from "@/lib/sa3-food-diary";
 import {
-  catalogFoods, combinedFoodPortion, estimateCatalogFood, estimateIngredients, findCatalogFood,
-  getIngredient, parseFoodQuery, suggestCatalogFoods, unitsForFood,
+  catalogFoods, combinedFoodPortion, estimateCatalogFood, estimateIngredients, findCatalogFood, findManualFood,
+  foodEntryNutrition, getIngredient, parseFoodQuery, suggestCatalogFoods, unitsForFood,
 } from "@/lib/sa3-food-nutrition";
 import { sa3FoodSources } from "@/lib/sa3-habits-curriculum";
 
@@ -25,11 +25,12 @@ const modes = [
 ] as const;
 
 type FormMode = (typeof modes)[number]["id"];
-type Draft = Omit<FoodEntryDraft, "estimate" | "quantity" | "kcalPer100" | "unit" | "processing"> & {
+type Draft = Omit<FoodEntryDraft, "estimate" | "quantity" | "kcalPer100" | "unit" | "processing" | "labelMacrosPer100"> & {
   quantity: string;
   kcalPer100: string;
   unit: FoodUnit | null;
   processing: FoodProcessing | null;
+  labelMacros: Record<keyof FoodMacroGrams, string>;
 };
 type IngredientRow = { id: string; ingredientId: string; quantity: string; unit: FoodUnit };
 
@@ -40,6 +41,7 @@ const ingredientGroups = foodGroups.map((group) => ({
     .sort((a, b) => a.name.localeCompare(b.name, "es")),
 })).filter((group) => group.ingredients.length);
 const examples = ["Café con leche 250 ml", "Macarrones con carne 300 g", "Cuscús cocido 150 g"];
+const manualReferences = [...catalogFoods].sort((a, b) => a.name.localeCompare(b.name, "es"));
 
 const editableAmount = (quantity: number | null | undefined) => quantity == null
   ? ""
@@ -66,6 +68,12 @@ export function Sa3FoodEntryForm({ entry, onSave, onCancel }: {
     name: catalogItem?.name ?? entry?.name ?? "", meal: entry?.meal ?? "Comida",
     group: entry?.group ?? "duda", processing: entry?.processing ?? null,
     quantity: editableAmount(entry?.quantity), unit: entry?.unit ?? null, kcalPer100: editableAmount(entry?.kcalPer100),
+    manualReferenceId: entry?.manualReferenceId,
+    labelMacros: {
+      protein: editableAmount(entry?.labelMacrosPer100?.protein),
+      carbs: editableAmount(entry?.labelMacrosPer100?.carbs),
+      fat: editableAmount(entry?.labelMacrosPer100?.fat),
+    },
   }));
   const [rows, setRows] = useState<IngredientRow[]>(() => entry?.estimate
     ? rowsForParts(entry.estimate.parts)
@@ -77,21 +85,35 @@ export function Sa3FoodEntryForm({ entry, onSave, onCancel }: {
     if (entry) nameInput.current?.focus();
   }, [entry]);
 
-  const query = mode === "search" ? parseFoodQuery(draft.name) : { name: draft.name };
+  const query = mode === "ingredients" ? { name: draft.name } : parseFoodQuery(draft.name);
   const match = mode === "search" ? findCatalogFood(query.name) : undefined;
   const suggestions = mode === "search" ? suggestCatalogFoods(query.name, match?.id) : [];
   const reference = match && "reference" in match ? match.reference : undefined;
   const units = match ? unitsForFood(match) : ["g", "ml"] as const;
-  const quantityText = query.quantity ?? draft.quantity;
+  const manualReference = mode === "label" ? findManualFood(query.name, draft.manualReferenceId) : undefined;
+  const quantityText = mode === "label" ? draft.quantity || query.quantity || "" : query.quantity ?? draft.quantity;
   const quantity = parseFoodDecimal(quantityText);
-  const unit = query.unit ?? draft.unit ?? units[0];
+  const unit = mode === "label"
+    ? draft.unit ?? query.unit ?? (manualReference ? unitsForFood(manualReference)[0] : "g")
+    : query.unit ?? draft.unit ?? units[0];
   const kcalPer100 = parseFoodDecimal(draft.kcalPer100);
   const estimate = mode === "ingredients"
     ? estimateIngredients(rows.map((row) => ({ ...row, quantity: parseFoodDecimal(row.quantity) })))
     : match ? estimateCatalogFood(match, quantity, unit) : null;
   const processing = draft.processing ?? (match && "processing" in match ? match.processing : "duda");
-  const labelEnergy = mode === "label" ? foodEnergy(quantity, kcalPer100) : null;
   const name = match?.name ?? query.name.trim();
+  const macroInput = {
+    protein: parseFoodDecimal(draft.labelMacros.protein),
+    carbs: parseFoodDecimal(draft.labelMacros.carbs),
+    fat: parseFoodDecimal(draft.labelMacros.fat),
+  };
+  const labelMacrosPer100 = isLabelMacroGrams(macroInput, unit) ? macroInput : undefined;
+  const hasMacroInput = Object.values(draft.labelMacros).some((value) => value.trim());
+  const manualDraft: FoodEntryDraft = {
+    name, meal: draft.meal, group: draft.group, processing, quantity, unit, kcalPer100,
+    labelMacrosPer100, manualReferenceId: draft.manualReferenceId,
+  };
+  const manualNutrition = mode === "label" ? foodEntryNutrition(manualDraft) : null;
 
   function update(fields: Partial<Draft>) {
     setDraft((previous) => ({ ...previous, ...fields }));
@@ -128,8 +150,11 @@ export function Sa3FoodEntryForm({ entry, onSave, onCancel }: {
       if (draft.kcalPer100.trim() && (kcalPer100 == null || kcalPer100 > 1000)) {
         return setError("Introduce entre 0 y 1000 kcal por 100 " + unit + ".");
       }
-      if (kcalPer100 != null && quantity == null) return setError("Indica la cantidad para calcular las kcal.");
-      onSave({ name, meal: draft.meal, group: draft.group, processing, quantity, unit, kcalPer100 });
+      if (hasMacroInput && !labelMacrosPer100) {
+        return setError("Revisa los tres macronutrientes. Escribe los gramos de proteínas, hidratos y grasas por 100 " + unit + ". Usa 0 cuando la etiqueta indique cero.");
+      }
+      if ((kcalPer100 != null || hasMacroInput) && quantity == null) return setError("Indica la cantidad que has tomado para calcular el aporte.");
+      onSave(manualDraft);
       return;
     }
     if (!estimate) return setError("Revisa el ingrediente, la unidad y la cantidad de cada fila. El total debe ser de hasta 10.000 g o ml.");
@@ -152,7 +177,7 @@ export function Sa3FoodEntryForm({ entry, onSave, onCancel }: {
       <input ref={nameInput} id="sa3-food-name" autoComplete="off" maxLength={90} value={draft.name}
         onChange={(event) => update(mode === "search"
           ? { name: event.target.value, quantity: "", unit: null }
-          : { name: event.target.value })}
+          : { name: event.target.value, manualReferenceId: undefined })}
         placeholder={mode === "search" ? "Café con leche 250 ml" : "Escribe el nombre"}
         aria-describedby={mode === "search" ? "sa3-food-search-help" : undefined} className={control}/>
     </label>
@@ -241,14 +266,45 @@ export function Sa3FoodEntryForm({ entry, onSave, onCancel }: {
         </select>
       </label>
       <fieldset className="min-w-0 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
-        <legend className="px-1 text-sm font-black text-[#164c3a]">Datos de la etiqueta</legend>
-        <p className="text-xs leading-5 text-slate-600">Usa la misma unidad que la etiqueta. Puedes guardar la entrada sin estos datos.</p>
+        <legend className="px-1 text-sm font-black text-[#164c3a]">Ración y etiqueta</legend>
+        <p className="text-xs leading-5 text-slate-600">Indica la cantidad que has tomado. Si tienes la etiqueta, copia los valores por 100 {unit}.</p>
         <div className="mt-3 grid grid-cols-[minmax(0,1fr)_5rem] gap-3 sm:grid-cols-[minmax(0,1fr)_4.5rem_minmax(0,1fr)]">
-          <label className={label}>Cantidad<input inputMode="decimal" maxLength={12} value={quantityText} onChange={(event) => update({ quantity: event.target.value })} placeholder="50" className={control}/></label>
+          <label className={label}>Cantidad<input inputMode="decimal" maxLength={12} value={quantityText} onChange={(event) => update({ name, quantity: event.target.value, unit })} placeholder="50" className={control}/></label>
           <label className={label}>Unidad<select value={unit} onChange={(event) => update({ unit: event.target.value as FoodUnit })} className={control}><option>g</option><option>ml</option></select></label>
           <label className={label + " col-span-2 sm:col-span-1"}>kcal por 100 {unit}<input inputMode="decimal" maxLength={10} value={draft.kcalPer100} onChange={(event) => update({ kcalPer100: event.target.value })} placeholder="240" className={control}/></label>
         </div>
-        {labelEnergy != null && <output className="mt-3 block font-black text-[#164c3a]">{foodNumber.format(labelEnergy)} kcal estimadas</output>}
+        <details open={entry?.labelMacrosPer100 ? true : undefined} className="mt-3 rounded-lg bg-white/80 p-3">
+          <summary className="min-h-9 cursor-pointer text-sm font-bold text-[#164c3a]">Macronutrientes de la etiqueta · opcional</summary>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {foodMacronutrients.map(({ key, label: title }) => <label key={key} className={label}>{title}
+              <span className="block text-xs font-normal">g por 100 {unit}</span>
+              <input inputMode="decimal" maxLength={10} value={draft.labelMacros[key]} className={control}
+                onChange={(event) => update({ labelMacros: { ...draft.labelMacros, [key]: event.target.value } })}/>
+            </label>)}
+          </div>
+        </details>
+        {!labelMacrosPer100 && <details className="mt-3 rounded-lg bg-white/80 p-3">
+          <summary className="min-h-9 cursor-pointer text-sm font-bold text-[#164c3a]">{manualReference ? "Cambiar la referencia" : "Elegir un alimento parecido del catálogo"}</summary>
+          <label className={label}>Ficha de referencia
+            <select value={draft.manualReferenceId ?? (draft.manualReferenceId === null ? "none" : "auto")} className={control}
+              onChange={(event) => update({ manualReferenceId: event.target.value === "auto" ? undefined : event.target.value === "none" ? null : event.target.value })}>
+              <option value="auto">Automática por nombre</option>
+              <option value="none">Sin referencia</option>
+              {manualReferences.map((food) => <option key={food.id} value={food.id}>{food.name}</option>)}
+            </select>
+          </label>
+        </details>}
+        <div className="mt-3 space-y-2" aria-live="polite">
+          {manualNutrition?.energy != null && <p className="font-black text-[#164c3a]">{foodNumber.format(manualNutrition.energy)} kcal {kcalPer100 != null ? "de etiqueta" : "estimadas"}</p>}
+          {manualNutrition?.values && <FoodMacros values={manualNutrition.values} highlight/>}
+          {manualNutrition?.source === "manual-reference" && <p className="text-xs leading-5 text-slate-600">Macronutrientes estimados con la ficha de <strong>{manualNutrition.referenceName}</strong>.</p>}
+          {!manualNutrition?.values && name && <p className="text-xs leading-5 text-slate-600">
+            {manualReference && !unitsForFood(manualReference).includes(unit)
+              ? `La ficha de ${manualReference.name} usa ${unitsForFood(manualReference).join(" o ")}. Revisa la unidad o usa la etiqueta.`
+              : manualReference ? `Indica la cantidad para estimar el aporte de ${manualReference.name}.`
+                : "Puedes guardar la entrada. Para incluirla en el gráfico, indica la cantidad y elige una referencia o añade los datos de la etiqueta."}
+          </p>}
+        </div>
       </fieldset>
     </>}
     <div className="grid gap-3 sm:grid-cols-2">

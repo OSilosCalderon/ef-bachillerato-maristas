@@ -2,16 +2,19 @@ import {
   catalogIngredients, catalogRecipes, type CatalogIngredient, type CatalogRecipe,
 } from "./sa3-food-composition";
 import {
-  classroomFoodDiary, foodGroups, maxFoodQuantity, maxRecipeIngredients, sumFoodValues, type FoodEstimate, type FoodPart, type FoodUnit,
+  classroomFoodDiary, foodEnergy, foodGroups, foodMacronutrients, isLabelMacroGrams, maxFoodQuantity, maxRecipeIngredients,
+  parseFoodDecimal, processingGroups, sumFoodValues, type FoodEntry, type FoodEntryDraft, type FoodEstimate, type FoodPart,
+  type FoodUnit, type FoodValues,
 } from "./sa3-food-diary";
 
 export const catalogFoods = [...catalogRecipes, ...catalogIngredients];
 
 const ingredientsById = new Map(catalogIngredients.map((food) => [food.id, food]));
+const catalogById = new Map(catalogFoods.map((food) => [food.id, food]));
 export const getIngredient = (id: string) => ingredientsById.get(id);
 
 function normalizeFoodName(value: string) {
-  return value.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").trim().replace(/\s+/g, " ");
+  return value.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").trim().replace(/[.,:;!?]+$/, "").replace(/\s+/g, " ");
 }
 
 const catalogNames = catalogFoods.map((item) => ({
@@ -94,6 +97,85 @@ export function estimateCatalogFood(food: CatalogIngredient | CatalogRecipe, qua
     : [{ ingredientId: food.id, quantity, unit }];
   const estimate = estimateIngredients(ingredients);
   return estimate ? { ...estimate, catalogId: food.id } : null;
+}
+
+export function findManualFood(name: string, referenceId?: string | null) {
+  if (referenceId === null) return undefined;
+  return referenceId === undefined ? findCatalogFood(name) : catalogById.get(referenceId);
+}
+
+type EntryNutrition = {
+  energy: number | null;
+  values: FoodValues | null;
+  quantity: number | null;
+  unit: FoodUnit;
+  estimate?: FoodEstimate;
+  referenceName?: string;
+  source?: "catalog" | "label" | "manual-reference";
+};
+
+export function foodEntryNutrition(entry: FoodEntryDraft): EntryNutrition {
+  if (entry.estimate) {
+    const values = sumFoodValues(entry.estimate.parts.map((part) => part.values));
+    return { energy: values.kcal, values, quantity: entry.quantity, unit: entry.unit, estimate: entry.estimate, source: "catalog" };
+  }
+  const query = parseFoodQuery(entry.name);
+  const inlineQuantity = entry.quantity == null && query.quantity ? parseFoodDecimal(query.quantity) : null;
+  const quantity = entry.quantity ?? (inlineQuantity != null && inlineQuantity > 0 && inlineQuantity <= maxFoodQuantity ? inlineQuantity : null);
+  const unit = entry.quantity == null && quantity != null ? query.unit ?? entry.unit : entry.unit;
+  const energy = foodEnergy(quantity, entry.kcalPer100);
+  const macros = entry.labelMacrosPer100;
+  if (quantity != null && isLabelMacroGrams(macros, unit)) {
+    const factor = quantity / 100;
+    const kcal = energy ?? foodMacronutrients.reduce((total, { key, kcalPerGram }) => total + macros[key] * factor * kcalPerGram, 0);
+    const values = { kcal, protein: macros.protein * factor, carbs: macros.carbs * factor, fat: macros.fat * factor };
+    return { energy: kcal, values, quantity, unit, source: "label" };
+  }
+  const reference = findManualFood(query.name, entry.manualReferenceId);
+  const estimate = reference && estimateCatalogFood(reference, quantity, unit);
+  if (estimate && reference) {
+    const values = sumFoodValues(estimate.parts.map((part) => part.values));
+    return { energy: energy ?? values.kcal, values, quantity, unit, estimate, referenceName: reference.name, source: "manual-reference" };
+  }
+  return { energy, values: null, quantity, unit };
+}
+
+export function foodEntryGroups(entry: FoodEntryDraft, estimate?: FoodEstimate) {
+  const parts = entry.estimate?.parts ?? (entry.group === "duda" ? estimate?.parts : undefined);
+  return new Set(parts?.map((part) => part.group) ?? [entry.group]);
+}
+
+export function summarizeFoodDay(entries: FoodEntry[]) {
+  const groupCounts = new Map<string, number>();
+  const processingCounts = new Map<string, number>();
+  const macroValues: FoodValues[] = [];
+  let known = 0;
+  let energy = 0;
+  let manualEstimates = 0;
+  for (const entry of entries) {
+    const nutrition = foodEntryNutrition(entry);
+    for (const group of foodEntryGroups(entry, nutrition.estimate)) {
+      groupCounts.set(group, (groupCounts.get(group) ?? 0) + 1);
+    }
+    processingCounts.set(entry.processing, (processingCounts.get(entry.processing) ?? 0) + 1);
+    if (nutrition.energy != null) {
+      known++;
+      energy += nutrition.energy;
+    }
+    if (nutrition.values) macroValues.push(nutrition.values);
+    if (nutrition.source === "manual-reference") manualEstimates++;
+  }
+  const groups = foodGroups.map((group) => ({ ...group, count: groupCounts.get(group.id) ?? 0 }));
+  return {
+    groups,
+    processing: processingGroups.map((group) => ({ ...group, count: processingCounts.get(group.id) ?? 0 })),
+    distinctGroups: groups.filter((group) => group.count > 0 && !["duda", "agua", "otros"].includes(group.id)).length,
+    known,
+    energy: known ? energy : null,
+    macros: macroValues.length ? sumFoodValues(macroValues) : null,
+    macroEntries: macroValues.length,
+    manualEstimates,
+  };
 }
 
 export function estimatedClassroomDiary(day: string) {

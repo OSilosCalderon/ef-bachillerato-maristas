@@ -6,14 +6,12 @@ import { Sa3FoodDiaryEntries } from "@/components/sa3-food-diary-entries";
 import { Sa3FoodEnergySummary } from "@/components/sa3-food-energy-summary";
 import { Sa3FoodEntryForm } from "@/components/sa3-food-entry-form";
 import {
-  displayFoodDay, madridDay, readFoodDiary, summarizeFoodDay, type FoodEntry, type FoodEntryDraft,
+  displayFoodDay, madridDay, readFoodDiary, type FoodDiaries, type FoodDiaryMode, type FoodEntry, type FoodEntryDraft,
 } from "@/lib/sa3-food-diary";
-import { estimatedClassroomDiary } from "@/lib/sa3-food-nutrition";
+import { estimatedClassroomDiary, summarizeFoodDay } from "@/lib/sa3-food-nutrition";
 
 const control = "mt-1.5 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal";
 const label = "text-sm font-bold text-slate-700";
-type DiaryMode = "case" | "personal";
-
 function loadEntries(key: string, fallback: FoodEntry[]) {
   try {
     const raw = window.localStorage.getItem(key);
@@ -21,6 +19,13 @@ function loadEntries(key: string, fallback: FoodEntry[]) {
   } catch {
     return fallback;
   }
+}
+
+export function loadFoodDiaries(storageKey: string, today: string): FoodDiaries {
+  return {
+    case: loadEntries(storageKey + ":case", estimatedClassroomDiary(today)),
+    personal: loadEntries(storageKey + ":personal", []),
+  };
 }
 
 type MeterItem = { id: string; label: string; color: string; count: number };
@@ -46,16 +51,17 @@ function EntriesMeter({ items, total, title }: { items: MeterItem[]; total: numb
   </div>;
 }
 
-export function Sa3FoodDiary({ storageKey }: { storageKey: string }) {
+export function Sa3FoodDiary({ storageKey, diaries, onChange }: {
+  storageKey: string;
+  diaries: FoodDiaries;
+  onChange: (mode: FoodDiaryMode, entries: FoodEntry[]) => void;
+}) {
   const [today] = useState(madridDay);
   const [day, setDay] = useState(today);
-  const [mode, setMode] = useState<DiaryMode>("case");
-  const [diaries, setDiaries] = useState(() => ({
-    case: loadEntries(storageKey + ":case", estimatedClassroomDiary(today)),
-    personal: loadEntries(storageKey + ":personal", []),
-  }));
+  const [mode, setMode] = useState<FoodDiaryMode>("case");
   const [formRevision, setFormRevision] = useState(0);
   const [editing, setEditing] = useState<string | null>(null);
+  const [removed, setRemoved] = useState<{ entry: FoodEntry; index: number } | null>(null);
   const [notice, setNotice] = useState("");
 
   const entries = diaries[mode];
@@ -73,19 +79,21 @@ export function Sa3FoodDiary({ storageKey }: { storageKey: string }) {
     if (!value || value === day) return;
     setDay(value);
     clearDraft();
+    setRemoved(null);
     setNotice("");
   }
 
-  function chooseMode(value: DiaryMode) {
+  function chooseMode(value: FoodDiaryMode) {
     if (value === mode) return;
     setMode(value);
     setDay(today);
     clearDraft();
+    setRemoved(null);
     setNotice("");
   }
 
   function saveEntries(next: FoodEntry[], success: string) {
-    setDiaries((current) => ({ ...current, [mode]: next }));
+    onChange(mode, next);
     try {
       window.localStorage.setItem(storageKey + ":" + mode, JSON.stringify(next));
       setNotice(success);
@@ -99,6 +107,7 @@ export function Sa3FoodDiary({ storageKey }: { storageKey: string }) {
     saveEntries(editing ? entries.map((item) => item.id === editing ? entry : item) : [...entries, entry],
       editing ? "Entrada actualizada." : "Entrada añadida al diario.");
     clearDraft();
+    setRemoved(null);
   }
 
   function editEntry(entry: FoodEntry) {
@@ -107,8 +116,16 @@ export function Sa3FoodDiary({ storageKey }: { storageKey: string }) {
   }
 
   function deleteEntry(entry: FoodEntry) {
+    setRemoved({ entry, index: entries.findIndex((item) => item.id === entry.id) });
     saveEntries(entries.filter((item) => item.id !== entry.id), "Entrada eliminada.");
     if (editing === entry.id) clearDraft();
+  }
+
+  function undoDelete() {
+    if (!removed) return;
+    const { entry, index } = removed;
+    saveEntries([...entries.slice(0, index), entry, ...entries.slice(index)], "Entrada recuperada.");
+    setRemoved(null);
   }
 
   return <div className="space-y-5">
@@ -152,6 +169,10 @@ export function Sa3FoodDiary({ storageKey }: { storageKey: string }) {
           <p role="status" className="mt-3 text-sm font-semibold text-[#164c3a]">{notice}</p>
         </section>
 
+        {removed && <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-emerald-50 px-4 py-2 text-sm text-[#164c3a]">
+          <p>Eliminaste {removed.entry.name}.</p>
+          <button type="button" className="min-h-10 rounded-lg border border-emerald-300 bg-white px-3 font-bold" onClick={undoDelete}>Deshacer</button>
+        </div>}
         <Sa3FoodDiaryEntries day={day} entries={daily} editing={editing} onEdit={editEntry} onDelete={deleteEntry}/>
       </div>
 
