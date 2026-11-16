@@ -128,8 +128,16 @@ const renderAfterRequests = async (test) => {
 
   field(view, "Nombre del evento").props.onChange("Nuevo título");
   existing.api.saveError = true;
-  button(existing.render(), "Guardar proyecto").props.onClick();
+  const pressSave = button(existing.render(), "Guardar proyecto").props.onClick;
+  pressSave();
+  pressSave();
+  const savingButton = button(existing.render(), "Guardando proyecto…");
+  assert.equal(savingButton.props["aria-disabled"], true);
+  assert.notEqual(savingButton.props.disabled, true, "The pending button must keep keyboard focus.");
+  savingButton.props.onClick();
   view = await renderAfterRequests(existing);
+  assert.equal(existing.writes.length, 1, "Repeated activation during a save must send a single write.");
+  assert.equal(button(view, "Guardar proyecto").props["aria-disabled"], false);
   assert.equal(field(view, "Nombre del evento").props.value, "Nuevo título");
   assert.ok(view.some(({ props }) => props.role === "alert" && props.children.includes("Tus cambios siguen en el formulario")));
   assert.deepEqual(existing.api.project, fixture);
@@ -147,5 +155,5 @@ const renderAfterRequests = async (test) => {
   assert.ok(view.some(({ props }) => props.role === "status" && typeof props.children === "string" && props.children.includes("Aún no tienes un proyecto guardado")));
   assert.ok(button(view, "Guardar proyecto"), "A successful empty read allows a first project.");
   assert.equal(newProject.writes.length, 0);
-  console.log("SA4 project: read failure blocks writing, retry restores data, failed save preserves edits and an empty read allows creation.");
+  console.log("SA4 project: read failure blocks writing, retry restores data, repeated saves are blocked without disabling focus, failed save preserves edits and an empty read allows creation.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });

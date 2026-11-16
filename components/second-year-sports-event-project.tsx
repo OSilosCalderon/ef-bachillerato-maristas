@@ -101,7 +101,7 @@ function normalizeTimeline(value: unknown): TimelineItem[] {
 }
 
 const fieldClass = "mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-normal outline-none focus:border-[#1e6b4f] focus:ring-2 focus:ring-[#1e6b4f]/10";
-const primaryActionClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-extrabold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1e6b4f] disabled:opacity-50";
+const primaryActionClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-extrabold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1e6b4f] aria-disabled:opacity-50";
 
 export function SecondYearSportsEventProject() {
   const [projectLoad, setProjectLoad] = useState<ProjectLoad>({ status: "loading" });
@@ -109,6 +109,7 @@ export function SecondYearSportsEventProject() {
   const [form, setForm] = useState<EventForm>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ status: "error" | "success"; message: string } | null>(null);
+  const saveInProgress = useRef(false);
   const retryButton = useRef<HTMLButtonElement>(null);
   const firstHeading = useRef<HTMLHeadingElement>(null);
 
@@ -206,12 +207,13 @@ export function SecondYearSportsEventProject() {
   }, 0), [form.budgetItems]);
 
   async function save() {
-    if (projectLoad.status !== "ready" || saving) return;
+    if (projectLoad.status !== "ready" || saveInProgress.current) return;
     const participants = form.participantsEstimate.trim() === "" ? null : Number(form.participantsEstimate);
     if (participants != null && (!Number.isInteger(participants) || participants < 1 || participants > 1000)) {
       setFeedback({ status: "error", message: "En «Participantes estimados», indica un número entero entre 1 y 1000." });
       return;
     }
+    saveInProgress.current = true;
     setSaving(true);
     setFeedback(null);
     try {
@@ -250,6 +252,7 @@ export function SecondYearSportsEventProject() {
     } catch {
       setFeedback({ status: "error", message: "No se ha podido confirmar el guardado. Tus cambios siguen en el formulario. Pulsa «Guardar proyecto» para reintentar." });
     } finally {
+      saveInProgress.current = false;
       setSaving(false);
     }
   }
@@ -333,7 +336,7 @@ export function SecondYearSportsEventProject() {
             <p className="font-extrabold text-slate-900">Proyecto SA4 · {readiness.percent}% preparado</p>
             <p className="text-xs text-slate-500">Guarda con frecuencia. Puedes volver y modificarlo durante las 5 semanas.</p>
           </div>
-          <button type="button" disabled={saving} onClick={() => void save()} className={primaryActionClass}>
+          <button type="button" aria-disabled={saving} onClick={() => void save()} className={primaryActionClass}>
             {saving ? <Loader2 aria-hidden="true" className="animate-spin" size={17}/> : <Save aria-hidden="true" size={17}/>}
             {saving ? "Guardando proyecto…" : "Guardar proyecto"}
           </button>
