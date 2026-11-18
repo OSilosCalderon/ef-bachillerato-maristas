@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Calculator, Plus, Search, Trash2 } from "lucide-react";
 import { foodNumber, FoodMacros, Sa3FoodEstimateDetails } from "@/components/sa3-food-estimate";
-import { catalogIngredients } from "@/lib/sa3-food-composition";
+import { catalogIngredients, catalogRecipeGroups } from "@/lib/sa3-food-composition";
 import {
   foodGroups, foodMacronutrients, isLabelMacroGrams, maxFoodQuantity, maxRecipeIngredients, meals, parseFoodDecimal, processingGroups,
   type FoodEntry, type FoodEntryDraft, type FoodMacroGrams, type FoodPart, type FoodProcessing, type FoodUnit,
@@ -40,7 +40,7 @@ const ingredientGroups = foodGroups.map((group) => ({
   ingredients: catalogIngredients.filter((ingredient) => ingredient.group === group.id)
     .sort((a, b) => a.name.localeCompare(b.name, "es")),
 })).filter((group) => group.ingredients.length);
-const examples = ["Café con leche 250 ml", "Macarrones con carne 300 g", "Cuscús cocido 150 g"];
+const examples = ["Bocata de tortilla 180 g", "Arroz a la cubana 300 g", "Café con leche 250 ml"];
 const manualReferences = [...catalogFoods].sort((a, b) => a.name.localeCompare(b.name, "es"));
 
 const editableAmount = (quantity: number | null | undefined) => quantity == null
@@ -78,6 +78,8 @@ export function Sa3FoodEntryForm({ entry, onSave, onCancel }: {
   const [rows, setRows] = useState<IngredientRow[]>(() => entry?.estimate
     ? rowsForParts(entry.estimate.parts)
     : [{ id: "0", ...emptyIngredient }]);
+  const [recipeGroupId, setRecipeGroupId] = useState(() => catalogRecipeGroups.find(({ recipes }) =>
+    recipes.some((recipe) => recipe.id === catalogItem?.id))?.id ?? catalogRecipeGroups[0].id);
   const [error, setError] = useState("");
   const nameInput = useRef<HTMLInputElement>(null);
 
@@ -88,6 +90,7 @@ export function Sa3FoodEntryForm({ entry, onSave, onCancel }: {
   const query = mode === "ingredients" ? { name: draft.name } : parseFoodQuery(draft.name);
   const match = mode === "search" ? findCatalogFood(query.name) : undefined;
   const suggestions = mode === "search" ? suggestCatalogFoods(query.name, match?.id) : [];
+  const recipes = (catalogRecipeGroups.find(({ id }) => id === recipeGroupId) ?? catalogRecipeGroups[0]).recipes;
   const reference = match && "reference" in match ? match.reference : undefined;
   const units = match ? unitsForFood(match) : ["g", "ml"] as const;
   const manualReference = mode === "label" ? findManualFood(query.name, draft.manualReferenceId) : undefined;
@@ -128,6 +131,11 @@ export function Sa3FoodEntryForm({ entry, onSave, onCancel }: {
     }
     setMode(next);
     setError("");
+  }
+
+  function selectFood(food: (typeof catalogFoods)[number]) {
+    const usesSameUnit = unitsForFood(food).includes(unit);
+    update({ name: food.name, quantity: usesSameUnit ? quantityText : "", unit: usesSameUnit ? unit : null });
   }
 
   function updateRow(id: string, fields: Partial<IngredientRow>) {
@@ -183,20 +191,40 @@ export function Sa3FoodEntryForm({ entry, onSave, onCancel }: {
     </label>
     {mode === "search" && <>
       <p id="sa3-food-search-help" className="-mt-2 text-xs leading-5 text-slate-600">
-        Escribe el nombre y la cantidad en g o ml. Elige la preparación que has pesado, como arroz seco o cocido.
+        Escribe el nombre y la cantidad, como «paella de marisco 250 g», o elige un plato por tipo. Usa la cantidad total que has tomado.
       </p>
       {!draft.name.trim() && <div className="flex flex-wrap gap-2" aria-label="Ejemplos para probar">
         {examples.map((example) => <button type="button" key={example} className={button} onClick={() => update({ name: example, quantity: "", unit: null })}>{example}</button>)}
       </div>}
       {match && match.name.localeCompare(query.name, "es", { sensitivity: "base" }) !== 0 && <p className="text-xs leading-5 text-slate-600">Ficha seleccionada · <strong>{match.name}</strong></p>}
       {!!suggestions.length && <div className="flex flex-wrap gap-2" aria-label="Coincidencias del catálogo">
-        {suggestions.map((food) => <button type="button" key={food.id} className={button} onClick={() => update({
-          name: food.name, quantity: quantityText, unit: query.unit ?? draft.unit,
-        })}>{food.name}</button>)}
+        {suggestions.map((food) => <button type="button" key={food.id} className={button} onClick={() => selectFood(food)}>{food.name}</button>)}
       </div>}
       {!!query.name && !match && !suggestions.length && <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">
-        Prueba otro nombre, combina alimentos en «Por ingredientes» o añade los datos del envase en «Etiqueta o registro manual».
+        Prueba otro nombre, explora los platos por tipo o usa «Por ingredientes» o «Etiqueta o registro manual».
       </p>}
+      <details className="rounded-xl border border-slate-200 bg-slate-50/60">
+        <summary className="min-h-10 cursor-pointer px-3 py-2.5 text-sm font-bold text-[#164c3a]">Ver platos por tipo</summary>
+        <div className="grid gap-3 px-3 pb-3 sm:grid-cols-2">
+          <div className="min-w-0">
+            <label className={label} htmlFor="sa3-food-recipe-type">Tipo de plato</label>
+            <select id="sa3-food-recipe-type" value={recipeGroupId} onChange={(event) => setRecipeGroupId(event.target.value)} className={control}>
+              {catalogRecipeGroups.map((group) => <option key={group.id} value={group.id}>{group.label}</option>)}
+            </select>
+          </div>
+          <div className="min-w-0">
+            <label className={label} htmlFor="sa3-food-recipe">Plato preparado</label>
+            <select id="sa3-food-recipe" value={recipes.some(({ id }) => id === match?.id) ? match?.id : ""} className={control}
+              onChange={(event) => {
+                const recipe = recipes.find(({ id }) => id === event.target.value);
+                if (recipe) selectFood(recipe);
+              }}>
+              <option value="" disabled>Elige un plato</option>
+              {recipes.map((recipe) => <option key={recipe.id} value={recipe.id}>{recipe.name}</option>)}
+            </select>
+          </div>
+        </div>
+      </details>
       {match && <div className="grid grid-cols-[minmax(0,1fr)_6rem] gap-3">
         <label className={label}>Cantidad
           <input inputMode="decimal" maxLength={12} value={quantityText} placeholder="250"
