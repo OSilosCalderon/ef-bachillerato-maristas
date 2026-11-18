@@ -15,7 +15,10 @@ function load(file, imports = {}) {
 }
 
 const diary = load("sa3-food-diary");
-const composition = load("sa3-food-composition", { "./sa3-food-actitudes": load("sa3-food-actitudes") });
+const recipes = load("sa3-food-recipes");
+const composition = load("sa3-food-composition", {
+  "./sa3-food-actitudes": load("sa3-food-actitudes"), "./sa3-food-recipes": recipes,
+});
 const nutrition = load("sa3-food-nutrition", { "./sa3-food-composition": composition, "./sa3-food-diary": diary });
 const habits = load("sa3-habits-types");
 const { habitPdfData } = load("sa3-habit-pdf", { "./sa3-habits-types": habits });
@@ -27,6 +30,31 @@ function entry(name, changes = {}) {
     quantity: null, unit: "g", kcalPer100: null, ...changes,
   };
 }
+
+const foodIds = nutrition.catalogFoods.map(({ id }) => id);
+assert.equal(new Set(foodIds).size, foodIds.length, "Each catalogue entry keeps a unique ID.");
+const preparedRecipes = recipes.preparedRecipeGroups.flatMap((group) => group.recipes);
+assert.ok(preparedRecipes.length >= 100, "The diary offers a substantial set of prepared dishes.");
+for (const recipe of preparedRecipes) {
+  for (const name of [recipe.name, ...recipe.aliases]) {
+    assert.equal(nutrition.findCatalogFood(name)?.id, recipe.id, `Ambiguous recipe name: ${name}`);
+  }
+  const estimate = nutrition.estimateCatalogFood(recipe, 250, "g");
+  assert.ok(estimate, `Missing ingredients for ${recipe.name}`);
+  assert.deepEqual(nutrition.combinedFoodPortion(estimate.parts), { quantity: 250, unit: "g" }, recipe.name);
+  const values = diary.sumFoodValues(estimate.parts.map((part) => part.values));
+  assert.ok(values.kcal > 0 && Object.values(values).every((value) => Number.isFinite(value) && value >= 0), recipe.name);
+}
+const quickSearch = nutrition.parseFoodQuery("he comido un bocata de tortilla 180 g");
+assert.deepEqual(quickSearch, { name: "bocata de tortilla", quantity: "180", unit: "g" });
+assert.equal(nutrition.findCatalogFood(quickSearch.name)?.id, "bocadillo-tortilla-patatas");
+assert.ok(nutrition.suggestCatalogFoods("paella").some(({ id }) => id === "paella-marisco"));
+const manualRice = entry("Arroz cubana 300 g");
+const riceNutrition = nutrition.foodEntryNutrition(manualRice);
+assert.equal(riceNutrition.source, "manual-reference");
+assert.equal(riceNutrition.quantity, 300);
+assert.ok(Math.abs(riceNutrition.energy - 421.56) < 1e-9);
+assert.ok(nutrition.foodEntryGroups(manualRice, riceNutrition.estimate).has("proteinas"));
 
 const legacyCoffee = entry("cafe con leche 250 ml");
 const manualPasta = entry("Macarrones a la boloñesa", { quantity: 300, kcalPer100: 160 });

@@ -19,6 +19,11 @@ export const sa3FoodSources = [
     url: "https://www.fao.org/4/ap815e/ap815e.pdf",
     use: "Conversión aproximada de ml a g para las bebidas y el aceite del catálogo.",
   },
+  {
+    title: "FAO/INFOODS · Cálculo de la composición de platos",
+    url: "https://www.fao.org/infoods/infoods/recipes/en/",
+    use: "Estimación del aporte de un plato a partir de los ingredientes y sus proporciones. Cada ficha del diario representa una preparación orientativa.",
+  },
 ];
 
 export const sa3Sources = [

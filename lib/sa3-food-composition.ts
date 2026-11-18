@@ -1,5 +1,6 @@
 import type { FoodGroup, FoodProcessing, FoodUnit, FoodValues } from "./sa3-food-diary";
 import { actitudesCatalogIngredients } from "./sa3-food-actitudes";
+import { preparedRecipeGroups } from "./sa3-food-recipes";
 
 type NamedFood = { id: string; name: string; aliases?: string[] };
 
@@ -62,11 +63,63 @@ export const catalogIngredients: CatalogIngredient[] = [
   { id: "13-499", name: "Cebolla cruda", group: "hortalizas", processing: "nova1", aliases: ["cebolla"], per100g: { kcal: 35, protein: 1, carbs: 7.9, fat: 0.1 } },
   { id: "13-500", name: "Cebolla cocida", group: "hortalizas", processing: "nova1", per100g: { kcal: 25, protein: 0.7, carbs: 5.33, fat: 0.3 } },
   { id: "13-503", name: "Brócoli cocido", group: "hortalizas", processing: "nova1", aliases: ["brócoli"], per100g: { kcal: 28, protein: 3.3, carbs: 2.74, fat: 0.5 } },
+  { id: "11-980", name: "Pan de molde blanco", group: "cereales", processing: "duda", aliases: ["pan de molde"], per100g: { kcal: 219, protein: 7.9, carbs: 42.07, fat: 1.6 } },
+  { id: "11-985", name: "Panecillo blanco crujiente", group: "cereales", processing: "duda", per100g: { kcal: 262, protein: 9.2, carbs: 50.03, fat: 2.2 } },
+  { id: "11-1006", name: "Pan tierno para hamburguesa", group: "cereales", processing: "duda", aliases: ["pan de hamburguesa"], per100g: { kcal: 254, protein: 9.3, carbs: 46.95, fat: 2.6 } },
+  { id: "11-925", name: "Tortilla de trigo para rellenar", group: "cereales", processing: "duda", aliases: ["tortilla de trigo", "tortilla de harina", "tortita de trigo"], per100g: { kcal: 285, protein: 7.8, carbs: 49.11, fat: 5.7 } },
+  { id: "11-1016", name: "Masa de pizza de referencia", group: "cereales", processing: "duda", aliases: ["masa de pizza"], per100g: { kcal: 290, protein: 7.8, carbs: 52.45, fat: 4.8 } },
+  { id: "11-941", name: "Fideos finos cocidos", group: "cereales", processing: "nova1", aliases: ["fideos cocidos"], per100g: { kcal: 129, protein: 4.7, carbs: 25, fat: 0.8 } },
+  { id: "11-1045", name: "Almidón de maíz", group: "cereales", processing: "nova2", aliases: ["maicena"], per100g: { kcal: 354, protein: 0.6, carbs: 83.64, fat: 0.7 } },
+  { id: "11-886", name: "Harina de trigo blanca", group: "cereales", processing: "nova1", aliases: ["harina de trigo"], per100g: { kcal: 352, protein: 9.1, carbs: 73.57, fat: 1.4 } },
+  { id: "11-1143", name: "Crepe dulce", group: "cereales", processing: "duda", aliases: ["crepe sin relleno"], per100g: { kcal: 234, protein: 6.3, carbs: 35.19, fat: 7.4 } },
+  { id: "11-799", name: "Galleta tipo digestive", group: "cereales", processing: "duda", aliases: ["galleta digestive"], per100g: { kcal: 463, protein: 6.2, carbs: 60.39, fat: 21.3 } },
+  { id: "17-661", name: "Mantequilla sin sal", group: "grasas", processing: "nova2", aliases: ["mantequilla"], per100g: { kcal: 744, protein: 0.6, carbs: 0.57, fat: 82.2 } },
+  { id: "17-073", name: "Mermelada de frutas", group: "otros", processing: "duda", aliases: ["mermelada"], per100g: { kcal: 261, protein: 0.6, carbs: 67.73, fat: 0 } },
+  { id: "17-654", name: "Mayonesa", group: "grasas", processing: "duda", aliases: ["mahonesa"], per100g: { kcal: 686, protein: 1.1, carbs: 2.32, fat: 74.8 } },
+  { id: "17-834", name: "Tomate frito casero", group: "hortalizas", processing: "duda", aliases: ["salsa de tomate casera", "tomate frito"], per100g: { kcal: 70, protein: 1.5, carbs: 6.32, fat: 4.5 } },
+  { id: "17-667", name: "Salsa bechamel casera", group: "lacteos", processing: "duda", aliases: ["bechamel"], per100g: { kcal: 131, protein: 4.4, carbs: 10.31, fat: 8 } },
+  { id: "17-622", name: "Salsa pesto verde", group: "grasas", processing: "duda", aliases: ["pesto verde", "pesto"], per100g: { kcal: 420, protein: 5.6, carbs: 3.72, fat: 42.5 } },
+  { id: "17-681", name: "Caldo de pollo", group: "otros", processing: "duda", per100g: { kcal: 12, protein: 2.3, carbs: 0.19, fat: 0.2 } },
+  { id: "17-339", name: "Vinagre", group: "otros", processing: "nova2", per100g: { kcal: 22, protein: 0.4, carbs: 0.6, fat: 0 } },
+  { id: "17-721", name: "Salsa de soja", group: "otros", processing: "duda", per100g: { kcal: 79, protein: 3, carbs: 17.31, fat: 0 } },
+  { id: "12-360", name: "Mozzarella fresca", group: "lacteos", processing: "nova3", aliases: ["mozzarella"], per100g: { kcal: 257, protein: 18.6, carbs: 0, fat: 20.3 } },
+  { id: "12-346", name: "Queso cheddar", group: "lacteos", processing: "nova3", aliases: ["cheddar"], per100g: { kcal: 416, protein: 25.4, carbs: 0.1, fat: 34.9 } },
+  { id: "12-525", name: "Queso feta", group: "lacteos", processing: "nova3", aliases: ["feta"], per100g: { kcal: 250, protein: 15.6, carbs: 1.43, fat: 20.2 } },
+  { id: "12-332", name: "Nata para cocinar", group: "lacteos", processing: "nova1", aliases: ["nata líquida"], per100g: { kcal: 193, protein: 3.3, carbs: 2.1, fat: 19.1 } },
+  { id: "12-551", name: "Queso crema natural", group: "lacteos", processing: "duda", aliases: ["queso crema", "queso de untar"], per100g: { kcal: 252, protein: 5.3, carbs: 2.86, fat: 24.4 } },
+  { id: "19-496", name: "Jamón cocido", group: "proteinas", processing: "duda", aliases: ["jamón york", "jamón de york"], per100g: { kcal: 107, protein: 18.4, carbs: 1, fat: 3.3 } },
+  { id: "19-516", name: "Chorizo", group: "proteinas", processing: "duda", per100g: { kcal: 395, protein: 24, carbs: 2.23, fat: 32.2 } },
+  { id: "18-555", name: "Panceta asada", group: "proteinas", processing: "duda", aliases: ["panceta"], per100g: { kcal: 293, protein: 25.1, carbs: 0, fat: 21.4 } },
+  { id: "19-114", name: "Morcilla cocinada", group: "proteinas", processing: "duda", aliases: ["morcilla"], per100g: { kcal: 297, protein: 10.3, carbs: 15.1, fat: 21.5 } },
+  { id: "18-337", name: "Pollo asado con piel sin huesos", group: "proteinas", processing: "nova1", aliases: ["pollo asado"], per100g: { kcal: 236, protein: 20.9, carbs: 0, fat: 16.9 } },
+  { id: "18-524", name: "Lomo de cerdo a la plancha", group: "proteinas", processing: "nova1", aliases: ["lomo a la plancha"], per100g: { kcal: 194, protein: 35.1, carbs: 0, fat: 5.9 } },
+  { id: "18-474", name: "Filete de ternera a la plancha", group: "proteinas", processing: "nova1", aliases: ["filete de ternera"], per100g: { kcal: 177, protein: 31, carbs: 0, fat: 5.9 } },
+  { id: "18-014", name: "Falda de ternera cocida", group: "proteinas", processing: "nova1", per100g: { kcal: 225, protein: 31.4, carbs: 0, fat: 11 } },
+  { id: "18-186", name: "Cordero guisado", group: "proteinas", processing: "nova1", per100g: { kcal: 240, protein: 26.6, carbs: 0, fat: 14.8 } },
+  { id: "16-373", name: "Bacalao al horno sin piel ni espinas", group: "proteinas", processing: "nova1", aliases: ["bacalao cocinado"], per100g: { kcal: 100, protein: 23.9, carbs: 0, fat: 0.5 } },
+  { id: "16-390", name: "Mejillones cocidos sin concha", group: "proteinas", processing: "nova1", aliases: ["mejillones cocidos"], per100g: { kcal: 104, protein: 17.7, carbs: 3.18, fat: 2.2 } },
+  { id: "16-448", name: "Anchoas en aceite escurridas", group: "proteinas", processing: "nova3", aliases: ["anchoas"], per100g: { kcal: 191, protein: 25.2, carbs: 0, fat: 10 } },
+  { id: "13-549", name: "Calabaza cocida", group: "hortalizas", processing: "nova1", per100g: { kcal: 12, protein: 0.6, carbs: 1.87, fat: 0.3 } },
+  { id: "13-506", name: "Champiñones cocinados sin aceite", group: "hortalizas", processing: "nova1", aliases: ["champiñones cocidos"], per100g: { kcal: 9, protein: 1.4, carbs: 0.09, fat: 0.3 } },
+  { id: "13-244", name: "Ajo crudo", group: "hortalizas", processing: "nova1", aliases: ["ajo"], per100g: { kcal: 98, protein: 7.9, carbs: 14.94, fat: 0.6 } },
+  { id: "13-625", name: "Puerro cocido", group: "hortalizas", processing: "nova1", per100g: { kcal: 16, protein: 1.2, carbs: 2.47, fat: 0.2 } },
+  { id: "13-595", name: "Patatas fritas caseras", group: "cereales", processing: "duda", aliases: ["patatas fritas", "papas fritas"], per100g: { kcal: 197, protein: 3.2, carbs: 30.23, fat: 6.7 } },
+  { id: "14-340", name: "Aceitunas verdes escurridas sin hueso", group: "fruta", processing: "nova3", aliases: ["aceitunas verdes", "aceitunas"], per100g: { kcal: 103, protein: 0.9, carbs: 0, fat: 11 } },
+  { id: "14-324", name: "Fresas frescas", group: "fruta", processing: "nova1", aliases: ["fresas"], per100g: { kcal: 30, protein: 0.6, carbs: 6.1, fat: 0.5 } },
+  { id: "14-277", name: "Zumo de limón", group: "fruta", processing: "nova1", per100g: { kcal: 7, protein: 0.3, carbs: 1.59, fat: 0 } },
+  { id: "14-847", name: "Pasta de sésamo", group: "legumbres", processing: "duda", aliases: ["tahini", "tahina"], per100g: { kcal: 607, protein: 18.5, carbs: 0.85, fat: 58.9 } },
+  { id: "14-889", name: "Leche de coco para cocinar", group: "lacteos", processing: "duda", per100g: { kcal: 169, protein: 1.1, carbs: 3.18, fat: 16.9 } },
+  { id: "13-876", name: "Curry en polvo", group: "otros", processing: "duda", per100g: { kcal: 233, protein: 9.5, carbs: 23.73, fat: 10.8 } },
+  { id: "13-804", name: "Albahaca fresca", group: "hortalizas", processing: "nova1", aliases: ["albahaca"], per100g: { kcal: 40, protein: 3.1, carbs: 4.64, fat: 0.8 } },
+  { id: "13-844", name: "Perejil fresco", group: "hortalizas", processing: "nova1", aliases: ["perejil"], per100g: { kcal: 34, protein: 3, carbs: 2.66, fat: 1.3 } },
+  { id: "17-644", name: "Nachos de maíz", group: "cereales", processing: "duda", aliases: ["nachos", "totopos"], per100g: { kcal: 504, protein: 7.2, carbs: 55.4, fat: 27.4 } },
+  // Anses, Ciqual 2025, DOI 10.57745/RDMHWY. Licencia Etalab 2.0.
+  { id: "ciqual-19999", name: "Pimiento cocinado", group: "hortalizas", processing: "nova1", aliases: ["pimiento cocido"], per100g: { kcal: 33, protein: 1.11, carbs: 5.42, fat: 0.33 } },
   ...actitudesCatalogIngredients,
 ];
 
 // Proporciones de ejemplo para el aula. Se aplican al peso cocinado o al volumen servido.
-export const catalogRecipes: CatalogRecipe[] = [
+const diaryRecipes: CatalogRecipe[] = [
   {
     id: "cafe-con-leche", name: "Café con leche", aliases: ["café con leche sin azúcar"], unit: "ml",
     ingredients: [
@@ -123,3 +176,10 @@ export const catalogRecipes: CatalogRecipe[] = [
     ],
   },
 ];
+
+export const catalogRecipeGroups = [
+  ...preparedRecipeGroups,
+  { id: "recetas-diario", label: "Recetas del diario", recipes: diaryRecipes },
+];
+
+export const catalogRecipes = [...diaryRecipes, ...preparedRecipeGroups.flatMap((group) => group.recipes)];
