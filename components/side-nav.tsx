@@ -30,7 +30,7 @@ const secondYearItems: NavItem[] = [
   { label: "Inicio", href: "/alumno", icon: Home },
   { label: "Mi progreso", mobileLabel: "Progreso", href: "/alumno/progreso", icon: BarChart3 },
   { label: "Mis calificaciones", mobileLabel: "Mis notas", href: "/alumno/calificaciones", icon: GraduationCap },
-  { label: "Apuntes entrenamiento", mobileLabel: "Apuntes", href: "/alumno/apuntes-entrenamiento", icon: GraduationCap },
+  { label: "Teoría y autoevaluación de SA", mobileLabel: "Teoría", href: "/alumno/apuntes-entrenamiento", icon: GraduationCap },
   { label: "SA1 Punto de partida", mobileLabel: "SA1", href: "/alumno/2bach/sa1", icon: Gauge },
   { label: "SA2 Condición física", mobileLabel: "SA2", href: "/alumno/2bach/sa2", icon: Dumbbell },
   { label: "SA3 Hábitos saludables", mobileLabel: "SA3", href: "/alumno/2bach/sa3", icon: HeartPulse },
