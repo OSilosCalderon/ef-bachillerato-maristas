@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, CircleDollarSign, Loader2, Plus, Save, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -33,6 +33,11 @@ type EventForm = {
   finalReflection: string;
   status: "draft" | "planning" | "ready" | "completed";
 };
+
+type ProjectLoad =
+  | { status: "loading" }
+  | { status: "error"; message: string }
+  | { status: "ready"; studentId: string; courseId: string; hasSavedProject: boolean };
 
 const emptyForm: EventForm = {
   eventName: "",
@@ -96,40 +101,44 @@ function normalizeTimeline(value: unknown): TimelineItem[] {
 }
 
 const fieldClass = "mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-normal outline-none focus:border-[#1e6b4f] focus:ring-2 focus:ring-[#1e6b4f]/10";
+const primaryActionClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-extrabold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1e6b4f] aria-disabled:opacity-50";
 
 export function SecondYearSportsEventProject() {
-  const [studentId, setStudentId] = useState<string | null>(null);
-  const [courseId, setCourseId] = useState<string | null>(null);
+  const [projectLoad, setProjectLoad] = useState<ProjectLoad>({ status: "loading" });
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [form, setForm] = useState<EventForm>(emptyForm);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [feedback, setFeedback] = useState<{ status: "error" | "success"; message: string } | null>(null);
+  const saveInProgress = useRef(false);
+  const retryButton = useRef<HTMLButtonElement>(null);
+  const firstHeading = useRef<HTMLHeadingElement>(null);
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    let active = true;
 
-  async function load() {
-    setLoading(true);
-    setError("");
-    try {
-      const supabase = createClient();
-      const { data: auth, error: authError } = await supabase.auth.getUser();
-      if (authError || !auth.user) throw new Error("No se ha podido identificar al alumno.");
-      const { data: student, error: studentError } = await supabase.from("students").select("id,course_id").eq("profile_id", auth.user.id).eq("active", true).single();
-      if (studentError || !student) throw new Error("No se ha encontrado el perfil de alumno.");
-      setStudentId(student.id as string);
-      setCourseId(student.course_id as string);
+    function reportLoadError(message = "Reintenta la carga para abrir tu proyecto.") {
+      if (active) setProjectLoad({ status: "error", message });
+    }
 
-      const { data, error: projectError } = await supabase
-        .from("sports_event_projects")
-        .select("event_name,purpose,target_audience,activity_type,event_format,venue,event_date,participants_estimate,team_name,personal_role,team_roles,rules,inclusion_measures,safety_measures,materials,budget_items,timeline,communication_plan,sustainability_measures,evaluation_plan,final_reflection,status")
-        .eq("student_id", student.id)
-        .eq("course_id", student.course_id)
-        .eq("sa_code", "SA4")
-        .maybeSingle();
-      if (projectError) throw projectError;
-      if (data) {
-        setForm({
+    async function load() {
+      try {
+        const supabase = createClient();
+        const { data: auth, error: authError } = await supabase.auth.getUser();
+        if (authError || !auth.user) return reportLoadError("No se ha podido comprobar tu sesión. Si sigue ocurriendo, vuelve a iniciar sesión.");
+        const { data: student, error: studentError } = await supabase.from("students").select("id,course_id").eq("profile_id", auth.user.id).eq("active", true).single();
+        if (studentError || !student?.id || !student?.course_id) return reportLoadError("No se ha podido cargar tu perfil de alumno. Si sigue ocurriendo, consulta a tu profesor.");
+
+        const { data, error: projectError } = await supabase
+          .from("sports_event_projects")
+          .select("event_name,purpose,target_audience,activity_type,event_format,venue,event_date,participants_estimate,team_name,personal_role,team_roles,rules,inclusion_measures,safety_measures,materials,budget_items,timeline,communication_plan,sustainability_measures,evaluation_plan,final_reflection,status")
+          .eq("student_id", student.id)
+          .eq("course_id", student.course_id)
+          .eq("sa_code", "SA4")
+          .maybeSingle();
+        if (!active) return;
+        if (projectError) return reportLoadError();
+
+        setForm(data ? {
           eventName: data.event_name ?? "",
           purpose: data.purpose ?? "",
           targetAudience: data.target_audience ?? "",
@@ -152,18 +161,26 @@ export function SecondYearSportsEventProject() {
           evaluationPlan: data.evaluation_plan ?? "",
           finalReflection: data.final_reflection ?? "",
           status: data.status === "planning" || data.status === "ready" || data.status === "completed" ? data.status : "draft",
-        });
+        } : emptyForm);
+        setProjectLoad({ status: "ready", studentId: student.id, courseId: student.course_id, hasSavedProject: Boolean(data) });
+      } catch {
+        reportLoadError();
       }
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "No se ha podido cargar el proyecto.");
-    } finally {
-      setLoading(false);
     }
-  }
+
+    void load();
+    return () => { active = false; };
+  }, [loadAttempt]);
+
+  useEffect(() => {
+    if (loadAttempt === 0) return;
+    if (projectLoad.status === "error") retryButton.current?.focus();
+    if (projectLoad.status === "ready") firstHeading.current?.focus();
+  }, [loadAttempt, projectLoad.status]);
 
   function update<K extends keyof EventForm>(key: K, value: EventForm[K]) {
     setForm((current) => ({ ...current, [key]: value }));
-    setMessage("");
+    setFeedback(null);
   }
 
   const readiness = useMemo(() => {
@@ -190,20 +207,20 @@ export function SecondYearSportsEventProject() {
   }, 0), [form.budgetItems]);
 
   async function save() {
-    if (!studentId || !courseId) return;
+    if (projectLoad.status !== "ready" || saveInProgress.current) return;
     const participants = form.participantsEstimate.trim() === "" ? null : Number(form.participantsEstimate);
     if (participants != null && (!Number.isInteger(participants) || participants < 1 || participants > 1000)) {
-      setError("El número estimado de participantes debe estar entre 1 y 1000.");
+      setFeedback({ status: "error", message: "En «Participantes estimados», indica un número entero entre 1 y 1000." });
       return;
     }
+    saveInProgress.current = true;
     setSaving(true);
-    setError("");
-    setMessage("");
+    setFeedback(null);
     try {
       const supabase = createClient();
       const { data, error: saveError } = await supabase.from("sports_event_projects").upsert({
-        student_id: studentId,
-        course_id: courseId,
+        student_id: projectLoad.studentId,
+        course_id: projectLoad.courseId,
         sa_code: "SA4",
         event_name: form.eventName.trim(),
         purpose: form.purpose.trim(),
@@ -229,30 +246,50 @@ export function SecondYearSportsEventProject() {
         status: form.status,
         updated_at: new Date().toISOString(),
       }, { onConflict: "student_id,course_id,sa_code" }).select("id,status,updated_at").single();
-      if (saveError) throw saveError;
-      if (!data) throw new Error("Supabase no ha confirmado el guardado del proyecto.");
-      setMessage("Proyecto del evento guardado y verificado en Supabase.");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "No se ha podido guardar el proyecto.");
+      if (saveError || !data) throw new Error("No se ha confirmado el guardado.");
+      setProjectLoad({ ...projectLoad, hasSavedProject: true });
+      setFeedback({ status: "success", message: "Proyecto guardado. Puedes volver más tarde para seguir editándolo." });
+    } catch {
+      setFeedback({ status: "error", message: "No se ha podido confirmar el guardado. Tus cambios siguen en el formulario. Pulsa «Guardar proyecto» para reintentar." });
     } finally {
+      saveInProgress.current = false;
       setSaving(false);
     }
   }
 
-  if (loading) return <div className="card flex items-center gap-3 p-6 text-sm text-slate-500"><Loader2 className="animate-spin" size={20}/>Cargando proyecto del evento…</div>;
+  if (projectLoad.status === "loading") {
+    return <p role="status" className="card flex items-center gap-3 p-6 text-sm text-slate-600">
+      <Loader2 aria-hidden="true" className="shrink-0 animate-spin" size={20}/>Cargando proyecto del evento…
+    </p>;
+  }
+
+  if (projectLoad.status === "error") {
+    return <section className="card space-y-3 p-6 sm:p-8">
+      <h2 className="text-lg font-extrabold text-slate-900">No se ha podido abrir el proyecto</h2>
+      <p id="sa4-project-load-error" role="alert" className="text-sm leading-6 text-red-700">{projectLoad.message}</p>
+      <button ref={retryButton} type="button" className={primaryActionClass} aria-describedby="sa4-project-load-error"
+        onClick={() => {
+          setProjectLoad({ status: "loading" });
+          setLoadAttempt((current) => current + 1);
+        }}>
+        Reintentar carga
+      </button>
+    </section>;
+  }
 
   return (
     <div className="space-y-6">
+      {!projectLoad.hasSavedProject && <p role="status" className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+        Aún no tienes un proyecto guardado. Empieza por el nombre y la finalidad del evento.
+      </p>}
       <section className="grid gap-4 sm:grid-cols-3">
         <article className="card p-5"><p className="text-sm text-slate-500">Preparación del evento</p><p className="mt-2 text-3xl font-extrabold">{readiness.percent}%</p><div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full bg-[#1e6b4f]" style={{ width: `${readiness.percent}%` }}/></div><p className="mt-2 text-xs text-slate-400">{readiness.completed}/{readiness.total} bloques esenciales preparados</p></article>
         <article className="card p-5"><CircleDollarSign className="text-[#1e6b4f]" size={20}/><p className="mt-3 text-sm text-slate-500">Presupuesto estimado</p><p className="mt-1 text-3xl font-extrabold">{budgetTotal.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</p><p className="mt-1 text-xs text-slate-400">Estimación didáctica; no implica gasto real</p></article>
         <article className="card p-5"><CheckCircle2 className="text-[#1e6b4f]" size={20}/><p className="mt-3 text-sm text-slate-500">Tareas completadas</p><p className="mt-1 text-3xl font-extrabold">{form.timeline.filter((row) => row.done).length}/{form.timeline.length}</p><p className="mt-1 text-xs text-slate-400">Cronograma del equipo</p></article>
       </section>
 
-      {(error || message) && <div role="status" className={`rounded-2xl border p-4 text-sm font-semibold ${error ? "border-red-200 bg-red-50 text-red-700" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}>{error || message}</div>}
-
       <section className="card p-6 sm:p-8">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between"><div><p className="text-xs font-bold uppercase tracking-[.18em] text-[#1e6b4f]">1. Idea y propósito</p><h2 className="mt-1 text-xl font-extrabold">¿Qué evento queremos crear y para qué?</h2></div><StatusSelect value={form.status} onChange={(value) => update("status", value)}/></div>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between"><div><p className="text-xs font-bold uppercase tracking-[.18em] text-[#1e6b4f]">1. Idea y propósito</p><h2 ref={firstHeading} tabIndex={-1} className="mt-1 text-xl font-extrabold">¿Qué evento queremos crear y para qué?</h2></div><StatusSelect value={form.status} onChange={(value) => update("status", value)}/></div>
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           <Field label="Nombre del evento" value={form.eventName} onChange={(value) => update("eventName", value)} placeholder="Ej.: Maristas Activa Cup"/>
           <Field label="Actividad o deporte principal" value={form.activityType} onChange={(value) => update("activityType", value)} placeholder="Deporte, reto, circuito, torneo…"/>
@@ -293,7 +330,22 @@ export function SecondYearSportsEventProject() {
 
       <section id="evaluacion" className="card scroll-mt-6 p-6 sm:p-8"><p className="text-xs font-bold uppercase tracking-[.18em] text-[#1e6b4f]">7. Evaluación</p><h2 className="mt-1 text-xl font-extrabold">¿Cómo sabremos si el evento ha funcionado?</h2><div className="mt-5 grid gap-4 md:grid-cols-2"><Area label="Plan de evaluación" value={form.evaluationPlan} onChange={(value) => update("evaluationPlan", value)} placeholder="Qué observarás: participación, puntualidad, seguridad, satisfacción, fluidez, cumplimiento de roles…"/><Area label="Reflexión final" value={form.finalReflection} onChange={(value) => update("finalReflection", value)} placeholder="Tras el evento: qué funcionó, qué problema surgió, cómo lo resolvisteis y qué cambiarías"/></div></section>
 
-      <div className="sticky bottom-20 z-20 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-xl backdrop-blur sm:flex-row sm:items-center sm:justify-between lg:bottom-5"><div><p className="font-extrabold text-slate-900">Proyecto SA4 · {readiness.percent}% preparado</p><p className="text-xs text-slate-500">Guarda con frecuencia. Puedes volver y modificarlo durante las 5 semanas.</p></div><button type="button" disabled={saving} onClick={() => void save()} className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-extrabold text-white disabled:opacity-50">{saving ? <Loader2 className="animate-spin" size={17}/> : <Save size={17}/>}Guardar proyecto</button></div>
+      <div className="sticky bottom-20 z-20 space-y-3 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-xl backdrop-blur lg:bottom-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-extrabold text-slate-900">Proyecto SA4 · {readiness.percent}% preparado</p>
+            <p className="text-xs text-slate-500">Guarda con frecuencia. Puedes volver y modificarlo durante las 5 semanas.</p>
+          </div>
+          <button type="button" aria-disabled={saving} onClick={() => void save()} className={primaryActionClass}>
+            {saving ? <Loader2 aria-hidden="true" className="animate-spin" size={17}/> : <Save aria-hidden="true" size={17}/>}
+            {saving ? "Guardando proyecto…" : "Guardar proyecto"}
+          </button>
+        </div>
+        {feedback && <p role={feedback.status === "error" ? "alert" : "status"}
+          className={`rounded-xl border p-3 text-sm font-semibold ${feedback.status === "error" ? "border-red-200 bg-red-50 text-red-700" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}>
+          {feedback.message}
+        </p>}
+      </div>
     </div>
   );
 }
