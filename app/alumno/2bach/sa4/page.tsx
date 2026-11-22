@@ -3,6 +3,9 @@ import { ArrowRight, CalendarCheck2, ClipboardCheck, Megaphone, ShieldCheck } fr
 import { DashboardHeader } from "@/components/dashboard-header";
 import { SecondYearSa4Layout } from "@/components/second-year-sa4-layout";
 
+import { Sa4Delegations } from "@/components/sa4-delegations";
+import { getCurrentStudentCourse } from "@/lib/student-course";
+
 const blocks = [
   { href: "/alumno/2bach/sa4/proyecto", title: "Proyecto del evento", text: "Diseña el evento completo: finalidad, formato, roles, reglas, recursos, presupuesto, cronograma y evaluación.", icon: CalendarCheck2, meta: "Documento vivo" },
   { href: "/alumno/2bach/sa4/guia", title: "Guía de organización", text: "Consulta una secuencia clara para tomar decisiones viables, seguras, inclusivas y sostenibles.", icon: ShieldCheck, meta: "Antes de ejecutar" },
@@ -18,7 +21,8 @@ const weeks = [
   ["Semana 5", "Ejecutar y evaluar", "Realización, recogida de evidencias y reflexión final."],
 ];
 
-export default function Page() {
+export default async function Page() {
+  const course = await getCurrentStudentCourse();
   return (
     <>
       <DashboardHeader eyebrow="2º Bachillerato · SA4" title="Creamos un evento deportivo" description="Diseña, organiza, ejecuta y evalúa una experiencia deportiva realista y participativa."/>
@@ -28,6 +32,8 @@ export default function Page() {
           <h2 className="mt-3 max-w-4xl text-2xl font-extrabold sm:text-3xl">Pasamos de participar a organizar</h2>
           <p className="mt-3 max-w-4xl text-sm leading-7 text-slate-300">El reto es crear un evento que pueda funcionar de verdad. Tendréis que coordinar personas, tomar decisiones, anticipar problemas y justificar cómo garantizáis participación, seguridad e inclusión.</p>
         </section>
+
+        <Sa4Delegations courseId={course.id}/>
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {blocks.map(({ href, title, text, icon: Icon, meta }) => (
