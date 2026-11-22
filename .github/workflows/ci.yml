@@ -25,6 +25,8 @@ jobs:
         run: node scripts/check-retired-diaries.cjs
       - name: Check SA3 diary and habits
         run: node scripts/check-sa3-habits.cjs
+      - name: Check SA4 event
+        run: node scripts/check-sa4-event.cjs
       - name: Check final physical reflections
         run: node scripts/check-final-physical-reflection.cjs
       - name: Typecheck

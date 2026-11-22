@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { TeacherSituationResults } from "@/components/teacher-situation-results";
+import { Sa4EventWorkspace } from "@/components/sa4-event-workspace";
 import { Sa4Delegations } from "@/components/sa4-delegations";
 import { requireRole } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
@@ -18,7 +19,7 @@ export default async function Page({ params }: { params: Promise<{ situation: st
 
   return <>
     <div className="mx-auto max-w-7xl px-5 pt-5 sm:px-8 sm:pt-8">
-      {courses?.map(({ id }) => <Sa4Delegations key={id} courseId={id}/>)}
+      {courses?.map(({ id }) => <div key={id} className="space-y-6"><Sa4Delegations courseId={id}/><Sa4EventWorkspace courseId={id}/></div>)}
     </div>
     {results}
   </>;
