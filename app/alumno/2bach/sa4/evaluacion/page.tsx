@@ -34,7 +34,7 @@ export default function Page() {
           </div>
         </section>
 
-        <section className="flex flex-col gap-4 rounded-2xl bg-slate-950 p-5 text-white sm:flex-row sm:items-center sm:justify-between"><div><p className="font-extrabold">Completa la evaluación en tu proyecto</p><p className="mt-1 text-xs text-slate-300">Escribe cómo valorarás el evento y, después de realizarlo, añade tu reflexión final.</p></div><Link href="/alumno/2bach/sa4/proyecto#evaluacion" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-extrabold text-slate-950">Ir a evaluación <ArrowRight size={17}/></Link></section>
+        <section className="flex flex-col gap-4 rounded-2xl bg-slate-950 p-5 text-white sm:flex-row sm:items-center sm:justify-between"><div><p className="font-extrabold">Completa la evaluación en tu proyecto</p><p className="mt-1 text-xs text-slate-300">Abre «Creación del evento», selecciona tu delegación y completa el paso «Balance del evento».</p></div><Link href="/alumno/2bach/sa4/proyecto" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-extrabold text-slate-950">Ir a evaluación <ArrowRight size={17}/></Link></section>
       </SecondYearSa4Layout>
     </>
   );

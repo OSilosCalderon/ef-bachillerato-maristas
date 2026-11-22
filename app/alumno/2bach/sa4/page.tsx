@@ -7,18 +7,18 @@ import { Sa4Delegations } from "@/components/sa4-delegations";
 import { getCurrentStudentCourse } from "@/lib/student-course";
 
 const blocks = [
-  { href: "/alumno/2bach/sa4/proyecto", title: "Proyecto del evento", text: "Diseña el evento completo: finalidad, formato, roles, reglas, recursos, presupuesto, cronograma y evaluación.", icon: CalendarCheck2, meta: "Documento vivo" },
+  { href: "/alumno/2bach/sa4/proyecto", title: "Creación del evento", text: "Completad en equipo el logo, el reglamento, la organización, el cuadro de juego y la clasificación de vuestra prueba.", icon: CalendarCheck2, meta: "Documento vivo" },
   { href: "/alumno/2bach/sa4/guia", title: "Guía de organización", text: "Consulta una secuencia clara para tomar decisiones viables, seguras, inclusivas y sostenibles.", icon: ShieldCheck, meta: "Antes de ejecutar" },
-  { href: "/alumno/2bach/sa4/proyecto#cronograma", title: "Cronograma y comunicación", text: "Reparte tareas, responsables y fechas; prepara también cómo informarás a participantes y colaboradores.", icon: Megaphone, meta: "Trabajo en equipo" },
+  { href: "/alumno/2bach/sa4/teoria", title: "Teoría y reflexión", text: "Lee el módulo, resuelve la autoevaluación y explica individualmente tus decisiones sobre la organización.", icon: Megaphone, meta: "Trabajo en equipo" },
   { href: "/alumno/2bach/sa4/evaluacion", title: "Evaluación final", text: "Valora la organización, la ejecución, la seguridad, la inclusión y el trabajo realizado por el equipo.", icon: ClipboardCheck, meta: "Mejora del proyecto" },
 ];
 
 const weeks = [
-  ["Semana 1", "Definir el reto", "Finalidad, destinatarios, formato y espacio."],
-  ["Semana 2", "Diseñar el evento", "Roles, reglamento, inclusión y seguridad."],
-  ["Semana 3", "Hacerlo viable", "Materiales, presupuesto y cronograma."],
-  ["Semana 4", "Preparar la ejecución", "Comunicación, ensayo y resolución de incidencias."],
-  ["Semana 5", "Ejecutar y evaluar", "Realización, recogida de evidencias y reflexión final."],
+  ["Identidad", "Logo y lema", "Propuesta de cada país, concurso y votación."],
+  ["Actividad", "Un deporte por delegación", "Objetivo, participantes, reglamento y puntuación."],
+  ["Preparación", "Organizar y comunicar", "Roles, material, espacio, horarios, seguridad y publicidad."],
+  ["Competición", "Cuadro y clasificación", "Ocho países, partidos, arbitraje y registro de resultados."],
+  ["Balance", "Evaluar la experiencia", "Evidencias, trabajo en equipo y propuestas de mejora."],
 ];
 
 export default async function Page() {
@@ -28,9 +28,9 @@ export default async function Page() {
       <DashboardHeader eyebrow="2º Bachillerato · SA4" title="Creamos un evento deportivo" description="Diseña, organiza, ejecuta y evalúa una experiencia deportiva realista y participativa."/>
       <SecondYearSa4Layout>
         <section className="rounded-3xl bg-slate-950 p-6 text-white sm:p-8">
-          <p className="text-xs font-bold uppercase tracking-[.18em] text-emerald-300">Febrero – primera mitad de marzo · 20 sesiones · 5 semanas</p>
-          <h2 className="mt-3 max-w-4xl text-2xl font-extrabold sm:text-3xl">Pasamos de participar a organizar</h2>
-          <p className="mt-3 max-w-4xl text-sm leading-7 text-slate-300">El reto es crear un evento que pueda funcionar de verdad. Tendréis que coordinar personas, tomar decisiones, anticipar problemas y justificar cómo garantizáis participación, seguridad e inclusión.</p>
+          <p className="text-xs font-bold uppercase tracking-[.18em] text-emerald-300">Ocho delegaciones · ocho actividades</p>
+          <h2 className="mt-3 max-w-4xl text-2xl font-extrabold sm:text-3xl">Creamos nuestra olimpiada</h2>
+          <p className="mt-3 max-w-4xl text-sm leading-7 text-slate-300">Cada país propone el logo y el lema del evento, diseña una actividad deportiva y participa en las pruebas de las demás delegaciones. Prepararéis la organización, el cuadro de juego y la clasificación, y evaluaréis cómo ha funcionado.</p>
         </section>
 
         <Sa4Delegations courseId={course.id}/>
@@ -47,7 +47,7 @@ export default async function Page() {
         </section>
 
         <section className="card p-6 sm:p-8">
-          <p className="text-xs font-bold uppercase tracking-[.18em] text-[#1e6b4f]">Secuencia de 5 semanas</p>
+          <p className="text-xs font-bold uppercase tracking-[.18em] text-[#1e6b4f]">Pasos de la olimpiada</p>
           <div className="mt-5 grid gap-4 lg:grid-cols-5">
             {weeks.map(([week, title, text]) => <article key={week} className="rounded-2xl bg-slate-50 p-5"><p className="text-xs font-bold uppercase tracking-wide text-[#1e6b4f]">{week}</p><h3 className="mt-2 font-extrabold text-slate-900">{title}</h3><p className="mt-2 text-sm leading-6 text-slate-500">{text}</p></article>)}
           </div>
