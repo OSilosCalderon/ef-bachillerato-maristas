@@ -53,7 +53,7 @@ export function Sa4EventEditor({ workspace, country, step, onSaved, onDirty, onB
     try {
       const { data: row, error } = await saveSa4Step({ courseId: workspace.courseId, country, step, data, revision: saved?.revision ?? 0 });
       if (error || !row) throw new Error(error || "No se ha confirmado el guardado. Reintenta.");
-      onSaved(row); onDirty(false); setMessage("Paso guardado para toda la delegación. Podéis seguir con el siguiente.");
+      onSaved(row); onDirty(false); setMessage(step === "identity" ? "Logo y propuesta guardados. Ya podéis verlos en «Concurso de logos»." : "Paso guardado para toda la delegación. Podéis seguir con el siguiente.");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "No se ha podido guardar. Tu edición sigue aquí. Reintenta."); }
     finally { inProgress.current = false; setSaving(false); onBusy(false); }
   }
@@ -65,7 +65,7 @@ export function Sa4EventEditor({ workspace, country, step, onSaved, onDirty, onB
       <fieldset disabled={!canEdit || saving || preparing || (step === "competition" && resultsExist)} className="min-w-0 space-y-5">
         {step === "identity" && <div className="space-y-3">
           <label className="block text-sm font-bold" htmlFor="sa4-logo">Logo para el concurso</label>
-          <p id="sa4-logo-help" className="text-xs text-slate-600">Subid vuestra propuesta en PNG, JPG o WebP. Después pulsad Guardar paso. Cada país presenta un logo para todo el evento.</p>
+          <p id="sa4-logo-help" className="text-xs text-slate-600">Elegid una imagen PNG, JPG o WebP y pulsad «Guardar paso» para que se vea en el concurso. Seleccionar el archivo solo prepara la vista previa.</p>
           <input id="sa4-logo" type="file" accept="image/png,image/jpeg,image/webp" aria-describedby="sa4-logo-help"
             className={eventControl} onChange={async (event) => {
               const file = event.target.files?.[0];
@@ -79,6 +79,7 @@ export function Sa4EventEditor({ workspace, country, step, onSaved, onDirty, onB
           {record.logo && <div className="rounded-2xl border border-slate-200 bg-white p-4">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={record.logo} alt="Propuesta de logo de la delegación" className="mx-auto max-h-52 max-w-full object-contain"/>
+            <p role="status" className="mt-3 text-sm font-semibold text-emerald-900">{record.logo === (saved?.data as StepData["identity"] | undefined)?.logo ? "Logo guardado para el concurso." : "Vista previa sin guardar. Pulsa «Guardar paso» para mostrar este logo en el concurso."}</p>
           </div>}
         </div>}
         {step !== "competition" && step !== "results" && stepFields[step].map(([key, label, help]) => <div key={key}>
