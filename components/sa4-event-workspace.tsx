@@ -6,13 +6,14 @@ import { loadSa4Workspace } from "@/app/alumno/2bach/sa4/actions";
 import { Sa4EventEditor, eventButton, eventControl } from "@/components/sa4-event-editor";
 import { Sa4LogoContest } from "@/components/sa4-logo-contest";
 import { Sa4Tournament } from "@/components/sa4-tournament";
+import { Sa4DelegationStandings } from "@/components/sa4-delegation-standings";
 import { eventSteps, readStep, type EventStep, type EventWorkspace, type SavedStep } from "@/lib/sa4-event";
 
 export function Sa4EventWorkspace({ courseId }: { courseId?: string }) {
   const [workspace, setWorkspace] = useState<EventWorkspace | null>(null);
   const [country, setCountry] = useState("");
   const [step, setStep] = useState<EventStep>("identity");
-  const [view, setView] = useState<"team" | "logos" | "activities">("team");
+  const [view, setView] = useState<"team" | "logos" | "activities" | "standings">("team");
   const [attempt, setAttempt] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -70,7 +71,7 @@ export function Sa4EventWorkspace({ courseId }: { courseId?: string }) {
       </div><button type="button" className={eventButton} onClick={refresh}>Actualizar evento</button></div>
       {!workspace.teacher && <Link onClick={(event) => { if (!canLeave()) event.preventDefault(); }} href="/alumno/2bach/sa4/teoria" className="inline-block min-h-11 py-2.5 text-sm font-bold text-[#164c3a] underline">Teoría, autoevaluación y reflexión individual</Link>}
       <div role="group" aria-label="Vistas del evento" className="flex flex-wrap gap-2">
-        {([['team', 'Trabajo por delegación'], ['logos', 'Concurso de logos'], ['activities', 'Las ocho actividades']] as const).map(([id, title]) => <button type="button" key={id}
+        {([['team', 'Trabajo por delegación'], ['logos', 'Concurso de logos'], ['activities', 'Las ocho actividades'], ['standings', 'Clasificación total']] as const).map(([id, title]) => <button type="button" key={id}
           className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 aria-pressed:border-emerald-700 aria-pressed:bg-emerald-50 aria-pressed:text-emerald-900"
           aria-pressed={view === id} onClick={() => change(() => setView(id))}>{title}</button>)}
       </div>
@@ -94,7 +95,8 @@ export function Sa4EventWorkspace({ courseId }: { courseId?: string }) {
       </section>
       {country && <Sa4EventEditor key={`${country}-${step}-${version}`} workspace={workspace} country={country} step={step} onSaved={saved} onDirty={setDirty} onBusy={setBusy}/>}
     </>}
-    {view === "logos" && <Sa4LogoContest workspace={workspace} onChange={setWorkspace}/>}
+    {view === "logos" && <Sa4LogoContest workspace={workspace} onChange={setWorkspace} onDirty={setDirty} onBusy={setBusy}/>}
+    {view === "standings" && <Sa4DelegationStandings workspace={workspace}/>}
     {view === "activities" && <div className="grid items-start gap-4 lg:grid-cols-2">
       {workspace.delegations.map((delegation) => {
         const sport = readStep(workspace.steps, delegation.country_code, "sport", codes);

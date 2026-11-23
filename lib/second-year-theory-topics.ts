@@ -1,3 +1,4 @@
+import { sa4TheoryTopic } from "@/lib/sa4-theory-content";
 import { capacitySections, capacitySources, capacityQuiz } from "@/lib/basic-physical-capacities";
 import { sa3RecommendedReading, sa3TheorySections } from "@/lib/sa3-theory-content";
 import { secondYearTheoryExtensions } from "@/lib/second-year-theory-extensions";
@@ -189,36 +190,7 @@ const baseTopics: Omit<SecondYearTheoryTopic, "foundation" | "sourceLinks">[] = 
       },
     ],
   },
-  {
-    slug: "2bach-sa4-evento-deportivo", number: 4, sa: "SA4",
-    title: "Creamos un evento deportivo", subtitle: "De la idea a una experiencia segura, inclusiva y viable",
-    summary: "Organizar un evento exige transformar una buena idea en decisiones sobre formato, tiempos, roles, recursos, seguridad, inclusión, comunicación y evaluación.",
-    visual: "event", visualCaption: "Un evento funciona cuando todas sus fases están conectadas y existe margen para reajustar.",
-    keyIdeas: ["El evento empieza mucho antes del primer partido", "El formato debe ajustarse a tiempo y recursos", "Los roles necesitan responsabilidades claras", "Evaluar el evento sirve para mejorarlo"],
-    concepts: [
-      { name: "Logística", definition: "Organización práctica de espacios, materiales, tiempos y movimientos necesarios.", example: "Preparar dos pistas, balones y rotaciones para seis equipos." },
-      { name: "Cronograma", definition: "Secuencia temporal de tareas y actividades.", example: "Montaje, recepción, partidos, recogida y evaluación." },
-      { name: "Plan de contingencia", definition: "Alternativa preparada para responder a una incidencia previsible.", example: "Reducir tiempo de partidos si existe un retraso acumulado." },
-      { name: "Inclusión", definition: "Diseño que favorece la participación de personas con características y niveles distintos.", example: "Ofrecer roles, reglas y tareas que no dependan de una única habilidad." },
-    ],
-    sections: [
-      { title: "Definir el propósito", paragraphs: ["Antes de elegir un formato hay que aclarar para qué se organiza el evento y quién participará. Un torneo competitivo, una jornada recreativa y un evento solidario necesitan decisiones diferentes.", "El propósito orienta reglas, duración, comunicación y criterios de evaluación."] },
-      { title: "Diseñar con límites reales", paragraphs: ["Tiempo, instalaciones, número de participantes y material son restricciones que obligan a elegir. Un formato excelente en teoría puede ser inviable si no cabe en el horario disponible.", "La organización debe calcular transiciones, tiempos muertos y tareas de montaje, no solo el tiempo de juego."] },
-      { title: "Seguridad, inclusión y evaluación", paragraphs: ["La prevención de incidencias incluye revisar espacio, material, aforo, normas y responsabilidades. En un contexto escolar también debemos prever formas de participación inclusivas.", "Después del evento conviene recoger evidencias: puntualidad, participación, incidencias, funcionamiento de roles y propuestas de mejora."] },
-    ],
-    cases: [
-      { sport: "Voleibol", capacity: "Organización de torneo", situation: "Hay 6 equipos, 2 pistas y 90 minutos disponibles.", proposal: "Comparar liguilla, grupos y partidos a tiempo antes de elegir el formato.", why: "El formato debe garantizar participación suficiente sin superar el tiempo real.", progression: "Probar el cronograma con tiempos de transición y añadir un margen para retrasos." },
-      { sport: "Atletismo", capacity: "Evento por estaciones", situation: "Una jornada combina velocidad, salto y lanzamiento con grupos numerosos.", proposal: "Crear estaciones, rotaciones, responsables de material y registro, y un orden claro de circulación.", why: "Las estaciones distribuyen espacio y reducen esperas si la logística está bien calculada.", progression: "Simular una rotación antes del evento y ajustar tiempos según la prueba." },
-    ],
-    challenge: "Diseña en una sola página propósito, participantes, formato, recursos, cronograma, medidas de seguridad y criterio de evaluación para un evento escolar.",
-    extension: "Compara eliminación directa y fase de grupos para un evento de 90 minutos. Explica qué gana y qué pierde cada formato en participación, emoción y logística.",
-    sources: ["Jeroni Saura Aranda · Ejercicios en circuito", "Michael Boyle · El entrenamiento funcional aplicado a deportes", "Baechle & Earle · Principios del entrenamiento de la fuerza y del acondicionamiento físico"],
-    quiz: [
-      { question: "¿Qué debería decidirse antes del formato competitivo?", options: ["El propósito y los destinatarios", "El color de los carteles", "El equipo ganador"], correct: 0, feedback: "El propósito orienta las decisiones posteriores." },
-      { question: "Un plan de contingencia sirve para…", options: ["Prever alternativas ante incidencias", "Eliminar el cronograma", "Evitar repartir roles"], correct: 0, feedback: "Anticipar respuestas mejora la capacidad de organización." },
-      { question: "¿Qué evidencia ayuda a evaluar un evento?", options: ["Solo quién ganó", "Participación, tiempos, incidencias y funcionamiento de roles", "Únicamente el presupuesto"], correct: 1, feedback: "La evaluación debe revisar el funcionamiento global del evento." },
-    ],
-  },
+  sa4TheoryTopic,
   {
     slug: "2bach-sa5-cultura-cuerpo-expresion", number: 5, sa: "SA5",
     title: "Extremadura se mueve", subtitle: "Cultura, cuerpo y expresión",

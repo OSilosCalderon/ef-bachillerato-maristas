@@ -22,6 +22,8 @@ const checklist = [
   "La comunicación indica lugar, horario, normas y qué debe llevar cada participante.",
   "El presupuesto diferencia lo que ya existe de lo que habría que adquirir.",
   "Existe una forma concreta de evaluar si el evento ha funcionado.",
+  "Cada alumno sabe puntuar los ocho logos del 1 al 8 sin repetir números.",
+  "Todos conocen los puntos por deporte y cómo se incorporan a la clasificación total.",
 ];
 
 export default function Page() {
@@ -47,7 +49,7 @@ export default function Page() {
           <article className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6"><h2 className="font-extrabold text-emerald-950">La organización también se entrena</h2><p className="mt-2 text-sm leading-6 text-emerald-900">Coordinar un evento exige escuchar, anticipar, decidir, asumir responsabilidades y reajustar. La calidad del trabajo en equipo forma parte del aprendizaje.</p></article>
         </section>
 
-        <section className="flex flex-col gap-4 rounded-2xl bg-slate-950 p-5 text-white sm:flex-row sm:items-center sm:justify-between"><div><p className="font-extrabold">Usa la guía mientras completas el proyecto</p><p className="mt-1 text-xs text-slate-300">El indicador de preparación te mostrará qué bloques esenciales faltan.</p></div><Link href="/alumno/2bach/sa4/proyecto" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-extrabold text-slate-950">Abrir proyecto <ArrowRight size={17}/></Link></section>
+        <section className="flex flex-col gap-4 rounded-2xl bg-slate-950 p-5 text-white sm:flex-row sm:items-center sm:justify-between"><div><p className="font-extrabold">Usa la guía mientras completas el proyecto</p><p className="mt-1 text-xs text-slate-300">Los seis pasos indican qué apartados tienen datos guardados. En Teoría y reflexión encontrarás ejemplos de tiempos, reglamento y clasificación.</p></div><Link href="/alumno/2bach/sa4/proyecto" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-extrabold text-slate-950">Abrir proyecto <ArrowRight size={17}/></Link></section>
       </SecondYearSa4Layout>
     </>
   );
