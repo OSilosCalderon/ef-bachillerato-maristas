@@ -7,7 +7,7 @@ const source = fs.readFileSync(path.join(__dirname, "../lib/sa4-event.ts"), "utf
 const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 const exported = {};
 new Function("exports", code)(exported);
-const { eventMatches, matchWinner, leagueStandings, emptyStep, projectSteps, validateStep, delegationStandings, validateLogoRanking, logoStandings } = exported;
+const { eventMatches, matchWinner, leagueStandings, emptyStep, projectSteps, validateStep, delegationStandings, validateLogoRanking, logoStandings, mergeLogoUpdates } = exported;
 const countries = ["DO", "ES", "JM", "MX", "GR", "BR", "JP", "IT"];
 const league = eventMatches("league", countries);
 assert.equal(league.length, 28);
@@ -100,4 +100,17 @@ overall = delegationStandings(delegations, eightSports);
 assert.equal(overall.completed, 8);
 assert.equal(overall.rows[0].points, 64);
 assert.equal(overall.rows.reduce((sum, row) => sum + row.points, 0), 288);
+// A logo saved by another delegation must replace its old preview without losing a vote or another step.
+const oldIdentity = section("ES", "identity", { name: "Antes", logo: "", slogan: "", meaning: "" });
+const nextIdentity = section("ES", "identity", { name: "Nueva propuesta", logo: "data:image/png;base64,AAAA", slogan: "Participar", meaning: "Ocho equipos" });
+const sharedWorkspace = { steps: [oldIdentity, ...fullLeague], projectVersions: { ES: "before", DO: "same" }, phase: "voting", ownVote: ranking, votes: [{ scores: ranking }] };
+const refreshed = mergeLogoUpdates(sharedWorkspace, { countries: ["ES"], steps: [nextIdentity], versions: { ES: "after" } });
+assert.equal(refreshed.steps.filter(row => row.country_code === "ES" && row.step === "identity").length, 1);
+assert.equal(refreshed.steps.find(row => row.country_code === "ES" && row.step === "identity").data.logo, nextIdentity.data.logo);
+assert.equal(refreshed.steps.find(row => row.step === "results"), fullLeague[1]);
+assert.equal(refreshed.ownVote, sharedWorkspace.ownVote);
+assert.equal(refreshed.votes, sharedWorkspace.votes);
+assert.equal(refreshed.phase, "voting");
+assert.deepEqual(refreshed.projectVersions, { ES: "after", DO: "same" });
 console.log("SA4: match coverage, knockout tiebreaks, preserved projects, complete 1–8 logo ballots, equal points per sport, tied places and eight-sport totals passed.");
+console.log("SA4 logos: refreshed proposals preserve votes, competition results and other delegations.");

@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { loadSa4Workspace } from "@/app/alumno/2bach/sa4/actions";
 import { Sa4EventEditor, eventButton, eventControl } from "@/components/sa4-event-editor";
 import { Sa4LogoContest } from "@/components/sa4-logo-contest";
 import { Sa4Tournament } from "@/components/sa4-tournament";
 import { Sa4DelegationStandings } from "@/components/sa4-delegation-standings";
-import { eventSteps, readStep, type EventStep, type EventWorkspace, type SavedStep } from "@/lib/sa4-event";
+import { eventSteps, mergeLogoUpdates, readStep, type EventStep, type EventWorkspace, type LogoUpdates, type SavedStep } from "@/lib/sa4-event";
 
 export function Sa4EventWorkspace({ courseId }: { courseId?: string }) {
   const [workspace, setWorkspace] = useState<EventWorkspace | null>(null);
@@ -21,6 +21,12 @@ export function Sa4EventWorkspace({ courseId }: { courseId?: string }) {
   const [busy, setBusy] = useState(false);
   const [version, setVersion] = useState(0);
   const heading = useRef<HTMLHeadingElement>(null);
+  const logosUpdated = useCallback((updates: LogoUpdates) => {
+    setWorkspace((current) => current && mergeLogoUpdates(current, updates));
+  }, []);
+  const updateWorkspace = useCallback((update: (current: EventWorkspace) => EventWorkspace) => {
+    setWorkspace((current) => current && update(current));
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -52,7 +58,10 @@ export function Sa4EventWorkspace({ courseId }: { courseId?: string }) {
     requestAnimationFrame(() => heading.current?.focus());
   }
   function saved(row: SavedStep) {
-    setWorkspace((current) => current && ({ ...current, steps: [...current.steps.filter((item) => item.country_code !== row.country_code || item.step !== row.step), row] }));
+    setWorkspace((current) => current && ({ ...current,
+      steps: [...current.steps.filter((item) => item.country_code !== row.country_code || item.step !== row.step), row],
+      projectVersions: { ...current.projectVersions, [row.country_code]: row.updated_at },
+    }));
   }
 
   if (loading) return <p role="status" className="card p-6 text-sm text-slate-600">Cargando el evento y las propuestas guardadas…</p>;
@@ -95,7 +104,7 @@ export function Sa4EventWorkspace({ courseId }: { courseId?: string }) {
       </section>
       {country && <Sa4EventEditor key={`${country}-${step}-${version}`} workspace={workspace} country={country} step={step} onSaved={saved} onDirty={setDirty} onBusy={setBusy}/>}
     </>}
-    {view === "logos" && <Sa4LogoContest workspace={workspace} onChange={setWorkspace} onDirty={setDirty} onBusy={setBusy}/>}
+    {view === "logos" && <Sa4LogoContest workspace={workspace} onChange={updateWorkspace} onDirty={setDirty} onBusy={setBusy} onLogosUpdated={logosUpdated}/>}
     {view === "standings" && <Sa4DelegationStandings workspace={workspace}/>}
     {view === "activities" && <div className="grid items-start gap-4 lg:grid-cols-2">
       {workspace.delegations.map((delegation) => {

@@ -17,7 +17,16 @@ export type Vote = { scores: LogoRanking };
 export type EventWorkspace = {
   courseId: string; teacher: boolean; countryCode: string | null; delegations: Delegation[];
   steps: SavedStep[]; phase: VotingPhase; votes: Vote[]; ownVote: LogoRanking | null;
+  projectVersions: Record<string, string>;
 };
+export type LogoUpdates = { countries: string[]; steps: SavedStep[]; versions: Record<string, string> };
+
+export function mergeLogoUpdates(workspace: EventWorkspace, updates: LogoUpdates): EventWorkspace {
+  return { ...workspace,
+    steps: [...workspace.steps.filter((step) => step.step !== "identity" || !updates.countries.includes(step.country_code)), ...updates.steps],
+    projectVersions: { ...workspace.projectVersions, ...updates.versions },
+  };
+}
 export const eventSteps: { id: EventStep; title: string; help: string }[] = [
   { id: "identity", title: "Logo y lema", help: "Proponed una identidad para toda la olimpiada. Cada delegación presenta un logo al concurso." },
   { id: "sport", title: "Actividad y reglamento", help: "Elegid un deporte para organizar. Las ocho delegaciones participarán en las actividades propuestas por los equipos." },

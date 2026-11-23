@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import {
   eventMatches, eventSteps, projectSteps, validateLogoRanking, validateStep,
-  type Delegation, type EventStep, type EventWorkspace, type LogoRanking, type SavedStep, type StepData,
+  type Delegation, type EventStep, type EventWorkspace, type LogoRanking, type LogoUpdates, type SavedStep, type StepData,
 } from "@/lib/sa4-event";
 
 async function loadWorkspace(requestedCourse?: string): Promise<EventWorkspace> {
@@ -31,7 +31,27 @@ async function loadWorkspace(requestedCourse?: string): Promise<EventWorkspace> 
   return {
     courseId, teacher, countryCode: members.data?.find((member) => member.student_id === student?.data?.id)?.country_code ?? null,
     delegations: (delegations.data ?? []) as Delegation[], steps: projectSteps(projects.data ?? []),
+    projectVersions: Object.fromEntries((projects.data ?? []).map((project) => [project.country_code, project.updated_at])),
     phase: settings.data.phase, votes: (votes.data ?? []).map((vote) => ({ scores: vote.scores as LogoRanking })), ownVote: ownVote.data?.scores as LogoRanking ?? null,
+  };
+}
+
+async function loadLogos(courseId: string, knownVersions: Record<string, string>): Promise<LogoUpdates> {
+  const supabase = await createClient();
+  // RLS keeps the same course, role and SA4 visibility checks as the full workspace.
+  // Poll metadata only: unchanged logos are not transferred again.
+  const { data: metadata, error: metadataError } = await supabase.from("sa4_team_projects")
+    .select("country_code,updated_at").eq("course_id", courseId);
+  if (metadataError || !metadata?.length) throw new Error("No se han podido actualizar los logos. Los que ya estaban cargados siguen aquí. Comprueba tu conexión y pulsa «Actualizar logos».");
+  const changed = metadata.filter((project) => knownVersions[project.country_code] !== project.updated_at);
+  if (!changed.length) return { countries: [], steps: [], versions: knownVersions };
+  const { data, error } = await supabase.from("sa4_team_projects").select("country_code,content,updated_at")
+    .eq("course_id", courseId).in("country_code", changed.map((project) => project.country_code));
+  if (error || !data || data.length !== changed.length) throw new Error("No se han podido actualizar los logos. Los que ya estaban cargados siguen aquí. Reintenta con «Actualizar logos».");
+  return {
+    countries: data.map((project) => project.country_code),
+    steps: projectSteps(data).filter((step) => step.step === "identity"),
+    versions: { ...knownVersions, ...Object.fromEntries(data.map((project) => [project.country_code, project.updated_at])) },
   };
 }
 
@@ -98,6 +118,9 @@ async function actionResult<T>(action: () => Promise<T>): Promise<{ data: T; err
 
 export async function loadSa4Workspace(requestedCourse?: string) {
   return actionResult(() => loadWorkspace(requestedCourse));
+}
+export async function loadSa4Logos(courseId: string, knownVersions: Record<string, string>) {
+  return actionResult(() => loadLogos(courseId, knownVersions));
 }
 export async function saveSa4Step(input: Parameters<typeof saveStep>[0]) {
   return actionResult(() => saveStep(input));
