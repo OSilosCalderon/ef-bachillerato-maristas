@@ -1,3 +1,4 @@
+import { sa4TheoryFoundation, sa4TheoryLinks } from "@/lib/sa4-theory-content";
 import { type SecondYearTheorySection, type SecondYearSportCase } from "@/lib/second-year-theory-topics";
 
 type Extension = { foundation: string; sections: SecondYearTheorySection[]; cases?: SecondYearSportCase[]; links: { title: string; url: string }[] };
@@ -32,8 +33,7 @@ export const secondYearTheoryExtensions: Record<string, Extension> = {
     ],
   },
   "2bach-sa4-evento-deportivo": {
-    foundation: "Organizar transforma una idea colectiva en una experiencia viable. El aprendizaje se demuestra al justificar decisiones y responder a incidencias, además de participar en el juego. La calidad del evento incluye seguridad, oportunidades de participación y uso responsable de recursos.",
-    sections: [{ title: "Un cronograma con roles y márgenes", paragraphs: ["Para seis equipos en dos grupos de tres hacen falta tres encuentros por grupo: seis en total. Con dos pistas, tres turnos de 12 minutos de juego y 3 de transición ocupan 45 minutos. Reserva además 10 de recepción, 10 de preparación, 15 de cierre y recogida y 10 de margen: 90 minutos. Este formato garantiza dos partidos por equipo sin añadir una final que no cabe en el horario.", "Asigna coordinación, arbitraje, material, acogida, comunicación y registro de incidencias. Cada rol necesita una tarea, un momento y una persona de apoyo. La persona adulta responsable del centro supervisa seguridad y respuesta a emergencias; el alumnado debe saber a quién avisar.", "Comunica horario, acceso, reglas y opciones de participación antes del evento. Reutiliza materiales, prepara puntos de agua y organiza recogida de residuos. Evalúa participación, esperas, incidencias y opiniones; comparar esas evidencias con el propósito permite decidir qué cambiar." ] }], links: [],
+    foundation: sa4TheoryFoundation, sections: [], links: sa4TheoryLinks,
   },
   "2bach-sa5-cultura-cuerpo-expresion": {
     foundation: "La expresión corporal desarrolla la capacidad de comunicar y crear con otras personas. Vincular una composición a Extremadura exige explorar una referencia y explicar cómo se transforma en movimiento. La interpretación puede ser creativa sin presentarse como reproducción histórica de una tradición.",

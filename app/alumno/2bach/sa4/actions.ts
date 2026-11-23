@@ -2,8 +2,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import {
-  eventMatches, eventSteps, projectSteps, validateStep,
-  type Delegation, type EventStep, type EventWorkspace, type SavedStep, type StepData,
+  eventMatches, eventSteps, projectSteps, validateLogoRanking, validateStep,
+  type Delegation, type EventStep, type EventWorkspace, type LogoRanking, type SavedStep, type StepData,
 } from "@/lib/sa4-event";
 
 async function loadWorkspace(requestedCourse?: string): Promise<EventWorkspace> {
@@ -23,15 +23,15 @@ async function loadWorkspace(requestedCourse?: string): Promise<EventWorkspace> 
     supabase.from("sa4_delegation_members").select("student_id,country_code").eq("course_id", courseId),
     supabase.from("sa4_team_projects").select("country_code,content,updated_at").eq("course_id", courseId),
     supabase.from("sa4_event_settings").select("phase").eq("course_id", courseId).maybeSingle(),
-    supabase.from("sa4_logo_votes").select("country_code").eq("course_id", courseId),
-    teacher ? Promise.resolve({ data: null, error: null }) : supabase.from("sa4_logo_votes").select("country_code").eq("course_id", courseId).eq("student_id", student!.data!.id).maybeSingle(),
+    supabase.from("sa4_logo_ballots").select("scores").eq("course_id", courseId),
+    teacher ? Promise.resolve({ data: null, error: null }) : supabase.from("sa4_logo_ballots").select("scores").eq("course_id", courseId).eq("student_id", student!.data!.id).maybeSingle(),
   ]);
   if ([delegations, members, projects, settings, votes, ownVote].some((result) => result.error)) throw new Error("No se ha podido cargar el evento. Reintenta para recuperar las propuestas guardadas.");
   if (!settings.data) throw new Error("La SA4 está cerrada o el evento está pendiente de configurar. Consulta al profesor.");
   return {
     courseId, teacher, countryCode: members.data?.find((member) => member.student_id === student?.data?.id)?.country_code ?? null,
     delegations: (delegations.data ?? []) as Delegation[], steps: projectSteps(projects.data ?? []),
-    phase: settings.data.phase, votes: (votes.data ?? []).map((vote) => ({ candidate: vote.country_code })), ownVote: ownVote.data?.country_code ?? null,
+    phase: settings.data.phase, votes: (votes.data ?? []).map((vote) => ({ scores: vote.scores as LogoRanking })), ownVote: ownVote.data?.scores as LogoRanking ?? null,
   };
 }
 
@@ -72,10 +72,15 @@ async function saveStep(input: { courseId: string; country: string; step: EventS
   return data[0] as SavedStep;
 }
 
-async function voteLogo(courseId: string, country: string, candidate: string) {
-  const { data, error } = await (await createClient()).rpc("vote_sa4_logo", { p_course: courseId, p_country: country, p_candidate: candidate });
-  if (error || data !== candidate) throw new Error("No se ha confirmado el voto. Comprueba que la votación esté abierta y reintenta.");
-  return candidate;
+async function voteLogos(courseId: string, country: string, ranking: LogoRanking) {
+  const supabase = await createClient();
+  const teams = await supabase.from("sa4_delegations").select("country_code").eq("course_id", courseId);
+  if (teams.error) throw new Error("No se han podido comprobar los logos. Tus puntuaciones siguen aquí. Reintenta.");
+  validateLogoRanking(ranking, (teams.data ?? []).map((team) => String(team.country_code)));
+  const { data, error } = await supabase.rpc("vote_sa4_logos", { p_course: courseId, p_country: country, p_scores: ranking });
+  if (error?.message.includes("SA4_RANKING_INVALID")) throw new Error("Puntúa todos los logos usando cada número del 1 al 8 una sola vez.");
+  if (error || !data || Object.keys(ranking).some((code) => data[code] !== ranking[code])) throw new Error("No se ha confirmado tu votación. Tus puntuaciones siguen aquí. Comprueba que la votación siga abierta y reintenta.");
+  return ranking;
 }
 
 async function setVotingPhase(courseId: string, phase: EventWorkspace["phase"]) {
@@ -97,8 +102,8 @@ export async function loadSa4Workspace(requestedCourse?: string) {
 export async function saveSa4Step(input: Parameters<typeof saveStep>[0]) {
   return actionResult(() => saveStep(input));
 }
-export async function voteSa4Logo(courseId: string, country: string, candidate: string) {
-  return actionResult(() => voteLogo(courseId, country, candidate));
+export async function voteSa4Logos(courseId: string, country: string, ranking: LogoRanking) {
+  return actionResult(() => voteLogos(courseId, country, ranking));
 }
 export async function setSa4VotingPhase(courseId: string, phase: EventWorkspace["phase"]) {
   return actionResult(() => setVotingPhase(courseId, phase));

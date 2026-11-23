@@ -12,10 +12,11 @@ export type StepData = {
 };
 export type SavedStep = { country_code: string; step: EventStep; data: StepData[EventStep]; revision: number; updated_at: string };
 export type VotingPhase = "submissions" | "voting" | "closed";
-export type Vote = { candidate: string };
+export type LogoRanking = Record<string, number>;
+export type Vote = { scores: LogoRanking };
 export type EventWorkspace = {
   courseId: string; teacher: boolean; countryCode: string | null; delegations: Delegation[];
-  steps: SavedStep[]; phase: VotingPhase; votes: Vote[]; ownVote: string | null;
+  steps: SavedStep[]; phase: VotingPhase; votes: Vote[]; ownVote: LogoRanking | null;
 };
 export const eventSteps: { id: EventStep; title: string; help: string }[] = [
   { id: "identity", title: "Logo y lema", help: "Proponed una identidad para toda la olimpiada. Cada delegación presenta un logo al concurso." },
@@ -116,6 +117,76 @@ export function leagueStandings(countries: string[], matches: Match[], scores: R
     else { const winner = score.a > score.b ? a : b; const loser = score.a > score.b ? b : a; winner.won++; winner.points += 3; loser.lost++; }
   }
   return rows.sort((a, b) => b.points - a.points || (b.for - b.against) - (a.for - a.against) || b.for - a.for);
+}
+
+export function validateLogoRanking(data: unknown, countries: string[]): LogoRanking {
+  if (!data || typeof data !== "object" || Array.isArray(data) || countries.length !== 8 || new Set(countries).size !== 8
+    || Object.keys(data).length !== 8 || countries.some((country) => !Object.hasOwn(data, country))) {
+    throw new Error("Puntúa los ocho logos, incluido el de tu delegación, antes de guardar.");
+  }
+  const points = Object.values(data);
+  if (new Set(points).size !== 8 || points.some((value) => !Number.isInteger(value) || Number(value) < 1 || Number(value) > 8)) {
+    throw new Error("Usa cada puntuación del 1 al 8 una sola vez. El 8 es para el logo que más te gusta.");
+  }
+  return data as LogoRanking;
+}
+
+export function logoStandings(countries: string[], votes: Vote[]) {
+  return countries.map((country) => ({ country, points: votes.reduce((total, vote) => total + (vote.scores[country] ?? 0), 0), ratings: votes.length }))
+    .sort((a, b) => b.points - a.points);
+}
+
+// Each completed sport distributes 36 points. Ties share the points of the occupied places.
+function awardPlaces(groups: string[][]) {
+  let occupied = 0;
+  return groups.flatMap((group) => {
+    const position = occupied + 1;
+    const points = 8 - occupied - (group.length - 1) / 2;
+    occupied += group.length;
+    return group.map((country) => ({ country, position, points }));
+  });
+}
+
+export function delegationStandings(delegations: Delegation[], steps: SavedStep[]) {
+  const countries = delegations.map((team) => team.country_code);
+  const activities = delegations.map((team) => {
+    const sport = readStep(steps, team.country_code, "sport", countries).sport;
+    const configured = steps.some((row) => row.country_code === team.country_code && row.step === "competition");
+    const config = readStep(steps, team.country_code, "competition", countries);
+    const scores = readStep(steps, team.country_code, "results", countries).scores;
+    const valid = configured && ["league", "knockout"].includes(config.format) && Array.isArray(config.order)
+      && config.order.length === 8 && new Set(config.order).size === 8 && config.order.every((code) => countries.includes(code));
+    const matches = valid ? eventMatches(config.format, config.order, scores) : [];
+    const finished = matches.filter((match) => {
+      const score = scores[match.id];
+      return match.a && match.b && score && [score.a, score.b].every((n) => n !== null && Number.isInteger(n) && n >= 0 && n <= 9999)
+        && (config.format === "league" || matchWinner(match, score));
+    });
+    const complete = matches.length > 0 && finished.length === matches.length;
+    let places: { country: string; position: number; points: number }[] = [];
+    if (complete && config.format === "league") {
+      const rows = leagueStandings(countries, matches, scores);
+      const groups: string[][] = [];
+      rows.forEach((row, index) => {
+        const previous = rows[index - 1];
+        if (previous && row.points === previous.points && row.for - row.against === previous.for - previous.against && row.for === previous.for) groups.at(-1)!.push(row.country);
+        else groups.push([row.country]);
+      });
+      places = awardPlaces(groups);
+    } else if (complete) {
+      const final = matches.at(-1)!;
+      const winner = matchWinner(final, scores.final)!;
+      const runnerUp = final.a === winner ? final.b! : final.a!;
+      const losers = (round: string) => matches.filter((match) => match.round === round).map((match) => matchWinner(match, scores[match.id]) === match.a ? match.b! : match.a!);
+      places = awardPlaces([[winner], [runnerUp], losers("Semifinal"), losers("Cuartos de final")]);
+    }
+    return { organizer: team.country_code, sport, configured: valid, complete, played: finished.length, total: matches.length, places };
+  });
+  const completed = activities.filter((activity) => activity.complete).length;
+  const totals = countries.map((country) => ({ country, points: activities.reduce((sum, activity) => sum + (activity.places.find((place) => place.country === country)?.points ?? 0), 0) }))
+    .sort((a, b) => b.points - a.points);
+  const rows = totals.map((row) => ({ ...row, position: completed ? totals.findIndex((other) => other.points === row.points) + 1 : null }));
+  return { activities, completed, rows };
 }
 
 export function validateStep(step: EventStep, data: unknown, countries: string[]) {
