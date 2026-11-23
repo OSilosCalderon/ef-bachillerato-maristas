@@ -13,6 +13,7 @@ export function Sa4LogoContest({ workspace, onChange, onDirty, onBusy }: {
   const [message, setMessage] = useState("");
   const [draft, setDraft] = useState<LogoRanking>(workspace.ownVote ?? {});
   const inProgress = useRef(false);
+  const feedback = useRef<HTMLDivElement>(null);
   const countries = workspace.delegations.map((team) => team.country_code);
   const proposals = workspace.delegations.map((team) => ({ ...team, identity: readStep(workspace.steps, team.country_code, "identity", countries) }));
   const submitted = proposals.filter(({ identity }) => identity.logo && identity.slogan.trim() && identity.name.trim() && identity.meaning.trim()).length;
@@ -25,6 +26,9 @@ export function Sa4LogoContest({ workspace, onChange, onDirty, onBusy }: {
   const assigned = countries.filter((code) => draft[code] !== undefined).length;
 
   useEffect(() => { onDirty(editable && dirty); }, [editable, dirty, onDirty]);
+  useEffect(() => {
+    if (error) feedback.current?.scrollIntoView({ block: "center" });
+  }, [error]);
 
   async function perform(action: () => Promise<void>) {
     if (inProgress.current) return;
@@ -114,7 +118,7 @@ export function Sa4LogoContest({ workspace, onChange, onDirty, onBusy }: {
         </article>;
       })}
     </div>
-    {editable && <div className="sticky bottom-[calc(5rem+env(safe-area-inset-bottom))] z-20 space-y-3 rounded-2xl border border-emerald-200 bg-white p-4 shadow-lg lg:bottom-3" aria-label="Guardar puntuaciones de los logos">
+    {editable && <div ref={feedback} className="sticky bottom-[calc(5rem+env(safe-area-inset-bottom))] z-20 space-y-3 rounded-2xl border border-emerald-200 bg-white p-4 shadow-lg lg:bottom-3" aria-label="Guardar puntuaciones de los logos">
       <p role="status" className="text-sm font-semibold">{busy ? "Guardando tu votación…" : `${assigned} de 8 logos puntuados · ${dirty ? "Cambios pendientes de guardar" : workspace.ownVote ? "Votación guardada" : "Completa las ocho puntuaciones"}`}</p>
       <div className="flex flex-wrap gap-3"><button type="button" className={eventButton} disabled={busy || !dirty} onClick={() => void saveVote()}>{busy ? "Guardando…" : "Guardar votación"}</button>
         {dirty && <button type="button" className={eventButton} disabled={busy} onClick={() => {
