@@ -4,25 +4,10 @@ import { useRef, useState } from "react";
 import { saveSa4Step } from "@/app/alumno/2bach/sa4/actions";
 import { emptyStep, eventSteps, readStep, stepFields, type EventStep, type EventWorkspace, type SavedStep, type StepData } from "@/lib/sa4-event";
 import { Sa4Tournament } from "@/components/sa4-tournament";
+import { prepareSa4Logo } from "@/lib/sa4-logo-upload";
 
 export const eventControl = "mt-2 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-normal text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:bg-slate-100";
 export const eventButton = "inline-flex min-h-11 items-center justify-center rounded-xl bg-[#1e6b4f] px-4 py-2.5 text-sm font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:opacity-50 aria-disabled:opacity-50";
-
-async function logoImage(file: File): Promise<string> {
-  if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 10 * 1024 * 1024) throw new Error("Elige una imagen PNG, JPG o WebP de hasta 10 MB.");
-  const bitmap = await createImageBitmap(file);
-  const canvas = document.createElement("canvas");
-  const scale = Math.min(1, 640 / Math.max(bitmap.width, bitmap.height));
-  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-  const context = canvas.getContext("2d");
-  if (!context) { bitmap.close(); throw new Error("No se ha podido preparar la imagen. Prueba con otra."); }
-  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
-  const image = canvas.toDataURL("image/webp", 0.82);
-  if (image.length > 350000) throw new Error("La imagen tiene demasiado detalle. Elige una versión más sencilla o de menor tamaño.");
-  return image;
-}
 
 export function Sa4EventEditor({ workspace, country, step, onSaved, onDirty, onBusy }: {
   workspace: EventWorkspace; country: string; step: EventStep; onSaved: (row: SavedStep) => void; onDirty: (dirty: boolean) => void; onBusy: (busy: boolean) => void;
@@ -35,6 +20,9 @@ export function Sa4EventEditor({ workspace, country, step, onSaved, onDirty, onB
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const inProgress = useRef(false);
+  const preparingImage = useRef(false);
+  const [logoError, setLogoError] = useState("");
+  const logoInput = useRef<HTMLInputElement>(null);
   const canEdit = (workspace.teacher || country === workspace.countryCode) && (step !== "identity" || workspace.phase === "submissions");
   const info = eventSteps.find(({ id }) => id === step)!;
   const record = data as unknown as Record<string, string>;
@@ -47,15 +35,20 @@ export function Sa4EventEditor({ workspace, country, step, onSaved, onDirty, onB
     setData(next); onDirty(true); setMessage(""); setError("");
   }
 
-  async function save() {
-    if (inProgress.current || !canEdit || preparing) return;
+  async function persist(nextData: StepData[EventStep]) {
+    if (inProgress.current || !canEdit) return;
     inProgress.current = true; setSaving(true); onBusy(true); setError(""); setMessage("");
     try {
-      const { data: row, error } = await saveSa4Step({ courseId: workspace.courseId, country, step, data, revision: saved?.revision ?? 0 });
+      const { data: row, error } = await saveSa4Step({ courseId: workspace.courseId, country, step, data: nextData, revision: saved?.revision ?? 0 });
       if (error || !row) throw new Error(error || "No se ha confirmado el guardado. Reintenta.");
       onSaved(row); onDirty(false); setMessage(step === "identity" ? "Logo y propuesta guardados. Ya podéis verlos en «Concurso de logos»." : "Paso guardado para toda la delegación. Podéis seguir con el siguiente.");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "No se ha podido guardar. Tu edición sigue aquí. Reintenta."); }
     finally { inProgress.current = false; setSaving(false); onBusy(false); }
+  }
+
+  async function save() {
+    if (preparingImage.current || logoError) return;
+    await persist(data);
   }
 
   return <section className="card space-y-5 p-5 sm:p-7" aria-label={info.title}>
@@ -65,17 +58,26 @@ export function Sa4EventEditor({ workspace, country, step, onSaved, onDirty, onB
       <fieldset disabled={!canEdit || saving || preparing || (step === "competition" && resultsExist)} className="min-w-0 space-y-5">
         {step === "identity" && <div className="space-y-3">
           <label className="block text-sm font-bold" htmlFor="sa4-logo">Logo para el concurso</label>
-          <p id="sa4-logo-help" className="text-xs text-slate-600">Elegid una imagen PNG, JPG o WebP y pulsad «Guardar paso» para que se vea en el concurso. Seleccionar el archivo solo prepara la vista previa.</p>
-          <input id="sa4-logo" type="file" accept="image/png,image/jpeg,image/webp" aria-describedby="sa4-logo-help"
+          <p id="sa4-logo-help" className="text-xs text-slate-600">Elegid el archivo del logo. Lo preparamos y guardamos automáticamente para que aparezca en el concurso. Admitimos PNG, JPG, WebP, SVG y otras imágenes que pueda abrir vuestro navegador, de hasta 20 MB.</p>
+          <input ref={logoInput} id="sa4-logo" type="file" accept="image/*,.svg,.heic,.heif" aria-describedby="sa4-logo-help"
             className={eventControl} onChange={async (event) => {
               const file = event.target.files?.[0];
-              if (!file) return;
-              setPreparing(true); onBusy(true); setError("");
-              try { const logo = await logoImage(file); update({ ...data, logo } as StepData["identity"]); }
-              catch (cause) { setError(cause instanceof Error ? cause.message : "No se ha podido abrir la imagen. Prueba otra."); }
-              finally { setPreparing(false); onBusy(false); }
+              if (!file || inProgress.current || preparingImage.current) return;
+              preparingImage.current = true; setPreparing(true); onBusy(true); setError(""); setLogoError(""); setMessage("");
+              try {
+                const logo = await prepareSa4Logo(file);
+                const next = { ...data, logo } as StepData["identity"];
+                update(next);
+                await persist(next);
+              } catch (cause) {
+                setLogoError(cause instanceof Error ? cause.message : "No se ha podido abrir el logo. Elige una imagen PNG o JPG.");
+              } finally {
+                preparingImage.current = false; setPreparing(false); onBusy(false);
+                if (logoInput.current) logoInput.current.value = "";
+              }
             }}/>
-          {preparing && <p role="status" className="text-sm text-slate-600">Preparando logo…</p>}
+          {preparing && <p role="status" className="text-sm text-slate-600">{saving ? "Guardando el logo en el concurso…" : "Preparando el logo para guardarlo…"}</p>}
+          {logoError && <div className="space-y-2 rounded-xl bg-red-50 p-3"><p role="alert" className="text-sm font-semibold text-red-700">{logoError}</p><p className="text-sm text-slate-700">Elige otra imagen para reintentar. Se conservan el texto y el logo que ya estuviera guardado.</p><button type="button" className={eventButton} onClick={() => setLogoError("")}>Descartar esta selección</button></div>}
           {record.logo && <div className="rounded-2xl border border-slate-200 bg-white p-4">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={record.logo} alt="Propuesta de logo de la delegación" className="mx-auto max-h-52 max-w-full object-contain"/>
@@ -121,7 +123,7 @@ export function Sa4EventEditor({ workspace, country, step, onSaved, onDirty, onB
           : <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">Guardad el formato y el cuadro de juego en el paso anterior para poder anotar resultados.</p>)}
       </fieldset>
       {canEdit && !(step === "competition" && resultsExist) && <div className="mt-5 space-y-3 border-t border-slate-200 pt-4">
-        <button type="submit" aria-disabled={saving || preparing} className={eventButton} disabled={step === "results" && !competitionSaved}>
+        <button type="submit" aria-disabled={saving || preparing} className={eventButton} disabled={saving || preparing || Boolean(logoError) || (step === "results" && !competitionSaved)}>
           {saving ? "Guardando paso…" : "Guardar paso"}
         </button>
         {error && <p role="alert" className="text-sm font-semibold text-red-700">{error}</p>}
