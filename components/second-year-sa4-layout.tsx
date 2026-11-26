@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpenCheck, ClipboardCheck, Home, ListChecks, MapPinned } from "lucide-react";
+import { BookOpenCheck, CalendarDays, ClipboardCheck, Home, ListChecks, MapPinned } from "lucide-react";
 
 const items = [
   { href: "/alumno/2bach/sa4", label: "Inicio", icon: Home },
   { href: "/alumno/2bach/sa4/teoria", label: "Teoría y reflexión", icon: BookOpenCheck },
   { href: "/alumno/2bach/sa4/proyecto", label: "Creación del evento", icon: MapPinned },
+  { href: "/alumno/2bach/sa4/calendario", label: "Calendario de torneos", icon: CalendarDays },
   { href: "/alumno/2bach/sa4/guia", label: "Guía de organización", icon: ListChecks },
   { href: "/alumno/2bach/sa4/evaluacion", label: "Evaluación final", icon: ClipboardCheck },
 ];
@@ -17,7 +18,7 @@ export function SecondYearSa4Layout({ children }: { children: React.ReactNode })
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-5 sm:p-8">
-      <nav aria-label="Apartados de SA4 de 2º Bachillerato" className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+      <nav aria-label="Apartados de SA4 de 2º Bachillerato" className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
         {items.map(({ href, label, icon: Icon }) => {
           const active = pathname === href;
           return (
