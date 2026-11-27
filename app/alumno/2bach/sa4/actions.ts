@@ -68,7 +68,7 @@ async function saveStep(input: { courseId: string; country: string; step: EventS
     if (competition.error || !competition.data?.content?.competition) throw new Error("Guarda primero el formato y el cuadro de juego.");
     const config = competition.data.content.competition as StepData["competition"];
     const scores = (input.data as StepData["results"]).scores;
-    const matches = eventMatches(config.format, config.order, scores);
+    const matches = eventMatches(config.format, config.order, scores, config.pairSeed);
     if (Object.keys(scores).some((key) => !matches.some((match) => match.id === key))) throw new Error("Los resultados corresponden a otro cuadro. Actualiza el evento.");
     for (const match of matches) {
       const score = scores[match.id];
@@ -130,4 +130,14 @@ export async function voteSa4Logos(courseId: string, country: string, ranking: L
 }
 export async function setSa4VotingPhase(courseId: string, phase: EventWorkspace["phase"]) {
   return actionResult(() => setVotingPhase(courseId, phase));
+}
+
+export async function loadSa4LiveResults(courseId: string) {
+  return actionResult(async () => {
+    const supabase = await createClient();
+    const {data,error} = await supabase.from("sa4_team_projects")
+      .select("country_code,competition:content->competition,results:content->results,revisions:content->_revisions,updated_at").eq("course_id",courseId);
+    if (error || !data) throw new Error("No se han podido actualizar los marcadores. Se conserva la última consulta. Comprueba la conexión y pulsa Actualizar evento.");
+    return projectSteps(data.map(row=>({country_code:row.country_code,updated_at:row.updated_at,content:{competition:row.competition,results:row.results,_revisions:row.revisions}})));
+  });
 }

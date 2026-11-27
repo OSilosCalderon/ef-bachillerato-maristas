@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { saveSa4Step } from "@/app/alumno/2bach/sa4/actions";
 import { emptyStep, eventSteps, readStep, stepFields, type EventStep, type EventWorkspace, type SavedStep, type StepData } from "@/lib/sa4-event";
 import { Sa4Tournament } from "@/components/sa4-tournament";
@@ -9,8 +9,8 @@ import { prepareSa4Logo } from "@/lib/sa4-logo-upload";
 export const eventControl = "mt-2 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-normal text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:bg-slate-100";
 export const eventButton = "inline-flex min-h-11 items-center justify-center rounded-xl bg-[#1e6b4f] px-4 py-2.5 text-sm font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:opacity-50 aria-disabled:opacity-50";
 
-export function Sa4EventEditor({ workspace, country, step, onSaved, onDirty, onBusy }: {
-  workspace: EventWorkspace; country: string; step: EventStep; onSaved: (row: SavedStep) => void; onDirty: (dirty: boolean) => void; onBusy: (busy: boolean) => void;
+export function Sa4EventEditor({ workspace, country, step, onSaved, onDirty, onBusy, liveStatus }: {
+  workspace: EventWorkspace; liveStatus?: string; country: string; step: EventStep; onSaved: (row: SavedStep) => void; onDirty: (dirty: boolean) => void; onBusy: (busy: boolean) => void;
 }) {
   const countries = workspace.delegations.map((team) => team.country_code);
   const saved = workspace.steps.find((row) => row.country_code === country && row.step === step);
@@ -20,6 +20,8 @@ export function Sa4EventEditor({ workspace, country, step, onSaved, onDirty, onB
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const inProgress = useRef(false);
+  const pendingResults = useRef(false);
+  const [resultsPending,setResultsPending] = useState(false);
   const preparingImage = useRef(false);
   const [logoError, setLogoError] = useState("");
   const logoInput = useRef<HTMLInputElement>(null);
@@ -29,7 +31,14 @@ export function Sa4EventEditor({ workspace, country, step, onSaved, onDirty, onB
   const competition = readStep(workspace.steps, country, "competition", countries);
   const results = readStep(workspace.steps, country, "results", countries);
   const resultsExist = Object.keys(results.scores).length > 0;
+  const tournamentTitle = `${workspace.delegations.find(team=>team.country_code===country)?.country ?? country} · ${readStep(workspace.steps,country,"sport",countries).sport || "Deporte"}`;
   const competitionSaved = workspace.steps.some((row) => row.country_code === country && row.step === "competition");
+
+  useEffect(() => {
+    if (step === "results" && saved && !pendingResults.current && !saving) setData(saved.data);
+    // Polling is paused by the parent during local edits and writes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saved?.revision, saved?.updated_at, step]);
 
   function update(next: StepData[EventStep]) {
     setData(next); onDirty(true); setMessage(""); setError("");
@@ -37,7 +46,7 @@ export function Sa4EventEditor({ workspace, country, step, onSaved, onDirty, onB
 
   async function persist(nextData: StepData[EventStep]) {
     if (inProgress.current || !canEdit) return;
-    inProgress.current = true; setSaving(true); onBusy(true); setError(""); setMessage("");
+    inProgress.current = true; setResultsPending(false); setSaving(true); onBusy(true); setError(""); setMessage("");
     try {
       const { data: row, error } = await saveSa4Step({ courseId: workspace.courseId, country, step, data: nextData, revision: saved?.revision ?? 0 });
       if (error || !row) throw new Error(error || "No se ha confirmado el guardado. Reintenta.");
@@ -47,9 +56,22 @@ export function Sa4EventEditor({ workspace, country, step, onSaved, onDirty, onB
   }
 
   async function save() {
+    pendingResults.current = false;
     if (preparingImage.current || logoError) return;
     await persist(data);
   }
+
+  useEffect(() => {
+    if (step !== "results" || !canEdit || !pendingResults.current || saving) return;
+    const timer = window.setTimeout(() => {
+      if (!pendingResults.current || inProgress.current) return;
+      pendingResults.current = false;
+      void persist(data);
+    }, 1200);
+    return () => window.clearTimeout(timer);
+    // persist uses the current revision; editing stops while a write is pending.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, step, canEdit, saving, saved?.revision]);
 
   return <section className="card space-y-5 p-5 sm:p-7" aria-label={info.title}>
     <div><h3 className="text-xl font-extrabold text-slate-950">{info.title}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{info.help}</p></div>
@@ -95,12 +117,17 @@ export function Sa4EventEditor({ workspace, country, step, onSaved, onDirty, onB
           {resultsExist && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">El formato y el sorteo están fijados porque ya hay resultados registrados.</p>}
           <label className="block text-sm font-bold">Formato competitivo
             <select disabled={resultsExist} className={eventControl} value={(data as StepData["competition"]).format}
-              onChange={(event) => update({ ...data, format: event.target.value } as StepData["competition"])}>
+              onChange={(event) => update({ ...data, format: event.target.value, ...(event.target.value === "pairs" ? { pairSeed: crypto.getRandomValues(new Uint32Array(1))[0] } : {}) } as StepData["competition"])}>
               <option value="league">Liga de ocho países · 28 partidos · siete jornadas</option>
+              <option value="pairs">Parejas · cuatro días · dos partidos diarios por pareja · 64 partidos</option>
+              <option value="placement">Cuartos y cuadros oro y plata · 12 partidos · tres por selección</option>
+              <option value="groups">Dos grupos y cuadros principal y de consolación · 20 partidos · cinco por selección</option>
+              <option value="swiss">Cuatro rondas por resultados · 16 partidos · cuatro por selección</option>
               <option value="knockout">Eliminatoria · siete partidos · cuartos, semifinales y final</option>
             </select>
           </label>
-          <p className="text-sm leading-6 text-slate-600">En liga, cada país juega contra los otros siete. La clasificación suma 3 puntos por victoria, 1 por empate y 0 por derrota. En eliminatoria, explicad también cómo participan los equipos que quedan eliminados.</p>
+          {(data as StepData["competition"]).format === "pairs" && <div className="space-y-2"><button type="button" disabled={resultsExist} className={eventButton} onClick={() => update({ ...data, pairSeed: crypto.getRandomValues(new Uint32Array(1))[0] } as StepData["competition"])}>Volver a sortear las cuatro jornadas</button><p className="text-sm text-slate-600">El sorteo se conserva al guardar el cuadro. No se puede cambiar cuando ya hay resultados.</p></div>}
+          <p className="text-sm leading-6 text-slate-600">En dos grupos, las posiciones 1–4 del sorteo forman el grupo A y las posiciones 5–8 el B. Los dos primeros pasan al cuadro principal y los dos últimos al de consolación, con semifinales cruzadas y partidos de posición. En cuatro rondas, todas las selecciones juegan cuatro partidos: se emparejan por victorias acumuladas, evitando repetir rivales. Se completan los cuatro partidos de cada ronda antes de generar la siguiente. Los empates requieren el desempate del reglamento. En liga, cada país juega contra los otros siete. La clasificación suma 3 puntos por victoria, 1 por empate y 0 por derrota. En eliminatoria, explicad también cómo participan los equipos que quedan eliminados.</p>
           <fieldset disabled={resultsExist} className="grid min-w-0 gap-3 sm:grid-cols-2">
             <legend className="mb-2 text-sm font-bold">Orden de las delegaciones en el sorteo</legend>
             {(data as StepData["competition"]).order.map((code, index) => <label key={index} className="text-sm font-bold">Posición {index + 1}
@@ -116,12 +143,16 @@ export function Sa4EventEditor({ workspace, country, step, onSaved, onDirty, onB
             <textarea rows={3} maxLength={4000} className={eventControl} value={(data as StepData["competition"])[key]}
               onChange={(event) => update({ ...data, [key]: event.target.value } as StepData["competition"])}/>
           </label>)}
-          <Sa4Tournament teams={workspace.delegations} config={data as StepData["competition"]} scores={{}}/>
+
         </>}
-        {step === "results" && (competitionSaved ? <Sa4Tournament teams={workspace.delegations} config={competition}
-          scores={(data as StepData["results"]).scores} onChange={(scores) => update({ scores })}/>
-          : <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">Guardad el formato y el cuadro de juego en el paso anterior para poder anotar resultados.</p>)}
       </fieldset>
+      {(step === "competition" || step === "results") && <fieldset disabled={saving || preparing} className="mt-5 min-w-0 space-y-3">
+        {step === "results" && <p role="status" className="text-sm font-semibold text-emerald-900">{saving ? "Guardando marcadores…" : error ? "Hay marcadores sin guardar. Reintenta con Guardar paso." : canEdit ? "Los marcadores se guardan automáticamente al dejar de escribir. La clasificación general solo suma torneos terminados." : "Consulta en directo. Solo el equipo organizador y el profesor pueden cambiar marcadores."}</p>}
+        {step === "competition" ? <Sa4Tournament teams={workspace.delegations} config={data as StepData["competition"]} scores={{}} title={tournamentTitle}/>
+          : competitionSaved ? <Sa4Tournament teams={workspace.delegations} config={competition} title={tournamentTitle} saveStatus={!canEdit ? liveStatus : saving ? "Guardando…" : error ? "Sin guardar: reintenta" : resultsPending ? "Cambios pendientes" : "Marcadores guardados"} onSave={canEdit ? () => void save() : undefined}
+            scores={(data as StepData["results"]).scores} onChange={canEdit ? (scores) => { pendingResults.current = true; setResultsPending(true); update({ scores }); } : undefined}/>
+            : <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">Guardad el formato y el cuadro de juego en el paso anterior para poder anotar resultados.</p>}
+      </fieldset>}
       {canEdit && !(step === "competition" && resultsExist) && <div className="mt-5 space-y-3 border-t border-slate-200 pt-4">
         <button type="submit" aria-disabled={saving || preparing} className={eventButton} disabled={saving || preparing || Boolean(logoError) || (step === "results" && !competitionSaved)}>
           {saving ? "Guardando paso…" : "Guardar paso"}

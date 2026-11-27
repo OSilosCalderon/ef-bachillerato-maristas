@@ -16,9 +16,11 @@ export function Sa4DelegationStandings({ workspace }: { workspace: EventWorkspac
     <details className="rounded-xl border border-slate-200 p-4">
       <summary className="min-h-11 cursor-pointer py-2 text-sm font-bold">Cómo se calcula la clasificación</summary>
       <div className="mt-2 space-y-3 text-sm leading-6 text-slate-600">
-        <p>Todos los deportes tienen el mismo peso. Los puestos del 1.º al 8.º aportan, respectivamente, 8, 7, 6, 5, 4, 3, 2 y 1 puntos. Cada prueba reparte 36 puntos entre las ocho delegaciones.</p>
-        <p>En liguilla se ordena por puntos de los partidos, diferencia de tantos y tantos a favor. Un empate que persista comparte los puntos de los puestos ocupados. Dos delegaciones empatadas en el 2.º puesto reciben (7 + 6) / 2 = 6,5 puntos cada una.</p>
-        <p>En eliminatorias, el campeón recibe 8 puntos y el subcampeón 7. Las dos delegaciones eliminadas en semifinales comparten los puestos 3.º y 4.º y reciben 5,5 puntos cada una. Las cuatro eliminadas en cuartos comparten los puestos 5.º a 8.º y reciben 2,5 puntos cada una.</p>
+        <p>Todos los deportes tienen el mismo peso. Los puestos del 1.º al 8.º aportan, respectivamente, 16, 14, 12, 10, 8, 6, 4 y 2 puntos. Cada prueba reparte 72 puntos entre las ocho delegaciones.</p>
+        <p>En liguilla se ordena por puntos de los partidos, diferencia de tantos y tantos a favor. Un empate que persista comparte los puntos de los puestos ocupados. Dos delegaciones empatadas en el 2.º puesto reciben (14 + 12) / 2 = 13 puntos cada una.</p>
+        <p>En eliminatorias, el campeón recibe 16 puntos y el subcampeón 14. Las dos delegaciones eliminadas en semifinales comparten los puestos 3.º y 4.º y reciben 11 puntos cada una. Las cuatro eliminadas en cuartos comparten los puestos 5.º a 8.º y reciben 5 puntos cada una.</p>
+        <p>En parejas se suman los puntos de las dos parejas de cada delegación a lo largo de las cuatro jornadas; se ordena por puntos, diferencia de tantos, tantos a favor y orden del sorteo; la actividad aporta puntos al total al completar los 64 partidos.</p>
+        <p>En cuatro rondas se ordena por victorias, victorias de los rivales, diferencia de tantos, tantos a favor y orden inicial del sorteo. En dos grupos y consolación, y en cuartos con cuadros oro y plata, los partidos de posición determinan los ocho puestos.</p>
         <p>La suma determina el puesto general. Si hay empate a puntos, las delegaciones comparten puesto. El concurso de logos tiene su propia clasificación y no suma puntos deportivos. Esta puntuación tampoco es una calificación académica.</p>
       </div>
     </details>

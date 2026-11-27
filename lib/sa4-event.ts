@@ -6,7 +6,7 @@ export type StepData = {
   identity: { name: string; slogan: string; logo: string; meaning: string };
   sport: { sport: string; objective: string; rules: string; players: string; duration: string; scoring: string; tieBreak: string; fairPlay: string };
   planning: { roles: string; venue: string; date: string; materials: string; budget: string; schedule: string; safety: string; inclusion: string; backup: string; publicity: string; sustainability: string };
-  competition: { format: "league" | "knockout"; order: string[]; participation: string; referees: string };
+  competition: { format: "league" | "knockout" | "swiss" | "groups" | "pairs" | "placement"; order: string[]; pairSeed?: number; participation: string; referees: string };
   results: { scores: Record<string, MatchScore> };
   reflection: { outcome: string; evidence: string; teamwork: string; improvements: string };
 };
@@ -27,6 +27,16 @@ export function mergeLogoUpdates(workspace: EventWorkspace, updates: LogoUpdates
     projectVersions: { ...workspace.projectVersions, ...updates.versions },
   };
 }
+export function mergeCompetitionUpdates(workspace: EventWorkspace, updates: SavedStep[]): EventWorkspace {
+  const changed = updates.filter(row => {
+    if (row.step !== "competition" && row.step !== "results") return false;
+    const old = workspace.steps.find(r => r.country_code === row.country_code && r.step === row.step);
+    return !old || old.revision !== row.revision || JSON.stringify(old.data) !== JSON.stringify(row.data);
+  });
+  if (!changed.length) return workspace;
+  return {...workspace, steps:[...workspace.steps.filter(old => !changed.some(row => row.country_code===old.country_code && row.step===old.step)), ...changed]};
+}
+
 export const eventSteps: { id: EventStep; title: string; help: string }[] = [
   { id: "identity", title: "Logo y lema", help: "Proponed una identidad para toda la olimpiada. Cada delegación presenta un logo al concurso." },
   { id: "sport", title: "Actividad y reglamento", help: "Elegid un deporte para organizar. Las ocho delegaciones participarán en las actividades propuestas por los equipos." },
@@ -98,8 +108,169 @@ export function matchWinner(match: Match, score?: MatchScore): string | null {
   return score.winner === match.a || score.winner === match.b ? score.winner : null;
 }
 
-export function eventMatches(format: StepData["competition"]["format"], countries: string[], scores: Record<string, MatchScore> = {}): Match[] {
+export function swissMatches(countries: string[], scores: Record<string, MatchScore> = {}): Match[] {
   if (countries.length !== 8 || new Set(countries).size !== 8) return [];
+  const matches: Match[] = [];
+  const wins = Object.fromEntries(countries.map((code) => [code, 0]));
+  const previous = new Set<string>();
+  const pairKey = (a: string, b: string) => [a, b].sort().join(":");
+  let ready = true;
+  for (let round = 0; round < 4; round++) {
+    let pairs: [string, string][] = [];
+    if (ready) {
+      const ordered = [...countries].sort((a, b) => wins[b] - wins[a] || countries.indexOf(a) - countries.indexOf(b));
+      // Compare all perfect matchings: avoid repeats first, then minimise the
+      // difference in victories. Stable seed order resolves equivalent draws.
+      let bestCost = Infinity;
+      const search = (remaining: string[], selected: [string, string][], cost: number) => {
+        if (cost >= bestCost) return;
+        if (!remaining.length) { bestCost = cost; pairs = selected; return; }
+        const a = remaining[0];
+        for (let i = 1; i < remaining.length; i++) {
+          const b = remaining[i];
+          search(remaining.filter((_, j) => j !== 0 && j !== i), [...selected, [a, b]], cost + (previous.has(pairKey(a, b)) ? 1000 : 0) + Math.abs(wins[a] - wins[b]));
+        }
+      };
+      search(ordered, [], 0);
+    }
+    const current: Match[] = Array.from({ length: 4 }, (_, i) => ({ id: `sw${round}-${i}`, round: `Ronda ${round + 1}`, a: pairs[i]?.[0] ?? null, b: pairs[i]?.[1] ?? null }));
+    matches.push(...current);
+    ready = ready && current.every((match) => matchWinner(match, scores[match.id]));
+    if (ready) for (const match of current) {
+      wins[matchWinner(match, scores[match.id])!]++;
+      previous.add(pairKey(match.a!, match.b!));
+    }
+  }
+  return matches;
+}
+
+export function swissStandings(countries: string[], matches: Match[], scores: Record<string, MatchScore>) {
+  const rows = countries.map((country) => ({ country, played: 0, won: 0, lost: 0, points: 0, for: 0, against: 0, opponents: 0 }));
+  for (const match of matches) {
+    const winner = matchWinner(match, scores[match.id]);
+    if (!winner) continue;
+    for (const code of [match.a, match.b]) {
+      const row = rows.find((r) => r.country === code)!;
+      row.played++;
+      const score = scores[match.id];
+      row.for += (code === match.a ? score.a : score.b) ?? 0;
+      row.against += (code === match.a ? score.b : score.a) ?? 0;
+      if (code === winner) { row.won++; row.points += 3; } else row.lost++;
+    }
+  }
+  for (const row of rows) row.opponents = matches.filter(m => matchWinner(m,scores[m.id]) && (m.a===row.country||m.b===row.country)).reduce((sum,m)=>sum+(rows.find(r=>r.country===(m.a===row.country?m.b:m.a))?.won ?? 0),0);
+  return rows.sort((a, b) => b.won - a.won || b.opponents-a.opponents || (b.for-b.against)-(a.for-a.against) || b.for-a.for || countries.indexOf(a.country)-countries.indexOf(b.country));
+}
+
+export function clearLaterSwissResults(scores: Record<string, MatchScore>, matchId: string) {
+  const round = Number(/^sw([0-3])-[0-3]$/.exec(matchId)?.[1]);
+  return Object.fromEntries(Object.entries(scores).filter(([id]) => !/^sw/.test(id) || Number(/^sw([0-3])-/.exec(id)?.[1]) <= round));
+}
+
+export function matchNeedsWinner(format: StepData["competition"]["format"], id: string) {
+  return format === "knockout" || format === "swiss" || format === "placement" || (format === "groups" && !/^g[AB]/.test(id));
+}
+
+export function groupMatches(countries: string[], scores: Record<string, MatchScore> = {}): Match[] {
+  if (countries.length !== 8 || new Set(countries).size !== 8) return [];
+  const groups = [countries.slice(0, 4), countries.slice(4)];
+  const matches: Match[] = groups.flatMap((group, g) => {
+    const rounds = [[[0, 3], [1, 2]], [[0, 2], [3, 1]], [[0, 1], [2, 3]]];
+    return rounds.flatMap((pairs, round) => pairs.map(([a, b], i) => ({ id: `g${g ? "B" : "A"}${round}-${i}`, round: `Grupo ${g ? "B" : "A"} · Jornada ${round + 1}`, a: group[a], b: group[b] })));
+  });
+  const complete = matches.every((match) => scores[match.id]?.a != null && scores[match.id]?.b != null);
+  const standings = groups.map((group) => leagueStandings(group, matches.filter(m => group.includes(m.a!)), scores));
+  const team = (g: number, rank: number) => complete ? standings[g][rank].country : null;
+  const semis: Match[] = [
+    { id: "gM0", round: "Semifinales principales", a: team(0, 0), b: team(1, 1) },
+    { id: "gM1", round: "Semifinales principales", a: team(1, 0), b: team(0, 1) },
+    { id: "gC0", round: "Semifinales de consolación", a: team(0, 2), b: team(1, 3) },
+    { id: "gC1", round: "Semifinales de consolación", a: team(1, 2), b: team(0, 3) },
+  ];
+  const winner = (i: number) => matchWinner(semis[i], scores[semis[i].id]);
+  const loser = (i: number) => winner(i) ? (winner(i) === semis[i].a ? semis[i].b : semis[i].a) : null;
+  return [...matches, ...semis,
+    { id: "gF1", round: "Final principal · puestos 1.º y 2.º", a: winner(0), b: winner(1) },
+    { id: "gF3", round: "Tercer puesto · puestos 3.º y 4.º", a: loser(0), b: loser(1) },
+    { id: "gF5", round: "Final de consolación · puestos 5.º y 6.º", a: winner(2), b: winner(3) },
+    { id: "gF7", round: "Puestos 7.º y 8.º", a: loser(2), b: loser(3) },
+  ];
+}
+
+export function clearLaterGroupResults(scores: Record<string, MatchScore>, matchId: string) {
+  const next = { ...scores };
+  if (/^g[AB]/.test(matchId)) for (const id of Object.keys(next)) { if (!/^g[AB]/.test(id)) delete next[id]; }
+  if (/^gM/.test(matchId)) { delete next.gF1; delete next.gF3; }
+  if (/^gC/.test(matchId)) { delete next.gF5; delete next.gF7; }
+  return next;
+}
+
+export function pairMatches(countries: string[], seed = 1): Match[] {
+  if (countries.length !== 8 || new Set(countries).size !== 8) return [];
+  let state = seed >>> 0;
+  const random = () => { state = (Math.imul(1664525, state) + 1013904223) >>> 0; return state / 4294967296; };
+  const shuffle = (list: string[]) => {
+    const result = [...list];
+    for (let i = result.length - 1; i > 0; i--) { const j = Math.floor(random() * (i + 1)); [result[i], result[j]] = [result[j], result[i]]; }
+    return result;
+  };
+  const pairs = countries.flatMap(code => [`${code}:1`, `${code}:2`]);
+  const matches: Match[] = [];
+  for (let day = 0; day < 4; day++) for (let turn = 0; turn < 2; turn++) {
+    const draw = (remaining: string[]): [string, string][] | null => {
+      if (!remaining.length) return [];
+      const a = remaining[0];
+      for (const b of shuffle(remaining.slice(1))) {
+        if (a.split(":")[0] === b.split(":")[0]) continue;
+        const rest = draw(remaining.filter(p => p !== a && p !== b));
+        if (rest) return [[a, b], ...rest];
+      }
+      return null;
+    };
+    const games = draw(shuffle(pairs))!;
+    games.forEach(([a, b], i) => matches.push({ id: `p${day}-${turn}-${i}`, round: `Día ${day + 1} · Turno ${turn + 1}`, a, b }));
+  }
+  return matches;
+}
+
+export function pairDelegationStandings(countries: string[], matches: Match[], scores: Record<string, MatchScore>) {
+  return leagueStandings(countries, matches.map(m => ({ ...m, a: m.a?.split(":")[0] ?? null, b: m.b?.split(":")[0] ?? null })), scores);
+}
+
+export function placementMatches(countries: string[], scores: Record<string, MatchScore> = {}): Match[] {
+  if (countries.length !== 8 || new Set(countries).size !== 8) return [];
+  const quarters: Match[] = [0,1,2,3].map(i => ({ id: `bq${i}`, round: "Cuartos de final", a: countries[i*2], b: countries[i*2+1] }));
+  const ready = quarters.every(m => matchWinner(m, scores[m.id]));
+  const winner = (m: Match) => matchWinner(m, scores[m.id]);
+  const loser = (m: Match) => winner(m) ? (winner(m) === m.a ? m.b : m.a) : null;
+  const semis: Match[] = [
+    {id:"bg0",round:"Semifinales oro",a:ready?winner(quarters[0]):null,b:ready?winner(quarters[1]):null},
+    {id:"bg1",round:"Semifinales oro",a:ready?winner(quarters[2]):null,b:ready?winner(quarters[3]):null},
+    {id:"bs0",round:"Semifinales plata",a:ready?loser(quarters[0]):null,b:ready?loser(quarters[1]):null},
+    {id:"bs1",round:"Semifinales plata",a:ready?loser(quarters[2]):null,b:ready?loser(quarters[3]):null},
+  ];
+  return [...quarters,...semis,
+    {id:"bf1",round:"Final oro · puestos 1.º y 2.º",a:winner(semis[0]),b:winner(semis[1])},
+    {id:"bf3",round:"Tercer puesto oro · puestos 3.º y 4.º",a:loser(semis[0]),b:loser(semis[1])},
+    {id:"bf5",round:"Final plata · puestos 5.º y 6.º",a:winner(semis[2]),b:winner(semis[3])},
+    {id:"bf7",round:"Puestos 7.º y 8.º",a:loser(semis[2]),b:loser(semis[3])},
+  ];
+}
+
+export function clearLaterPlacementResults(scores: Record<string, MatchScore>, matchId: string) {
+  const next = {...scores};
+  if (/^bq/.test(matchId)) for(const id of Object.keys(next)) {if(!/^bq/.test(id)) delete next[id];}
+  if (/^bg/.test(matchId)) {delete next.bf1;delete next.bf3;}
+  if (/^bs/.test(matchId)) {delete next.bf5;delete next.bf7;}
+  return next;
+}
+
+export function eventMatches(format: StepData["competition"]["format"], countries: string[], scores: Record<string, MatchScore> = {}, pairSeed = 1): Match[] {
+  if (countries.length !== 8 || new Set(countries).size !== 8) return [];
+  if (format === "placement") return placementMatches(countries,scores);
+  if (format === "pairs") return pairMatches(countries, pairSeed);
+  if (format === "groups") return groupMatches(countries, scores);
+  if (format === "swiss") return swissMatches(countries, scores);
   if (format === "knockout") {
     const quarters = [0, 1, 2, 3].map((i) => ({ id: `q${i}`, round: "Cuartos de final", a: countries[i * 2], b: countries[i * 2 + 1] }));
     const semis = [0, 1].map((i) => ({ id: `s${i}`, round: "Semifinal", a: matchWinner(quarters[i * 2], scores[`q${i * 2}`]), b: matchWinner(quarters[i * 2 + 1], scores[`q${i * 2 + 1}`]) }));
@@ -145,12 +316,12 @@ export function logoStandings(countries: string[], votes: Vote[]) {
     .sort((a, b) => b.points - a.points);
 }
 
-// Each completed sport distributes 36 points. Ties share the points of the occupied places.
+// Each completed sport distributes 72 points. Ties share the points of the occupied places.
 function awardPlaces(groups: string[][]) {
   let occupied = 0;
   return groups.flatMap((group) => {
     const position = occupied + 1;
-    const points = 8 - occupied - (group.length - 1) / 2;
+    const points = 16 - occupied * 2 - (group.length - 1);
     occupied += group.length;
     return group.map((country) => ({ country, position, points }));
   });
@@ -163,23 +334,37 @@ export function delegationStandings(delegations: Delegation[], steps: SavedStep[
     const configured = steps.some((row) => row.country_code === team.country_code && row.step === "competition");
     const config = readStep(steps, team.country_code, "competition", countries);
     const scores = readStep(steps, team.country_code, "results", countries).scores;
-    const valid = configured && ["league", "knockout"].includes(config.format) && Array.isArray(config.order)
+    const valid = configured && ["league", "knockout", "swiss", "groups", "pairs", "placement"].includes(config.format) && Array.isArray(config.order)
       && config.order.length === 8 && new Set(config.order).size === 8 && config.order.every((code) => countries.includes(code));
-    const matches = valid ? eventMatches(config.format, config.order, scores) : [];
+    const matches = valid ? eventMatches(config.format, config.order, scores, config.pairSeed) : [];
     const finished = matches.filter((match) => {
       const score = scores[match.id];
       return match.a && match.b && score && [score.a, score.b].every((n) => n !== null && Number.isInteger(n) && n >= 0 && n <= 9999)
-        && (config.format === "league" || matchWinner(match, score));
+        && (!matchNeedsWinner(config.format, match.id) || matchWinner(match, score));
     });
     const complete = matches.length > 0 && finished.length === matches.length;
     let places: { country: string; position: number; points: number }[] = [];
-    if (complete && config.format === "league") {
-      const rows = leagueStandings(countries, matches, scores);
+    if (complete && (config.format === "league" || config.format === "pairs")) {
+      const rows = config.format === "pairs" ? pairDelegationStandings(countries, matches, scores) : leagueStandings(countries, matches, scores);
       const groups: string[][] = [];
       rows.forEach((row, index) => {
         const previous = rows[index - 1];
-        if (previous && row.points === previous.points && row.for - row.against === previous.for - previous.against && row.for === previous.for) groups.at(-1)!.push(row.country);
+        if (config.format !== "pairs" && previous && row.points === previous.points && row.for - row.against === previous.for - previous.against && row.for === previous.for) groups.at(-1)!.push(row.country);
         else groups.push([row.country]);
+      });
+      places = awardPlaces(groups);
+    } else if (complete && (config.format === "groups" || config.format === "placement")) {
+      const groups = (config.format === "placement" ? ["bf1","bf3","bf5","bf7"] : ["gF1", "gF3", "gF5", "gF7"]).flatMap((id) => {
+        const match = matches.find((m) => m.id === id)!;
+        const winner = matchWinner(match, scores[id])!;
+        return [[winner], [winner === match.a ? match.b! : match.a!]];
+      });
+      places = awardPlaces(groups);
+    } else if (complete && config.format === "swiss") {
+      const rows = swissStandings(countries, matches, scores);
+      const groups: string[][] = [];
+      rows.forEach((row) => {
+        groups.push([row.country]);
       });
       places = awardPlaces(groups);
     } else if (complete) {
@@ -202,12 +387,13 @@ export function validateStep(step: EventStep, data: unknown, countries: string[]
   if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("Revisa los datos del paso.");
   const record = data as Record<string, unknown>;
   if (step === "competition") {
-    if (!["league", "knockout"].includes(String(record.format)) || !Array.isArray(record.order) || record.order.length !== 8
+    if (!["league", "knockout", "swiss", "groups", "pairs", "placement"].includes(String(record.format)) || !Array.isArray(record.order) || record.order.length !== 8
       || new Set(record.order).size !== 8 || record.order.some((code) => !countries.includes(code))) throw new Error("El cuadro debe incluir a las ocho delegaciones una sola vez.");
+    if (record.format === "pairs" && (!Number.isInteger(record.pairSeed) || Number(record.pairSeed) < 0 || Number(record.pairSeed) > 4294967295)) throw new Error("Sortear los emparejamientos antes de guardar el cuadro de parejas.");
     for (const key of ["participation", "referees"]) if (typeof record[key] !== "string" || record[key].length > 4000) throw new Error("Revisa la organización del cuadro.");
   } else if (step === "results") {
     const scores = record.scores;
-    if (!scores || typeof scores !== "object" || Array.isArray(scores) || Object.keys(scores).length > 28) throw new Error("Revisa los resultados.");
+    if (!scores || typeof scores !== "object" || Array.isArray(scores) || Object.keys(scores).length > 64) throw new Error("Revisa los resultados.");
     for (const score of Object.values(scores) as MatchScore[]) {
       if (!score || [score.a, score.b].some((value) => value !== null && (!Number.isInteger(value) || value < 0 || value > 9999))
         || (score.winner !== undefined && !countries.includes(score.winner))) throw new Error("Los resultados deben ser números enteros entre 0 y 9999.");
