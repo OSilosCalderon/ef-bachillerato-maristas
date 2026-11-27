@@ -41,3 +41,11 @@ assert.equal(sportClarifications({...sport,sport:'Bádminton',rules:'Final a 21 
 assert.equal(sportClarifications({...sport,sport:'Giro de relevos',rules:'Lanzar al pallino'}).length,1);
 assert.equal(sportClarifications({...sport,sport:'Fútbol',rules:'Sin portero'}).length,0);
 console.log('SA4 calendar: 8 full teaching weeks, 32 unique classes, holidays, year change, stable delegation order, empty proposals and rule clarifications passed.');
+const allCodes=['DO','ES','JM','MX','GR','BR','JP','IT'];
+const revisedCalendar=tournamentCalendar({delegations:allCodes.map((country_code,i)=>({country_code,country:country_code,position:i,members:[]})),steps:[]});
+const brazil=revisedCalendar.find(r=>r.delegation.country_code==='BR');
+assert.deepEqual(brazil.week.classes.map(c=>c.date),['2026-12-09','2026-12-10']);
+assert.equal(revisedCalendar.reduce((sum,r)=>sum+r.week.classes.length,0),30);
+assert.ok(!revisedCalendar.some(r=>r.week.start==='2027-02-01'));
+assert.equal(revisedCalendar.find(r=>r.delegation.country_code==='JP').week.start,'2027-02-15');
+console.log('SA4 Brazil: two December classes, original February week free, remaining tournaments unchanged passed.');

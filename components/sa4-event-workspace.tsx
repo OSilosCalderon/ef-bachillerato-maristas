@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { loadSa4Workspace } from "@/app/alumno/2bach/sa4/actions";
+import { loadSa4Workspace, loadSa4LiveResults } from "@/app/alumno/2bach/sa4/actions";
 import { Sa4EventEditor, eventButton, eventControl } from "@/components/sa4-event-editor";
 import { Sa4LogoContest } from "@/components/sa4-logo-contest";
 import { Sa4Tournament } from "@/components/sa4-tournament";
 import { Sa4TournamentCalendar } from "@/components/sa4-tournament-calendar";
 import { Sa4DelegationStandings } from "@/components/sa4-delegation-standings";
-import { eventSteps, mergeLogoUpdates, readStep, type EventStep, type EventWorkspace, type LogoUpdates, type SavedStep } from "@/lib/sa4-event";
+import { eventSteps, mergeLogoUpdates, mergeCompetitionUpdates, readStep, type EventStep, type EventWorkspace, type LogoUpdates, type SavedStep } from "@/lib/sa4-event";
 
 type EventView = "team" | "logos" | "activities" | "standings" | "calendar";
 
@@ -22,6 +22,7 @@ export function Sa4EventWorkspace({ courseId, initialView = "team" }: { courseId
   const [error, setError] = useState("");
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [liveStatus, setLiveStatus] = useState("Actualización automática cada 8 segundos");
   const [version, setVersion] = useState(0);
   const heading = useRef<HTMLHeadingElement>(null);
   const logosUpdated = useCallback((updates: LogoUpdates) => {
@@ -49,6 +50,19 @@ export function Sa4EventWorkspace({ courseId, initialView = "team" }: { courseId
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
+
+  useEffect(() => {
+    if (!workspace?.courseId || loading || dirty || busy) return;
+    let active = true;
+    const timer = window.setInterval(async () => {
+      const result = await loadSa4LiveResults(workspace.courseId);
+      if (!active) return;
+      if (result.error || !result.data) {setLiveStatus(result.error || "No se ha confirmado la actualización. Pulsa Actualizar evento.");return;}
+      setWorkspace(current => current && mergeCompetitionUpdates(current,result.data));
+      setLiveStatus("Actualización automática cada 8 segundos");
+    },8000);
+    return () => {active=false;window.clearInterval(timer);};
+  },[workspace?.courseId,loading,dirty,busy]);
 
   function canLeave() { return !busy && (!dirty || window.confirm("Hay cambios sin guardar en este paso. ¿Descartarlos y continuar?")); }
   function refresh() {
@@ -81,6 +95,7 @@ export function Sa4EventWorkspace({ courseId, initialView = "team" }: { courseId
         <h2 ref={heading} tabIndex={-1} className="text-2xl font-extrabold">Olimpiada de ocho deportes</h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Ocho países organizan una prueba cada uno y compiten entre sí. Completad los pasos de vuestra delegación y consultad las propuestas de las demás.</p>
       </div><button type="button" className={eventButton} onClick={refresh}>Actualizar evento</button></div>
+      <p role="status" className="text-xs leading-5 text-slate-600">{dirty || busy ? "La actualización automática espera a que se guarden tus cambios." : liveStatus}</p>
       {!workspace.teacher && <Link onClick={(event) => { if (!canLeave()) event.preventDefault(); }} href="/alumno/2bach/sa4/teoria" className="inline-block min-h-11 py-2.5 text-sm font-bold text-[#164c3a] underline">Teoría, autoevaluación y reflexión individual</Link>}
       <div role="group" aria-label="Vistas del evento" className="flex flex-wrap gap-2">
         {([['team', 'Trabajo por delegación'], ['logos', 'Concurso de logos'], ['activities', 'Las ocho actividades'], ['standings', 'Clasificación total'], ['calendar', 'Calendario de torneos']] as const).map(([id, title]) => <button type="button" key={id}
@@ -105,7 +120,7 @@ export function Sa4EventWorkspace({ courseId, initialView = "team" }: { courseId
           </button>)}
         </nav>
       </section>
-      {country && <Sa4EventEditor key={`${country}-${step}-${version}`} workspace={workspace} country={country} step={step} onSaved={saved} onDirty={setDirty} onBusy={setBusy}/>}
+      {country && <Sa4EventEditor key={`${country}-${step}-${version}`} workspace={workspace} country={country} step={step} onSaved={saved} liveStatus={liveStatus} onDirty={setDirty} onBusy={setBusy}/>}
     </>}
     {view === "logos" && <Sa4LogoContest workspace={workspace} onChange={updateWorkspace} onDirty={setDirty} onBusy={setBusy} onLogosUpdated={logosUpdated}/>}
     {view === "calendar" && <Sa4TournamentCalendar workspace={workspace} onOpen={(code, selectedStep) => change(() => { setCountry(code); setStep(selectedStep); setView("team"); })}/>}
@@ -120,7 +135,7 @@ export function Sa4EventWorkspace({ courseId, initialView = "team" }: { courseId
           <p className="whitespace-pre-wrap text-sm leading-6 text-slate-600">{sport.objective || "La delegación está preparando su propuesta."}</p>
           <button type="button" className={eventButton} onClick={() => change(() => { setCountry(delegation.country_code); setStep("sport"); setView("team"); })}>Ver reglamento y organización</button>
           {workspace.steps.some((row) => row.country_code === delegation.country_code && row.step === "competition") && <details><summary className="min-h-11 cursor-pointer py-3 text-sm font-bold">Cuadro y clasificación</summary>
-            <Sa4Tournament teams={workspace.delegations} config={competition} scores={results.scores}/>
+            <Sa4Tournament teams={workspace.delegations} config={competition} scores={results.scores} title={`${delegation.country} · ${sport.sport || "Deporte"}`}/>
           </details>}
         </article>;
       })}

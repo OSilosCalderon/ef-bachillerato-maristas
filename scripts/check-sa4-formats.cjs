@@ -1,0 +1,95 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript');
+const api={};new Function('exports',ts.transpileModule(fs.readFileSync('lib/sa4-event.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(api);
+const {eventMatches,matchWinner,swissStandings,clearLaterSwissResults,clearLaterGroupResults,delegationStandings,validateStep}=api;
+const countries=['DO','ES','JM','MX','GR','BR','JP','IT'];
+function runSwiss(seed){
+ const scores={};
+ for(let round=0;round<4;round++){
+  const matches=eventMatches('swiss',countries,scores);
+  assert.equal(matches.length,16);
+  const current=matches.slice(round*4,round*4+4);
+  assert.equal(new Set(current.flatMap(m=>[m.a,m.b])).size,8);
+  for(const [i,m] of current.entries())scores[m.id]=(seed>>(round+i))&1?{a:2,b:1}:{a:0,b:1};
+ }
+ const matches=eventMatches('swiss',countries,scores);
+ assert.equal(new Set(matches.map(m=>[m.a,m.b].sort().join(':'))).size,16,'No repeated opponents');
+ for(const c of countries)assert.equal(matches.filter(m=>m.a===c||m.b===c).length,4);
+ const rows=swissStandings(countries,matches,scores);
+ assert.ok(rows.every(r=>r.played===4));assert.equal(rows.reduce((s,r)=>s+r.won,0),16);
+ return scores;
+}
+for(let i=0;i<128;i++)runSwiss(i);
+const firstScores={};for(const m of eventMatches('swiss',countries).slice(0,4))firstScores[m.id]={a:1,b:0};
+const next=eventMatches('swiss',countries,firstScores);
+const winners=new Set(eventMatches('swiss',countries).slice(0,4).map(m=>m.a));
+assert.ok(next.slice(4,8).every(m=>winners.has(m.a)===winners.has(m.b)),'Winners meet winners and losers meet losers in round two');
+firstScores['sw0-0']={a:1,b:1};assert.ok(eventMatches('swiss',countries,firstScores).slice(4).every(m=>m.a===null));
+firstScores['sw0-0'].winner=countries[0];assert.ok(eventMatches('swiss',countries,firstScores)[4].a);
+const swissScores=runSwiss(8);assert.equal(Object.keys(clearLaterSwissResults(swissScores,'sw1-0')).length,8);
+const groupScores={};let groups=eventMatches('groups',countries,groupScores);assert.equal(groups.length,20);assert.ok(groups.slice(12).every(m=>!m.a&&!m.b));
+for(const m of groups.slice(0,12))groupScores[m.id]={a:0,b:0};
+groups=eventMatches('groups',countries,groupScores);
+assert.deepEqual(groups.slice(12,16).map(m=>[m.a,m.b]),[['DO','BR'],['GR','ES'],['JM','IT'],['JP','MX']]);
+for(const m of groups.slice(12,16))groupScores[m.id]={a:1,b:0};
+groups=eventMatches('groups',countries,groupScores);
+assert.deepEqual(groups.slice(16).map(m=>[m.a,m.b]),[['DO','GR'],['BR','ES'],['JM','JP'],['IT','MX']]);
+for(const m of groups.slice(16))groupScores[m.id]={a:1,b:1,winner:m.b};
+groups=eventMatches('groups',countries,groupScores);
+for(const c of countries)assert.equal(groups.filter(m=>m.a===c||m.b===c).length,5);
+assert.equal(Object.keys(clearLaterGroupResults(groupScores,'gA0-0')).length,12);
+const mainCorrection=clearLaterGroupResults(groupScores,'gM0');assert.ok(!mainCorrection.gF1&&!mainCorrection.gF3&&mainCorrection.gF5&&mainCorrection.gF7);
+const consolCorrection=clearLaterGroupResults(groupScores,'gC1');assert.ok(consolCorrection.gF1&&consolCorrection.gF3&&!consolCorrection.gF5&&!consolCorrection.gF7);
+const teams=countries.map((country_code,i)=>({country_code,country:country_code,members:[],position:i}));
+for(const [format,scores] of [['swiss',swissScores],['groups',groupScores]]){
+ const config={format,order:countries,participation:'Todos',referees:'Rotativos'};validateStep('competition',config,countries);
+ const steps=[{country_code:'GR',step:'competition',data:config},{country_code:'GR',step:'results',data:{scores}}];
+ const total=delegationStandings(teams,steps);assert.equal(total.completed,1);assert.equal(total.rows.reduce((s,r)=>s+r.points,0),72);
+ const incomplete=JSON.parse(JSON.stringify(scores));delete incomplete[Object.keys(incomplete).at(-1)];
+ assert.equal(delegationStandings(teams,[steps[0],{...steps[1],data:{scores:incomplete}}]).completed,0);
+}
+console.log('SA4 formats: 128 four-round tournaments without repeated rivals; winners grouped by results; tied and pending rounds; 20 group/consolation games, five per team; correction dependencies; 72 Olympic points only on completion passed.');
+const {pairMatches,pairDelegationStandings}=api;
+for(const seed of [0,1,2,42,4294967295]){
+ const matches=pairMatches(countries,seed);assert.equal(matches.length,64);
+ assert.deepEqual(matches,pairMatches(countries,seed),'The saved draw must be stable');
+ for(const m of matches)assert.notEqual(m.a.split(':')[0],m.b.split(':')[0]);
+ for(let day=0;day<4;day++)for(const c of countries)for(let p=1;p<=2;p++)assert.equal(matches.filter(m=>m.id.startsWith(`p${day}-`)&&(m.a===`${c}:${p}`||m.b===`${c}:${p}`)).length,2);
+ const scores=Object.fromEntries(matches.map(m=>[m.id,{a:1,b:0}]));
+ const rows=pairDelegationStandings(countries,matches,scores);assert.ok(rows.every(r=>r.played===16));assert.equal(rows.reduce((s,r)=>s+r.points,0),192);
+ validateStep('results',{scores},countries);
+ const config={format:'pairs',order:countries,pairSeed:seed,participation:'Dos parejas',referees:'Rotativos'};validateStep('competition',config,countries);
+ const steps=[{country_code:'JP',step:'competition',data:config},{country_code:'JP',step:'results',data:{scores}}];
+ const total=delegationStandings(teams,steps);assert.equal(total.completed,1);assert.equal(total.rows.reduce((s,r)=>s+r.points,0),72);
+ delete scores[matches[0].id];assert.equal(delegationStandings(teams,steps).completed,0);
+ assert.deepEqual(eventMatches('pairs',countries,scores,seed),matches,'Results must not change random pairings');
+}
+assert.notDeepEqual(pairMatches(countries,1),pairMatches(countries,2));
+assert.throws(()=>validateStep('competition',{format:'pairs',order:countries,participation:'',referees:''},countries),/Sortear/);
+console.log('SA4 pairs: four days, 64 matches, two games per pair daily, no same-delegation opponents, saved seeds, aggregation and completion passed.');
+const {clearLaterPlacementResults}=api;
+const placementScores={};let placement=eventMatches('placement',countries,placementScores);assert.equal(placement.length,12);assert.ok(placement.slice(4).every(m=>!m.a&&!m.b));
+for(const m of placement.slice(0,4))placementScores[m.id]={a:1,b:0};
+placement=eventMatches('placement',countries,placementScores);
+assert.deepEqual(placement.slice(4,8).map(m=>[m.a,m.b]),[['DO','JM'],['GR','JP'],['ES','MX'],['BR','IT']]);
+for(const m of placement.slice(4,8))placementScores[m.id]={a:2,b:0};
+placement=eventMatches('placement',countries,placementScores);
+for(const m of placement.slice(8))placementScores[m.id]={a:1,b:0};
+for(const c of countries)assert.equal(placement.filter(m=>m.a===c||m.b===c).length,3);
+assert.equal(Object.keys(clearLaterPlacementResults(placementScores,'bq0')).length,4);
+const correctedGold=clearLaterPlacementResults(placementScores,'bg0');assert.ok(!correctedGold.bf1&&!correctedGold.bf3&&correctedGold.bf5&&correctedGold.bf7);
+const pconfig={format:'placement',order:countries,participation:'Oro y plata',referees:'Rotativos'};validateStep('competition',pconfig,countries);
+const psteps=[{country_code:'BR',step:'competition',data:pconfig},{country_code:'BR',step:'results',data:{scores:placementScores}}];
+assert.equal(delegationStandings(teams,psteps).completed,1);assert.equal(delegationStandings(teams,psteps).rows.reduce((s,r)=>s+r.points,0),72);
+console.log('SA4 placement: gold/silver brackets, 12 matches, three per team, correction dependencies and 72 Olympic points passed.');
+const identity={country_code:'ES',step:'identity',data:{logo:'kept'},revision:1,updated_at:'old'};
+const liveWorkspace={courseId:'test',teacher:false,countryCode:'ES',delegations:teams,steps:[identity],phase:'voting',votes:[{scores:{ES:8}}],ownVote:{ES:8},projectVersions:{ES:'old'}};
+assert.equal(api.mergeCompetitionUpdates(liveWorkspace,[identity]),liveWorkspace);
+const liveResult={country_code:'JP',step:'results',data:{scores:{'p0-0-0':{a:11,b:8}}},revision:2,updated_at:'new'};
+const merged=api.mergeCompetitionUpdates(liveWorkspace,[liveResult]);
+assert.equal(merged.steps[0],identity);assert.equal(merged.votes,liveWorkspace.votes);assert.equal(merged.projectVersions,liveWorkspace.projectVersions);
+assert.equal(api.mergeCompetitionUpdates(merged,[liveResult]),merged);
+assert.equal(api.delegationStandings(teams,merged.steps).completed,0);
+const drawPairs=pairMatches(countries,5);const drawScores=Object.fromEntries(drawPairs.map(m=>[m.id,{a:0,b:0}]));
+const rankedPairs=delegationStandings(teams,[{country_code:'JP',step:'competition',data:{format:'pairs',order:countries,pairSeed:5,participation:'',referees:''}},{country_code:'JP',step:'results',data:{scores:drawScores}}]);
+assert.deepEqual(rankedPairs.rows.map(r=>r.points),[16,14,12,10,8,6,4,2]);
+console.log('SA4 live: competition-only updates preserve logos/votes, unchanged polls preserve state, partial scores add no general points, final positions award 16–2 passed.');

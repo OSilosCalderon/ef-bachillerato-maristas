@@ -45,5 +45,8 @@ export function tournamentCalendar(workspace: Pick<EventWorkspace, "delegations"
   const delegations = [...workspace.delegations].sort((a, b) => a.position - b.position || a.country_code.localeCompare(b.country_code));
   const weeks = tournamentWeeks(delegations.length);
   const codes = delegations.map(({ country_code }) => country_code);
-  return delegations.map((delegation, index) => ({ delegation, week: weeks[index], sport: readStep(workspace.steps, delegation.country_code, "sport", codes) }));
+  return delegations.map((delegation, index) => ({ delegation,
+    week: delegation.country_code === "BR" ? {start:"2026-12-09",end:"2026-12-10",classes:SECOND_YEAR_WEEK.filter(day=>day.weekday===3||day.weekday===4).map(day=>({...day,date:day.weekday===3?"2026-12-09":"2026-12-10"}))} : weeks[index],
+    sport: readStep(workspace.steps, delegation.country_code, "sport", codes),
+  })).sort((a,b)=>a.week.start.localeCompare(b.week.start));
 }
